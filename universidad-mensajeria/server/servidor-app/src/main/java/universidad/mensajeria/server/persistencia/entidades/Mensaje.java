@@ -1,0 +1,182 @@
+package universidad.mensajeria.server.persistencia.entidades;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+
+import java.time.LocalDateTime;
+
+/**
+ * Mensaje 1-a-1 persistido (tabla mensajes, §5.1).
+ * Texto: contenido + hash_sha256 + num_caracteres + num_palabras.
+ * Imagen/archivo: archivo asociado + etapas_filtrado (JSON con las 5 rutas);
+ * contenido lleva el pie/caption opcional (misma burbuja), null si no hay.
+ */
+@Entity
+@Table(name = "mensajes")
+public class Mensaje {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "remitente_id", nullable = false)
+    private Usuario remitente;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "destinatario_id", nullable = false)
+    private Usuario destinatario;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private TipoContenido tipo;
+
+    @Column(columnDefinition = "TEXT")
+    private String contenido;
+
+    @Column(name = "hash_sha256", length = 64)
+    private String hashSha256;
+
+    @Column(name = "num_caracteres")
+    private Integer numCaracteres;
+
+    @Column(name = "num_palabras")
+    private Integer numPalabras;
+
+    @Column(name = "etapas_filtrado", columnDefinition = "TEXT")
+    private String etapasFiltrado;
+
+    @Column(name = "fecha_envio", nullable = false)
+    private LocalDateTime fechaEnvio;
+
+    @Column(name = "ip_remitente", length = 45)
+    private String ipRemitente;
+
+    @Column(name = "ip_destinatario", columnDefinition = "TEXT")
+    private String ipDestinatario;
+
+    @Column(name = "id_cliente", length = 64)
+    private String idCliente;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "archivo_id")
+    private Archivo archivo;
+
+    protected Mensaje() {
+    }
+
+    private Mensaje(Usuario remitente, Usuario destinatario) {
+        this.remitente = remitente;
+        this.destinatario = destinatario;
+        this.fechaEnvio = LocalDateTime.now();
+    }
+
+    public static Mensaje deTexto(Usuario remitente, Usuario destinatario, String contenido,
+                                  String hashSha256, int numCaracteres, int numPalabras,
+                                  String ipRemitente, String ipDestinatario) {
+        Mensaje mensaje = new Mensaje(remitente, destinatario);
+        mensaje.tipo = TipoContenido.TEXTO;
+        mensaje.contenido = contenido;
+        mensaje.hashSha256 = hashSha256;
+        mensaje.numCaracteres = numCaracteres;
+        mensaje.numPalabras = numPalabras;
+        mensaje.ipRemitente = ipRemitente;
+        mensaje.ipDestinatario = ipDestinatario;
+        return mensaje;
+    }
+
+    public static Mensaje deTexto(Usuario remitente, Usuario destinatario, String contenido,
+                                  String hashSha256, int numCaracteres, int numPalabras,
+                                  String ipRemitente) {
+        return deTexto(remitente, destinatario, contenido, hashSha256, numCaracteres,
+                numPalabras, ipRemitente, null);
+    }
+
+    public static Mensaje deImagen(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                   String hashSha256, String etapasFiltradoJson,
+                                   String ipRemitente, String ipDestinatario) {
+        return deImagen(remitente, destinatario, archivo, hashSha256, etapasFiltradoJson,
+                null, ipRemitente, ipDestinatario);
+    }
+
+    /** Pie/caption en `contenido` (blanco/nulo = sin pie). */
+    public static Mensaje deImagen(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                   String hashSha256, String etapasFiltradoJson, String caption,
+                                   String ipRemitente, String ipDestinatario) {
+        Mensaje mensaje = new Mensaje(remitente, destinatario);
+        mensaje.tipo = TipoContenido.IMAGEN;
+        mensaje.archivo = archivo;
+        mensaje.contenido = caption == null || caption.isBlank() ? null : caption;
+        mensaje.hashSha256 = hashSha256;
+        mensaje.etapasFiltrado = etapasFiltradoJson;
+        mensaje.ipRemitente = ipRemitente;
+        mensaje.ipDestinatario = ipDestinatario;
+        return mensaje;
+    }
+
+    public static Mensaje deImagen(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                   String hashSha256, String etapasFiltradoJson,
+                                   String ipRemitente) {
+        return deImagen(remitente, destinatario, archivo, hashSha256, etapasFiltradoJson,
+                ipRemitente, null);
+    }
+
+    public static Mensaje deArchivo(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                    String hashSha256, String ipRemitente, String ipDestinatario) {
+        return deArchivo(remitente, destinatario, archivo, hashSha256, null,
+                ipRemitente, ipDestinatario);
+    }
+
+    /** Pie/caption en `contenido` (blanco/nulo = sin pie). */
+    public static Mensaje deArchivo(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                    String hashSha256, String caption,
+                                    String ipRemitente, String ipDestinatario) {
+        Mensaje mensaje = new Mensaje(remitente, destinatario);
+        mensaje.tipo = TipoContenido.ARCHIVO;
+        mensaje.archivo = archivo;
+        mensaje.contenido = caption == null || caption.isBlank() ? null : caption;
+        mensaje.hashSha256 = hashSha256;
+        mensaje.ipRemitente = ipRemitente;
+        mensaje.ipDestinatario = ipDestinatario;
+        return mensaje;
+    }
+
+    public static Mensaje deArchivo(Usuario remitente, Usuario destinatario, Archivo archivo,
+                                    String hashSha256, String ipRemitente) {
+        return deArchivo(remitente, destinatario, archivo, hashSha256, ipRemitente, null);
+    }
+
+    @PrePersist
+    void alPersistir() {
+        if (fechaEnvio == null) {
+            fechaEnvio = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() { return id; }
+    public Usuario getRemitente() { return remitente; }
+    public Usuario getDestinatario() { return destinatario; }
+    public TipoContenido getTipo() { return tipo; }
+    public String getContenido() { return contenido; }
+    public String getHashSha256() { return hashSha256; }
+    public Integer getNumCaracteres() { return numCaracteres; }
+    public Integer getNumPalabras() { return numPalabras; }
+    public String getEtapasFiltrado() { return etapasFiltrado; }
+    public LocalDateTime getFechaEnvio() { return fechaEnvio; }
+    public String getIpRemitente() { return ipRemitente; }
+    public String getIpDestinatario() { return ipDestinatario; }
+    public void setIpDestinatario(String ipDestinatario) { this.ipDestinatario = ipDestinatario; }
+    public String getIdCliente() { return idCliente; }
+    public void setIdCliente(String idCliente) { this.idCliente = idCliente; }
+    public Archivo getArchivo() { return archivo; }
+}

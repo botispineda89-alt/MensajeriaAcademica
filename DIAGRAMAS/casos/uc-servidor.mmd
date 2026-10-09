@@ -1,0 +1,84 @@
+---
+title: "Casos de uso — SERVIDOR (actor Administrador)"
+---
+%% Diagrama de casos de uso del lado servidor. El actor principal NO es el
+%% usuario final: es el ADMINISTRADOR, que opera la consola y la vista de
+%% escritorio. El usuario final solo aparece como actor secundario.
+%% Origen de los casos: REQUERIMIENTOS.md 3.1/3.2/3.6/3.7/3.8 (RF-S01..RF-S49).
+%% Correspondencia: VistaConsola.java / VistaEscritorio.java / Fabrica.java.
+%% NOTA DE FORMATO: mermaid no tiene diagrama de casos de uso, asi que los
+%% actores son elipses, los casos son rectangulos agrupados por subgrafo y las
+%% inclusiones son flechas punteadas. Mismo contenido, sintaxis renderizable.
+flowchart TB
+    A(["Administrador"])
+    U(["Usuario conectado"])
+
+    subgraph ARR["Servidor — arranque"]
+        US01["US-01 — Arrancar el sistema y abrir el puerto TCP"]
+        US02["US-02 — Montar el grafo de componentes y el pool"]
+        US03["US-03 — Cargar el archivo plano de usuarios"]
+        US04["US-04 — Ejecutar migraciones del esquema"]
+    end
+
+    subgraph OPE["Servidor — operacion"]
+        US10["US-10 — Transmitir un mensaje entre usuarios"]
+        US11["US-11 — Difundir un mensaje a toda la comunidad"]
+        US12["US-12 — Cerrar las conexiones de un usuario"]
+        US13["US-13 — Expulsar las otras sesiones del usuario"]
+        US14["US-14 — Procesar texto: hash, caracteres, palabras"]
+        US15["US-15 — Procesar imagen: hash y 5 filtros encadenados"]
+        US16["US-16 — Perseguir un mensaje por destino"]
+        US17["US-17 — Registrar auditoria de cada evento"]
+    end
+
+    subgraph INF["Servidor — informes"]
+        US20["US-20 — Informe de usuarios registrados"]
+        US21["US-21 — Informe de accesos y sesiones vivas"]
+        US22["US-22 — Informe de mensajes enviados con detalle"]
+        US23["US-23 — Informe de logs generados"]
+        US24["US-24 — Exportar informe a CSV"]
+    end
+
+    subgraph SUP["Servidor — supervision"]
+        US30["US-30 — Ver el estado del pool de trabajadores"]
+        US31["US-31 — Ver la consola de eventos en vivo"]
+        US32["US-32 — Cerrar una sesion por inactividad"]
+        US33["US-33 — Rechazar por saturacion del pool"]
+        US34["US-34 — Rotar los secretos de produccion"]
+    end
+
+    A --> US01
+    US01 -.-> US02
+    US01 -.-> US03
+    US01 -.-> US04
+    US02 -. "el pool se expone en la vista" .-> US30
+
+    A --> US11
+    US11 -. "cada entrega genera su auditoria" .-> US17
+    A --> US12
+    US12 -. "cerrar todas = cerrar las otras sesiones" .-> US13
+
+    A --> US20
+    A --> US21
+    A --> US22
+    A --> US23
+    US24 -. "exporta el informe visible" .-> US22
+    US24 -.-> US21
+    US24 -.-> US20
+
+    A --> US30
+    A --> US31
+    A --> US34
+
+    U --> US10
+    US10 -. "texto" .-> US14
+    US10 -. "imagen" .-> US15
+    US10 -. "notifica a todas sus sesiones" .-> US16
+    US10 -.-> US17
+
+    US14 -.-> US17
+    US15 -.-> US17
+    US16 -. "alimenta el informe de conexiones" .-> US21
+
+    N1["NOTA 1:<br/>El administrador es el UNICO<br/>actor que difunde a todos.<br/>Los clientes no tienen caso<br/>de difusion (PROD por decidir)."]
+    N2["NOTA 2:<br/>U nunca accede a la base de<br/>datos: solo al puerto TCP.<br/>El alta de usuarios no existe<br/>por red (RF-S27)."]

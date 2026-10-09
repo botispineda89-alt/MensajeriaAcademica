@@ -1,0 +1,124 @@
+package universidad.mensajeria.server.mensajes;
+
+import universidad.mensajeria.common.interno.InformeFiltroDTO;
+import universidad.mensajeria.common.interno.ActividadUsuarioDTO;
+import universidad.mensajeria.common.interno.ArchivoDTO;
+import universidad.mensajeria.common.interno.FechasUsuarioDTO;
+import universidad.mensajeria.common.interno.MensajeResumenDTO;
+import universidad.mensajeria.common.interno.PaginaDTO;
+import universidad.mensajeria.common.interno.ResultadoMensajeDTO;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * API publica del paquete (PLAN2 §2.5): UNICO que invoca las tuberias.
+ * Devuelve futuros (la Fachada encadena el envio al terminar); nunca conoce
+ * a LogDeEventos (los eventos salen por oyente).
+ * FASE 9 (§8): detalle() alimenta el Informe 3 (historico con JOIN FETCH).
+ */
+public interface InterfazMensajes {
+
+    CompletableFuture<ResultadoMensajeDTO> procesarTexto(String codigoRemitente,
+                                                         String codigoDestinatario,
+                                                         String contenido,
+                                                         String ipRemitente);
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarTexto(String codigoRemitente,
+            String codigoDestinatario, String contenido, String ipRemitente, String idCliente) {
+        return procesarTexto(codigoRemitente, codigoDestinatario, contenido, ipRemitente, null,
+                idCliente);
+    }
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarTexto(String codigoRemitente,
+            String codigoDestinatario, String contenido, String ipRemitente,
+            String ipDestinatario, String idCliente) {
+        return procesarTexto(codigoRemitente, codigoDestinatario, contenido, ipRemitente, idCliente);
+    }
+
+    CompletableFuture<ResultadoMensajeDTO> procesarImagen(String codigoRemitente,
+                                                          String codigoDestinatario,
+                                                          byte[] bytesImagen,
+                                                          String nombreOriginal,
+                                                          String mime,
+                                                          String ipRemitente);
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarImagen(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesImagen, String nombreOriginal,
+            String mime, String ipRemitente, String idCliente) {
+        return procesarImagen(codigoRemitente, codigoDestinatario, bytesImagen,
+                nombreOriginal, mime, ipRemitente, null, idCliente);
+    }
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarImagen(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesImagen, String nombreOriginal,
+            String mime, String ipRemitente, String ipDestinatario, String idCliente) {
+        return procesarImagen(codigoRemitente, codigoDestinatario, bytesImagen,
+                nombreOriginal, mime, null, ipRemitente, ipDestinatario, idCliente);
+    }
+
+    /** Pie/caption opcional de la imagen (misma burbuja, estilo WhatsApp). */
+    default CompletableFuture<ResultadoMensajeDTO> procesarImagen(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesImagen, String nombreOriginal,
+            String mime, String caption, String ipRemitente, String ipDestinatario,
+            String idCliente) {
+        return procesarImagen(codigoRemitente, codigoDestinatario, bytesImagen,
+                nombreOriginal, mime, ipRemitente, ipDestinatario, idCliente);
+    }
+
+    CompletableFuture<ResultadoMensajeDTO> procesarArchivo(String codigoRemitente,
+                                                           String codigoDestinatario,
+                                                           byte[] bytesArchivo,
+                                                           String nombreOriginal,
+                                                           String mime,
+                                                           String ipRemitente);
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarArchivo(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesArchivo, String nombreOriginal,
+            String mime, String ipRemitente, String idCliente) {
+        return procesarArchivo(codigoRemitente, codigoDestinatario, bytesArchivo,
+                nombreOriginal, mime, ipRemitente, null, idCliente);
+    }
+
+    default CompletableFuture<ResultadoMensajeDTO> procesarArchivo(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesArchivo, String nombreOriginal,
+            String mime, String ipRemitente, String ipDestinatario, String idCliente) {
+        return procesarArchivo(codigoRemitente, codigoDestinatario, bytesArchivo,
+                nombreOriginal, mime, null, ipRemitente, ipDestinatario, idCliente);
+    }
+
+    /** Pie/caption opcional del archivo (misma burbuja, estilo WhatsApp). */
+    default CompletableFuture<ResultadoMensajeDTO> procesarArchivo(String codigoRemitente,
+            String codigoDestinatario, byte[] bytesArchivo, String nombreOriginal,
+            String mime, String caption, String ipRemitente, String ipDestinatario,
+            String idCliente) {
+        return procesarArchivo(codigoRemitente, codigoDestinatario, bytesArchivo,
+                nombreOriginal, mime, ipRemitente, ipDestinatario, idCliente);
+    }
+
+    /** Informe 3: historico cronologico de mensajes con detalle (§8). */
+    List<MensajeResumenDTO> detalle(InformeFiltroDTO filtro);
+
+    PaginaDTO<MensajeResumenDTO> paginaDetalleUsuario(String codigo, boolean soloArchivos,
+                                                      int pagina, int tamano);
+
+    ActividadUsuarioDTO actividadUsuario(String codigo);
+
+    /**
+     * Consultas de vista servidas por la Fachada a traves de E10 (sin flechas
+     * nuevas): los casos de uso leen por aqui, nunca por AlmacenarInformacion.
+     * Son pass-through de una linea; la persistencia sigue detras de E15.
+     */
+    PaginaDTO<MensajeResumenDTO> paginaConversacion(String codigoA, String codigoB,
+                                                    int pagina, int tamano);
+
+    List<MensajeResumenDTO> pendientesPara(String codigo, int limite);
+
+    Optional<ArchivoDTO> buscarArchivoPorId(long id);
+
+    byte[] leerBytesArchivo(long archivoId) throws IOException;
+
+    List<FechasUsuarioDTO> fechasUsuarios();
+}

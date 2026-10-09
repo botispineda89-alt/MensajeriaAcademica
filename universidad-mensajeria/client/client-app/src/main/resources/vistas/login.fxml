@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
+
+<ScrollPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="universidad.mensajeria.cliente.presentacion.LoginController"
+      fitToWidth="true" fitToHeight="true" hbarPolicy="NEVER" vbarPolicy="AS_NEEDED"
+      pannable="false" styleClass="login-scroll">
+  <content>
+    <StackPane styleClass="login-shell" alignment="CENTER" minHeight="660">
+    <VBox styleClass="login-card" spacing="10" maxWidth="420">
+        <VBox styleClass="login-header" spacing="2">
+            <Label text="UNIVERSIDAD" styleClass="login-eyebrow"/>
+            <Label text="Mensajería Académica" styleClass="login-title"/>
+            <Label text="Iniciar sesión" styleClass="login-subtitle" wrapText="true"/>
+        </VBox>
+        <Label text="Código universitario" styleClass="login-field-label"/>
+        <TextField fx:id="campoCodigo" promptText="160004726" styleClass="login-field"/>
+        <Label text="Contraseña" styleClass="login-field-label"/>
+        <HBox spacing="6" alignment="CENTER_LEFT" styleClass="password-row">
+            <StackPane HBox.hgrow="ALWAYS">
+                <PasswordField fx:id="campoContrasena" promptText="••••••••••"
+                               styleClass="login-field" onAction="#alEntrar"/>
+                <TextField fx:id="campoContrasenaVisible" promptText="Contraseña"
+                           styleClass="login-field" onAction="#alEntrar"
+                           visible="false" managed="false"/>
+            </StackPane>
+            <Button fx:id="botonMostrarContrasena" text="◉" onAction="#alternarContrasena"
+                    styleClass="password-toggle" accessibleText="Mostrar contraseña"
+                    focusTraversable="false"/>
+        </HBox>
+        <HBox spacing="10">
+            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                <Label text="Servidor" styleClass="login-server"/>
+                <HBox spacing="8" alignment="CENTER_LEFT" styleClass="server-chip" maxWidth="Infinity"
+                      accessibleText="Servidor configurado, solo informativo">
+                    <Circle radius="4" styleClass="server-dot" mouseTransparent="true"/>
+                    <Label fx:id="campoHost" styleClass="server-chip-value" maxWidth="Infinity"
+                           mouseTransparent="true" focusTraversable="false"/>
+                </HBox>
+            </VBox>
+            <VBox spacing="5" HBox.hgrow="ALWAYS">
+                <Label text="Puerto" styleClass="login-server"/>
+                <HBox spacing="8" alignment="CENTER_LEFT" styleClass="server-chip" maxWidth="Infinity"
+                      accessibleText="Puerto configurado, solo informativo">
+                    <Circle radius="4" styleClass="server-dot" mouseTransparent="true"/>
+                    <Label fx:id="campoPuerto" styleClass="server-chip-value" maxWidth="Infinity"
+                           mouseTransparent="true" focusTraversable="false"/>
+                </HBox>
+            </VBox>
+        </HBox>
+        <Label text="Tema" styleClass="login-server"/>
+        <ComboBox fx:id="comboTema" maxWidth="Infinity" styleClass="filter-select"/>
+        <HBox spacing="10" alignment="CENTER">
+            <Button fx:id="botonEntrar" text="Iniciar sesión →" onAction="#alEntrar" defaultButton="true" styleClass="login-button" prefWidth="220"/>
+            <ProgressIndicator fx:id="spinner" prefWidth="26" prefHeight="26" visible="false" managed="false"/>
+        </HBox>
+        <Label fx:id="etiquetaError" styleClass="login-error" wrapText="true" visible="false" managed="false"/>
+        <Label fx:id="etiquetaAviso" styleClass="login-warn" wrapText="true" visible="false" managed="false"/>
+        <!-- Fase 10.2 (P2): sin «Crear cuenta»: los usuarios solo se crean en
+             usuarios_iniciales.csv (registro por red deshabilitado en el servidor). -->
+    </VBox>
+    </StackPane>
+  </content>
+</ScrollPane>

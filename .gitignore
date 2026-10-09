@@ -1,0 +1,11 @@
+target/
+dist/
+__pycache__/
+.venv/
+client-dotnet/bin/
+client-dotnet/obj/
+*.db
+*.sqlite
+uploads/
+logs/
+config/keystore.p12

@@ -1,0 +1,586 @@
+package universidad.mensajeria.cliente.componentes.historial;
+
+import universidad.mensajeria.cliente.persistencia.InterfazAlmacenLocal;
+import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente;
+import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionHistorial;
+import universidad.mensajeria.cliente.transversal.records.EstadoMensaje;
+import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
+import universidad.mensajeria.cliente.transversal.records.PendienteEnvio;
+import universidad.mensajeria.cliente.transversal.records.RecienteChat;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * DAO H2 del historial (queries canónicas de HISTORIAL_LOCAL.md, tal cual:
+ * upsert portable con DELETE + INSERT, sin sintaxis de motor).
+ */
+public final class HistorialLocal implements InterfazHistorialLocal {
+
+    // HISTORIAL_LOCAL.md §1
+    private static final String BORRAR_MENSAJE = "DELETE FROM historial_local WHERE id_mensaje = ?";
+    private static final String INSERTAR_MENSAJE = """
+            INSERT INTO historial_local (
+                id_mensaje, origen, destino, tipo, contenido, hash_sha256,
+                num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
+                tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
+                etapas_filtrado, caption
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""";
+
+    // HISTORIAL_LOCAL.md §2 (conteo; la lista usa PAGINA_RESUMEN en 13.9)
+    private static final String CONTAR_CONVERSACION = """
+            SELECT COUNT(*)
+            FROM historial_local
+            WHERE (origen = ? AND destino = ?)
+               OR (origen = ? AND destino = ?)""";
+
+    // HISTORIAL_LOCAL.md §3
+    private static final String MARCAR_DESCARGADO = """
+            UPDATE historial_local
+            SET descargado = 1, ruta_archivo = ?
+            WHERE id_mensaje = ?""";
+    private static final String MARCAR_ESTADO = """
+            UPDATE historial_local
+            SET estado = ?
+            WHERE id_mensaje = ?
+              AND CASE estado
+                    WHEN 'LEIDO' THEN 3
+                    WHEN 'ENTREGADO' THEN 2
+                    WHEN 'ENVIADO' THEN 1
+                    ELSE 0
+                  END <= CASE ?
+                    WHEN 'LEIDO' THEN 3
+                    WHEN 'ENTREGADO' THEN 2
+                    WHEN 'ENVIADO' THEN 1
+                    ELSE 0
+                  END""";
+    private static final String MARCAR_LEIDOS = """
+            UPDATE historial_local
+            SET estado = 'LEIDO', descargado = 1
+            WHERE ((origen = ? AND destino = ?) OR (origen = ? AND destino = ?))
+              AND enviado = 0""";
+    private static final String IDS_NO_LEIDOS = """
+            SELECT id_mensaje FROM historial_local
+            WHERE origen = ? AND destino = ? AND enviado = 0 AND estado <> 'LEIDO'
+            ORDER BY fecha_envio ASC""";
+    private static final String LISTAR_RECIENTES = """
+            SELECT otro, MAX(fecha_envio) AS ultima
+            FROM (
+                SELECT CASE WHEN origen = ? THEN destino ELSE origen END AS otro,
+                       fecha_envio
+                FROM historial_local
+                WHERE origen = ? OR destino = ?
+            ) GROUP BY otro ORDER BY ultima DESC""";
+    /**
+     * FASE 13.4/13.8: preview sin tocar blobs. Ni siquiera SUBSTR sirve contra
+     * imágenes: H2 lee el CLOB completo (MB) para recortar 160 chars. Con CASE
+     * el `contenido` jamás se lee cuando el último es imagen.
+     */
+    private static final String ULTIMO_PREVIEW = """
+            SELECT CASE WHEN tipo = 'MENSAJE_IMAGEN' THEN caption
+                        WHEN tipo = 'MENSAJE_ARCHIVO' THEN caption
+                        ELSE SUBSTR(contenido, 1, 160) END,
+                   tipo, fecha_envio, nombre_archivo
+            FROM historial_local
+            WHERE (origen = ? AND destino = ?) OR (origen = ? AND destino = ?)
+            ORDER BY fecha_envio DESC LIMIT 1""";
+    /**
+     * FASE 13.9/13.15: la conversación lista metadata + TEXTO completo, pero
+     * NUNCA blobs de imagen (van por `blobPorId`). El NULL plano anterior
+     * dejaba las burbujas de texto vacías (regresión 13.9, corregida aquí).
+     */
+    private static final String PAGINA_RESUMEN = """
+            SELECT id_mensaje, origen, destino, tipo,
+                   CASE WHEN tipo = 'MENSAJE_IMAGEN' THEN NULL ELSE contenido END,
+                   hash_sha256,
+                   num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
+                   tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
+                   etapas_filtrado, caption
+            FROM historial_local
+            WHERE (origen = ? AND destino = ?)
+               OR (origen = ? AND destino = ?)
+            ORDER BY fecha_envio DESC
+            LIMIT ? OFFSET ?""";
+    private static final String BLOB_POR_ID = """
+            SELECT contenido FROM historial_local WHERE id_mensaje = ?""";
+    private static final String ARCHIVO_ID_POR_ID = """
+            SELECT archivo_id FROM historial_local WHERE id_mensaje = ?""";
+    private static final String ACTUALIZAR_ARCHIVO_ID =
+            "UPDATE historial_local SET archivo_id = ? WHERE id_mensaje = ?";
+    // HISTORIAL_LOCAL.md §7
+    private static final String ACTUALIZAR_CONTENIDO = """
+            UPDATE historial_local SET contenido = ? WHERE id_mensaje = ?""";
+    private static final String CONTAR_NO_LEIDOS = """
+            SELECT COUNT(*) FROM historial_local
+            WHERE origen = ? AND destino = ? AND enviado = 0 AND estado <> 'LEIDO'""";
+
+    // UIX-06: búsqueda en el historial. LOWER en ambos lados porque H2 LIKE es
+    // sensible a mayúsculas (SQLite no, para ASCII) y los 3 deben coincidir.
+    // %, _ y \ del patrón se escapan para que busquen literal.
+    private static final String BUSCAR_EN_CONVERSACION = """
+            SELECT id_mensaje, origen, destino, tipo,
+                   CASE WHEN tipo = 'MENSAJE_IMAGEN' THEN NULL ELSE contenido END,
+                   hash_sha256, num_caracteres, num_palabras, nombre_archivo,
+                   ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado,
+                   estado, archivo_id, etapas_filtrado, caption
+            FROM historial_local
+            WHERE ((origen = ? AND destino = ?)
+                OR (origen = ? AND destino = ?))
+              AND (LOWER(contenido) LIKE ? ESCAPE '\\'
+                OR LOWER(nombre_archivo) LIKE ? ESCAPE '\\'
+                OR LOWER(caption) LIKE ? ESCAPE '\\')
+            ORDER BY fecha_envio DESC
+            LIMIT ?""";
+
+    // HISTORIAL_LOCAL.md §4-5
+    private static final String LISTAR_PENDIENTES = """
+            SELECT id, tipo, origen, destino, contenido, nombre_archivo, payload,
+                   fecha_creado, intentos, ultimo_error
+            FROM pendientes_envio
+            ORDER BY fecha_creado ASC""";
+    private static final String BORRAR_PENDIENTE = "DELETE FROM pendientes_envio WHERE id = ?";
+    private static final String INSERTAR_PENDIENTE = """
+            INSERT INTO pendientes_envio (id, tipo, origen, destino, contenido,
+                nombre_archivo, payload, fecha_creado, intentos, ultimo_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""";
+    private static final String INCREMENTAR_INTENTO = """
+            UPDATE pendientes_envio
+            SET intentos = intentos + 1, ultimo_error = ?
+            WHERE id = ?""";
+    private static final String PENDIENTE_POR_ID = """
+            SELECT id, tipo, origen, destino, contenido, nombre_archivo, payload,
+                   fecha_creado, intentos, ultimo_error
+            FROM pendientes_envio
+            WHERE id = ?""";
+
+    private final InterfazAlmacenLocal store;
+
+    public HistorialLocal(InterfazAlmacenLocal store) {
+        this.store = store;
+    }
+
+    @Override
+    public void prepararCuenta(String codigo) throws ExcepcionCliente {
+        store.prepararCuenta(codigo);
+    }
+
+    @Override
+    public void guardar(MensajeLocal mensaje) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement borrar = conn.prepareStatement(BORRAR_MENSAJE);
+             PreparedStatement insertar = conn.prepareStatement(INSERTAR_MENSAJE)) {
+            String estadoGuardar = mensaje.estado() == null ? "ENVIADO" : mensaje.estado();
+            try (PreparedStatement anterior = conn.prepareStatement(
+                    "SELECT estado FROM historial_local WHERE id_mensaje = ?")) {
+                anterior.setString(1, mensaje.idMensaje());
+                try (ResultSet rs = anterior.executeQuery()) {
+                    if (rs.next()) estadoGuardar = conservarEstado(rs.getString(1), estadoGuardar);
+                }
+            }
+            borrar.setString(1, mensaje.idMensaje());
+            borrar.executeUpdate();
+            insertar.setString(1, mensaje.idMensaje());
+            insertar.setString(2, mensaje.origen());
+            insertar.setString(3, mensaje.destino());
+            insertar.setString(4, mensaje.tipo());
+            insertar.setString(5, mensaje.contenido());
+            insertar.setString(6, mensaje.hashSha256());
+            insertar.setObject(7, mensaje.numCaracteres());
+            insertar.setObject(8, mensaje.numPalabras());
+            insertar.setString(9, mensaje.nombreArchivo());
+            insertar.setString(10, mensaje.rutaArchivo());
+            insertar.setObject(11, mensaje.tamanoArchivo());
+            insertar.setString(12, mensaje.fechaEnvio());
+            insertar.setInt(13, mensaje.enviado() ? 1 : 0);
+            insertar.setInt(14, mensaje.descargado() ? 1 : 0);
+            insertar.setString(15, estadoGuardar);
+            insertar.setString(16, mensaje.archivoId());
+            insertar.setString(17, mensaje.etapasFiltrado());
+            insertar.setString(18, mensaje.caption());
+            insertar.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo guardar el mensaje local", fallo);
+        }
+    }
+
+    private static String conservarEstado(String anterior, String nuevo) {
+        return EstadoMensaje.conservar(anterior, nuevo);
+    }
+
+    @Override
+    public List<MensajeLocal> pagina(String remitente, String destinatario,
+                                     int limite, int offset) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+              PreparedStatement q = conn.prepareStatement(PAGINA_RESUMEN)) {
+            q.setString(1, remitente);
+            q.setString(2, destinatario);
+            q.setString(3, destinatario);
+            q.setString(4, remitente);
+            q.setInt(5, limite);
+            q.setInt(6, offset);
+            List<MensajeLocal> filas = new ArrayList<>();
+            try (ResultSet rs = q.executeQuery()) {
+                while (rs.next()) {
+                    filas.add(leerMensaje(rs));
+                }
+            }
+            return filas;
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo leer la página del historial", fallo);
+        }
+    }
+
+    @Override
+    public Optional<String> blobPorId(String idMensaje) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+              PreparedStatement q = conn.prepareStatement(BLOB_POR_ID)) {
+            q.setString(1, idMensaje);
+            try (ResultSet rs = q.executeQuery()) {
+                return rs.next() ? Optional.ofNullable(rs.getString(1)) : Optional.empty();
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo leer el blob local", fallo);
+        }
+    }
+
+    @Override
+    public List<MensajeLocal> buscar(String remitente, String destinatario,
+                                     String patron, int limite) throws ExcepcionCliente {
+        String like = "%" + patron.replace("\\", "\\\\").replace("%", "\\%")
+                .replace("_", "\\_").toLowerCase(java.util.Locale.ROOT) + "%";
+        try (Connection conn = store.abrir();
+              PreparedStatement q = conn.prepareStatement(BUSCAR_EN_CONVERSACION)) {
+            q.setString(1, remitente);
+            q.setString(2, destinatario);
+            q.setString(3, destinatario);
+            q.setString(4, remitente);
+            q.setString(5, like);
+            q.setString(6, like);
+            q.setString(7, like);
+            q.setInt(8, limite);
+            List<MensajeLocal> filas = new ArrayList<>();
+            try (ResultSet rs = q.executeQuery()) {
+                while (rs.next()) {
+                    filas.add(leerMensaje(rs));
+                }
+            }
+            return filas;
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo buscar en el historial", fallo);
+        }
+    }
+
+    @Override
+    public Optional<String> archivoIdPorId(String idMensaje) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(ARCHIVO_ID_POR_ID)) {
+            q.setString(1, idMensaje);
+            try (ResultSet rs = q.executeQuery()) {
+                return rs.next() ? Optional.ofNullable(rs.getString(1)) : Optional.empty();
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo leer el archivoId local", fallo);
+        }
+    }
+
+    @Override
+    public void actualizarArchivoId(String idMensaje, String archivoId) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(ACTUALIZAR_ARCHIVO_ID)) {
+            q.setString(1, archivoId);
+            q.setString(2, idMensaje);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo actualizar el archivoId", fallo);
+        }
+    }
+
+    @Override
+    public void actualizarEtapasFiltrado(String idMensaje, String etapasFiltrado) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(
+                     "UPDATE historial_local SET etapas_filtrado = ? WHERE id_mensaje = ?")) {
+            q.setString(1, etapasFiltrado);
+            q.setString(2, idMensaje);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudieron guardar las etapas del filtro", fallo);
+        }
+    }
+
+    @Override
+    public void actualizarContenido(String idMensaje, String base64) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+              PreparedStatement q = conn.prepareStatement(ACTUALIZAR_CONTENIDO)) {
+            q.setString(1, base64);
+            q.setString(2, idMensaje);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo actualizar el contenido", fallo);
+        }
+    }
+
+    @Override
+    public int contar(String remitente, String destinatario) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(CONTAR_CONVERSACION)) {
+            q.setString(1, remitente);
+            q.setString(2, destinatario);
+            q.setString(3, destinatario);
+            q.setString(4, remitente);
+            try (ResultSet rs = q.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo contar la conversación", fallo);
+        }
+    }
+
+    @Override
+    public void marcarDescargado(String idMensaje, String rutaArchivo) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(MARCAR_DESCARGADO)) {
+            q.setString(1, rutaArchivo);
+            q.setString(2, idMensaje);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo marcar descargado", fallo);
+        }
+    }
+
+    @Override
+    public void marcarEstado(String idMensaje, String estado) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(MARCAR_ESTADO)) {
+            q.setString(1, estado);
+            q.setString(2, idMensaje);
+            q.setString(3, estado);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo marcar el estado", fallo);
+        }
+    }
+
+    @Override
+    public void marcarLeidosDe(String yo, String otro) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(MARCAR_LEIDOS)) {
+            q.setString(1, otro);
+            q.setString(2, yo);
+            q.setString(3, yo);
+            q.setString(4, otro);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo marcar leídos", fallo);
+        }
+    }
+
+    @Override
+    public List<String> idsNoLeidos(String yo, String otro) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(IDS_NO_LEIDOS)) {
+            q.setString(1, otro);
+            q.setString(2, yo);
+            try (ResultSet rs = q.executeQuery()) {
+                List<String> ids = new ArrayList<>();
+                while (rs.next()) {
+                    ids.add(rs.getString(1));
+                }
+                return ids;
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo leer no leídos", fallo);
+        }
+    }
+
+    @Override
+    public List<RecienteChat> recientes(String yo) throws ExcepcionCliente {
+        List<RecienteChat> salida = new ArrayList<>();
+        try (Connection conn = store.abrir()) {
+            for (String otro : listarOtros(conn, yo)) {
+                salida.add(recienteDe(conn, yo, otro));
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo listar recientes", fallo);
+        }
+        return salida;
+    }
+
+    private static List<String> listarOtros(Connection conn, String yo) throws java.sql.SQLException {
+        try (PreparedStatement q = conn.prepareStatement(LISTAR_RECIENTES)) {
+            q.setString(1, yo);
+            q.setString(2, yo);
+            q.setString(3, yo);
+            List<String> otros = new ArrayList<>();
+            try (ResultSet rs = q.executeQuery()) {
+                while (rs.next()) {
+                    otros.add(rs.getString(1));
+                }
+            }
+            return otros;
+        }
+    }
+
+    private static RecienteChat recienteDe(Connection conn, String yo, String otro) throws java.sql.SQLException {
+        Preview preview = leerPreview(conn, yo, otro);
+        int noLeidos = contarNoLeidos(conn, yo, otro);
+        return new RecienteChat(otro, preview.contenido(), preview.tipo(),
+                preview.fecha(), noLeidos, false);
+    }
+
+    private record Preview(String contenido, String tipo, String fecha) { }
+
+    private static Preview leerPreview(Connection conn, String yo, String otro) throws java.sql.SQLException {
+        try (PreparedStatement u = conn.prepareStatement(ULTIMO_PREVIEW)) {
+            u.setString(1, yo);
+            u.setString(2, otro);
+            u.setString(3, otro);
+            u.setString(4, yo);
+            try (ResultSet rs = u.executeQuery()) {
+                if (!rs.next()) {
+                    return new Preview("", "", "");
+                }
+                String contenido = rs.getString(1) != null ? rs.getString(1) : "";
+                String tipo = rs.getString(2) != null ? rs.getString(2) : "";
+                String fecha = rs.getString(3) != null ? rs.getString(3) : "";
+                String nombre = rs.getString(4);
+                if ("MENSAJE_IMAGEN".equals(tipo)) {
+                    String base = nombre != null && !nombre.isEmpty() ? "[imagen] " + nombre : "[imagen]";
+                    contenido = contenido.isEmpty() ? base : base + " — " + contenido;
+                } else if ("MENSAJE_ARCHIVO".equals(tipo)) {
+                    String base = nombre != null && !nombre.isEmpty() ? nombre : "[archivo]";
+                    contenido = contenido.isEmpty() ? base : base + " — " + contenido;
+                }
+                return new Preview(contenido, tipo, fecha);
+            }
+        }
+    }
+
+    private static int contarNoLeidos(Connection conn, String yo, String otro) throws java.sql.SQLException {
+        try (PreparedStatement c = conn.prepareStatement(CONTAR_NO_LEIDOS)) {
+            c.setString(1, otro);
+            c.setString(2, yo);
+            try (ResultSet rs = c.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        }
+    }
+
+    @Override
+    public List<PendienteEnvio> pendientes() throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(LISTAR_PENDIENTES);
+             ResultSet rs = q.executeQuery()) {
+            List<PendienteEnvio> filas = new ArrayList<>();
+            while (rs.next()) {
+                filas.add(leerPendiente(rs));
+            }
+            return filas;
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo listar pendientes", fallo);
+        }
+    }
+
+    @Override
+    public void registrarPendiente(PendienteEnvio pendiente) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement borrar = conn.prepareStatement(BORRAR_PENDIENTE);
+             PreparedStatement insertar = conn.prepareStatement(INSERTAR_PENDIENTE)) {
+            borrar.setString(1, pendiente.id());
+            borrar.executeUpdate();
+            insertar.setString(1, pendiente.id());
+            insertar.setString(2, pendiente.tipo());
+            insertar.setString(3, pendiente.origen());
+            insertar.setString(4, pendiente.destino());
+            insertar.setString(5, pendiente.contenido());
+            insertar.setString(6, pendiente.nombreArchivo());
+            insertar.setBytes(7, pendiente.payload());
+            insertar.setString(8, pendiente.fechaCreado());
+            insertar.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo registrar pendiente", fallo);
+        }
+    }
+
+    @Override
+    public void incrementarIntento(String id, String ultimoError) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(INCREMENTAR_INTENTO)) {
+            q.setString(1, ultimoError);
+            q.setString(2, id);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo incrementar intento", fallo);
+        }
+    }
+
+    @Override
+    public void eliminarPendiente(String id) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(BORRAR_PENDIENTE)) {
+            q.setString(1, id);
+            q.executeUpdate();
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo eliminar pendiente", fallo);
+        }
+    }
+
+    @Override
+    public Optional<PendienteEnvio> pendientePorId(String id) throws ExcepcionCliente {
+        try (Connection conn = store.abrir();
+             PreparedStatement q = conn.prepareStatement(PENDIENTE_POR_ID)) {
+            q.setString(1, id);
+            try (ResultSet rs = q.executeQuery()) {
+                return rs.next() ? Optional.of(leerPendiente(rs)) : Optional.empty();
+            }
+        } catch (SQLException fallo) {
+            throw new ExcepcionHistorial("no se pudo leer pendiente", fallo);
+        }
+    }
+
+    private static MensajeLocal leerMensaje(ResultSet rs) throws java.sql.SQLException {
+        String estado;
+        try {
+            estado = rs.getString(15);
+        } catch (java.sql.SQLException sinEstado) {
+            estado = "ENVIADO";
+        }
+        String caption;
+        try {
+            caption = rs.getString(18);
+        } catch (java.sql.SQLException sinCaption) {
+            caption = null;
+        }
+        return new MensajeLocal(
+                rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                rs.getString(5), rs.getString(6),
+                aInteger(rs.getObject(7)), aInteger(rs.getObject(8)),
+                rs.getString(9), rs.getString(10),
+                aLong(rs.getObject(11)), rs.getString(12),
+                rs.getInt(13) == 1, rs.getInt(14) == 1,
+                estado != null ? estado : "ENVIADO", rs.getString(16), rs.getString(17),
+                caption);
+    }
+
+    /** H2 devuelve INTEGER como Integer y SQLite como Long: normalizar por Number. */
+    private static Integer aInteger(Object valor) {
+        return valor == null ? null : ((Number) valor).intValue();
+    }
+
+    private static Long aLong(Object valor) {
+        return valor == null ? null : ((Number) valor).longValue();
+    }
+
+    private static PendienteEnvio leerPendiente(ResultSet rs) throws java.sql.SQLException {
+        return new PendienteEnvio(
+                rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4),
+                rs.getString(5), rs.getString(6), rs.getBytes(7),
+                rs.getString(8), rs.getInt(9), rs.getString(10));
+    }
+}

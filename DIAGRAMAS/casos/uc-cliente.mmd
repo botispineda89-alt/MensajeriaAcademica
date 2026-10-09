@@ -1,0 +1,91 @@
+---
+title: "Casos de uso — CLIENTE (actor Usuario académico)"
+---
+%% Diagrama de casos de uso del cliente. Los 3 clientes (JavaFX, PySide6, WPF)
+%% implementan el MISMO conjunto de capacidades sobre el mismo contrato TCP:
+%% es lo que sostiene la matriz de 6 direcciones de GUIA_ACEPTACION.md.
+%% Origen de los casos: REQUERIMIENTOS.md 4.1/4.2/4.3 (RF-C01..RF-C22).
+%% Correspondencia con implementacion: FachadaCliente.java / facade_cliente.py /
+%% FachadaCliente.cs + los 15 comandos del servidor.
+%% NOTA DE FORMATO: mermaid no tiene diagrama de casos de uso, asi que los
+%% actores son elipses, los casos son rectangulos agrupados por subgrafo y las
+%% inclusiones son flechas punteadas. Mismo contenido, sintaxis renderizable.
+flowchart TB
+    U(["Usuario academico"])
+    S(["Servidor"])
+
+    subgraph CLI["Cliente de escritorio"]
+        UC01["UC-01 — Autenticarse con codigo y contrasena"]
+        UC02["UC-02 — Ver quien esta conectado"]
+        UC03["UC-03 — Enviar texto a un usuario"]
+        UC04["UC-04 — Enviar solo imagen"]
+        UC05["UC-05 — Enviar texto e imagen juntos"]
+        UC06["UC-06 — Enviar archivo generico"]
+        UC07["UC-07 — Responder a un mensaje concreto"]
+        UC08["UC-08 — Consultar el historial local"]
+        UC09["UC-09 — Cargar mensajes anteriores"]
+        UC10["UC-10 — Ver imagen ampliada"]
+        UC11["UC-11 — Descargar imagen con filtro"]
+        UC12["UC-12 — Adjuntar imagen con vista previa"]
+        UC13["UC-13 — Marcar mensajes como leidos"]
+        UC14["UC-14 — Cerrar la sesion propia"]
+        UC15["UC-15 — Cerrar las demas sesiones propias"]
+        UC16["UC-16 — Cambiar entre tema oscuro y claro"]
+    end
+
+    subgraph LOC["Almacenamiento local (H2 / SQLite)"]
+        UC17["UC-17 — Guardar mensaje recibido"]
+        UC18["UC-18 — Guardar mensaje enviado"]
+        UC19["UC-19 — Encolar envio sin red"]
+        UC20["UC-20 — Reintentar cola al reconectar"]
+        UC21["UC-21 — Aislar datos por cuenta"]
+    end
+
+    U --> UC01
+    S -- "valida contra archivo plano" --> UC01
+
+    U --> UC02
+    UC02 -. "cachea el directorio" .-> UC17
+
+    U --> UC03
+    U --> UC04
+    U --> UC05
+    U --> UC06
+    UC05 -. "se envia como 2 mensajes consecutivos" .-> UC03
+    UC05 -. "se envia como 2 mensajes consecutivos" .-> UC04
+
+    UC03 -. "guarda antes de enviar" .-> UC18
+    UC04 -.-> UC18
+    UC06 -.-> UC18
+
+    U --> UC12
+    UC12 -. "habilita Enviar" .-> UC03
+    UC12 -.-> UC04
+
+    U --> UC07
+    UC07 -. "prefijo de texto, sin cambiar el protocolo" .-> UC03
+
+    U --> UC08
+    U --> UC09
+    UC08 -. "la paginacion usa la misma fuente" .-> UC09
+
+    U --> UC10
+    U --> UC11
+    UC11 -. "previsualiza antes de descargar" .-> UC10
+
+    U --> UC13
+    S -- "notifica MENSAJE_LEIDO / ENTREGADO" --> UC13
+
+    U --> UC14
+    U --> UC15
+    S -- "puede cerrar la sesion por inactividad (10 min)" --> UC14
+
+    U --> UC16
+
+    UC19 -. "sin red no se pierde el envio" .-> UC03
+    UC19 -.-> UC04
+    UC19 -.-> UC06
+    UC20 -. "reintenta sin duplicar" .-> UC03
+    UC21 -. "cada cuenta ve solo lo suyo" .-> UC18
+
+    N1["NOTA 1:<br/>No existe UC de registro.<br/>El alta es solo en el archivo<br/>plano del servidor (RF-S03/RF-C06).<br/>Un REGISTRO por red se rechaza<br/>con ERROR (RF-S27)."]
