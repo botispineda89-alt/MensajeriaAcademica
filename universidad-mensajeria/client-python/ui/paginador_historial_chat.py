@@ -17,7 +17,7 @@ class PaginadorHistorialChat:
             self.lbl_vacio_chat.setVisible(False)
             self.lista_mensajes.setVisible(True)
             return
-        self.lista_mensajes.setVisible(False)
+        self.lista_mensajes.setVisible(True)
         if getattr(self, "_cargando_historial", False):
             self.lbl_vacio_chat.setText("Cargando historial…")
         elif self.usuario_seleccionado:

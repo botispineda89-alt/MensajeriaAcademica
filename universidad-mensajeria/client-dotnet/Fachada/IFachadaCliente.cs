@@ -19,6 +19,13 @@ namespace Mensajeria.Fachada
         /// <summary>PAT-03: cambio de estado de conexión (banner offline, UIX-00a).</summary>
         event Action<EstadoConexion>? OnEstadoConexion;
 
+        /// <summary>
+        /// La sesión se restauró sola tras una caída (reconexión + reautenticación
+        /// automáticas). Llega desde un hilo de fondo: la vista debe saltar al
+        /// dispatcher, igual que con el resto de eventos de la fachada.
+        /// </summary>
+        event Action<string>? OnSesionRestaurada;
+
         /// <summary>PAT-03: estado actual, para pintar sin esperar al primer aviso.</summary>
         EstadoConexion EstadoConexion { get; }
 

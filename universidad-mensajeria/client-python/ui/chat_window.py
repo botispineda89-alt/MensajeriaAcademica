@@ -178,6 +178,13 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
             f" background: {t['preview_thumb_fondo']};")
         self.lbl_adjunto.setStyleSheet(
             f"color: {t['texto']}; font-size: 12px; font-weight: 500;")
+        self.lbl_vacio_chat.setStyleSheet(
+            f"color: {t['texto_suave']}; font-size: 12px; padding: 16px;")
+        self.lbl_vacio_usuarios.setStyleSheet(
+            f"color: {t['texto_suave']}; font-size: 12px; padding: 16px;")
+        self.lbl_buscar_cuenta.setStyleSheet(
+            f"color: {t['texto_suave']}; font-size: 11px;")
+        self.barra_buscar.setStyleSheet(f"background: {t['tarjeta']};")
         if not self.lbl_offline.isVisible():
             self.lbl_estado_red.setStyleSheet(
                 f"color: {t['texto_suave']}; font-size: 11px;")

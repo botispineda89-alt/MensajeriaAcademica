@@ -3,7 +3,7 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel,
+    QFrame, QHBoxLayout, QLabel,
     QSplitter, QVBoxLayout, QWidget,
 )
 from qfluentwidgets import (
@@ -87,18 +87,24 @@ class ConstructorVistaChat:
         # Fila de acciones al pie del sidebar, como el cliente Java (UI-10).
         fila_acciones = QHBoxLayout()
         fila_acciones.setSpacing(8)
+        self.btn_kick = PushButton("KICK otras")
+        self.btn_kick.setAccessibleName("Expulsar otras sesiones")
+        self.btn_kick.setToolTip("Cerrar las otras sesiones de esta cuenta")
+        self.btn_kick.clicked.connect(self.expulsar_otras)
         self.btn_salir = PushButton("Salir")
         self.btn_salir.clicked.connect(self.close)
         self.btn_salir_todos = PushButton("Salir en todos")
         self.btn_salir_todos.clicked.connect(self.salir_en_todos)
+        fila_acciones.addWidget(self.btn_kick)
         fila_acciones.addWidget(self.btn_salir)
         fila_acciones.addWidget(self.btn_salir_todos)
         left.addLayout(fila_acciones)
         fila_tema = QHBoxLayout()
         fila_tema.setSpacing(8)
         self.lbl_tema = QLabel("Tema")
-        self.combo_tema = QComboBox()
+        self.combo_tema = ComboBox()
         self.combo_tema.addItems(["Oscuro", "Claro"])
+        self.combo_tema.setAccessibleName("Tema de la interfaz")
         self.combo_tema.currentIndexChanged.connect(self._cambiar_tema)
         fila_tema.addWidget(self.lbl_tema)
         fila_tema.addWidget(self.combo_tema, 1)
@@ -294,7 +300,7 @@ class ConstructorVistaChat:
         self.lbl_vacio_chat.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_vacio_chat.setStyleSheet("color: #A8B8C1; font-size: 12px; padding: 16px;")
         self.lbl_vacio_chat.setVisible(False)
-        right.addWidget(self.lbl_vacio_chat, 1)
+        right.addWidget(self.lbl_vacio_chat, 0)
         right.addWidget(composer)
         splitter.addWidget(panel_chat)
         splitter.setStretchFactor(0, 0)

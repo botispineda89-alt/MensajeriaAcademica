@@ -166,9 +166,16 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <ui:Button Grid.Column="0" Content="＋" Click="BtnAdjuntar_Click" AutomationProperties.Name="Adjuntar imagen" Margin="0,0,8,0" MinWidth="44" ToolTipService.ToolTip="Adjuntar archivo (Todos *.*)"/>
+<!-- UIX-20: PreviewKeyDown, NO KeyDown. Con AcceptsReturn="True" el TextBox
+         inserta el salto de línea en su manejador de clase, que se ejecuta
+         ANTES que cualquier manejador de instancia de KeyDown: por eso Enter
+         metía un salto en vez de enviar y el placeholder mentía. En fase de
+         túnel (PreviewKeyDown) se cancela a tiempo. Mayús+Enter sigue
+         procurando salto de línea. -->
 <ui:TextBox x:Name="txtMensaje" Grid.Column="1" MinHeight="42" TextWrapping="Wrap"
                                  AcceptsReturn="True"
-                                 TextChanged="TxtMensaje_TextChanged" KeyDown="TxtMensaje_KeyDown"
+                                 TextChanged="TxtMensaje_TextChanged"
+                                 PreviewKeyDown="TxtMensaje_PreviewKeyDown"
                                  PlaceholderText="Escribe un mensaje (Enter para enviar, Mayús+Enter para salto)" Margin="0,0,8,0"/>
                     <ui:Button x:Name="btnEnviar" Grid.Column="2" Content="Enviar" Appearance="Primary" Click="BtnEnviar_Click" MinWidth="82"/>
                 </Grid>
