@@ -24,16 +24,17 @@ UTF-8** (`universidad-mensajeria/common-protocol/PROTOCOLO.md`, `TramaCodec`).
 ├── DIAGRAMAS/         ← fuentes/renders canónicos (ver DIAGRAMAS/README.md); incluye legados migrados
 ├── docs/archivo/      ← histórico, no normativo
 └── universidad-mensajeria/ ← EL MONOREPO (solo aquí se compila; java.version=21)
-    ├── pom.xml, Dockerfile, docker-compose.yml, empaquetar-todo.cmd
-    ├── common-protocol/ dto + codec (sin Spring, sin UI; TramaCodec + schema-local.sql canónico)
+    ├── pom.xml (padre, Spring Boot 3.5.7, Flyway 11.14.1), Dockerfile, docker-compose.yml, empaquetar-todo.cmd
+    ├── herramientas/preparar-entorno-servidor.ps1  (instala/verifica JDK 21 + Maven 3.9.16 + MySQL sin admin; -SoloVerificar, -IniciarMySql)
+    ├── common-protocol/ dto + codec (sin Spring, sin UI; TramaCodec + schema-local.sql canónico + test-fixtures/)
     ├── server/  12 módulos: 5 int-* (puertos, sin Spring) + 5 comp-* (adaptadores) + utilerias + servidor-app
-    ├── client/  client-interfaces + client-app (JavaFX)
+    ├── client/  client-interfaces + client-app (JavaFX 22.0.2 + AtlantaFX 2.1.0)
     ├── client-python/ (PySide6 + qfluentwidgets, SQLite)
     ├── client-dotnet/ (WPF .NET 8 + WPF-UI, SQLite)
     └── client-dotnet.Tests/ (xUnit; OJO: apunta a net10.0, la app es net8.0-windows)
 ```
 
-Total Maven: 19 módulos (3 raíz + 2 common-protocol + 12 server + 2 client) + POM padre.
+Reactor Maven: 3 agregadores (`common-protocol`, `server`, `client`) + 16 módulos con código.
 
 **Dato clave:** `int-*` y `comp-*` **no usan Spring**. El único módulo con Spring es `servidor-app`,
 que compila **solo contra los `int-*`** (los `comp-*` son `<scope>runtime</scope>`); los adaptadores
@@ -57,6 +58,11 @@ WPF   ──┘                                                      ├── u
 
 Puertos TCP por defecto en los 4 `client.properties`/`server.properties`: **5000 plano, 5001 TLS**.
 MySQL Docker: host **`localhost:3307`** → contenedor `mysql:3306` (los tests usan el host).
+
+Cotas vivas en `server/servidor-app/src/main/resources/server.properties` (no las adivines):
+`red.limites.max-conexiones=100`, `red.limites.max-conexiones-por-usuario=3`, `red.pool.max=100`,
+`red.upload-dir=uploads`, `red.sesion.timeout-segundos=600`. La de 3 sesiones por usuario es la que
+gobierna `KICK` y la presencia (invariante 8 de §5).
 
 **Las dos reglas que más se violan por ignorancia:**
 
@@ -91,12 +97,20 @@ dotnet build client-dotnet/Mensajeria.csproj -c Release   # valida el XAML gener
 
 Notas que se adivinan mal:
 
-- `client-python/pyproject.toml` solo existe para `uv run`; las dependencias reales se fijan en
-  `requirements.txt` (`pillow`, `PySide6`, `PySide6-Fluent-Widgets`).
+- `client-python/pyproject.toml` existe por `uv run` y por el MCP `pyside6.launch_app` (que exige
+  ese fichero). Las dependencias de ejecución se fijan en `requirements.txt` (`pillow`, `PySide6`,
+  `PySide6-Fluent-Widgets`); **`pytest` solo está en el grupo `dev` del `pyproject`**, por eso
+  `python -m unittest discover -s tests` (lo que corre `verificar.py`) funciona sin instalar nada.
+- Arranca **siempre cada cliente desde su propia carpeta**: `client.properties` se resuelve
+  relativo al directorio de trabajo (Python) o a la carpeta del ejecutable (.NET).
 - Tests WPF requieren **SDK 10** aunque la app sea `net8.0-windows`. No hay CI workflows en
   `.github/`; la verificación es local (`contrato/verificar.py`).
-- Estado de suites: ver `ESTADO_ROADMAP.md` §1 y los reportes Surefire presentes. La base del
-  servidor **no está en verde** (fallos de umbral en `CargaMixtaTest`); no afirmarlo.
+- **No afirmes que las suites están en verde.** Último registro fechado (`ESTADO_ROADMAP.md`
+  "cierre de parciales 2026-10-08"): `servidor-app` 106 casos, **102 en verde y 4 fallos
+  preexistentes** (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`), ajenos a los
+  cambios. Python 222 aprobados / 5 omitidos; .NET 71/71. Los reportes Surefire viven en `target/`,
+  que está en `.gitignore`: en un clon o worktree recién hecho **no existen**, así que hay que
+  ejecutarlos o citar el roadmap fechado, no "los reportes presentes".
 
 ### Distribuciones (lo que se instala en cada PC)
 
@@ -128,6 +142,7 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 | 11 | **Paleta generada, no editada.** 4 CSS + 2 `.xaml` + `ui/tema_tokens.py` salen de `contrato/generar_tokens.py` | Se edita `contrato/tokens-diseno.json` y se regenera (`--check` en CI local) |
 | 12 | **Estados en `contrato/estado-mensaje.json`; comprobar, no asumir.** `PENDIENTE→ENVIADO→ENTREGADO→LEIDO` + `ERROR` terminal, en 5 copias / 3 lenguajes / 2 motores | Corre `contrato/verificar_estado_mensaje.py` si tocas una copia |
 | 13 | **Puertos en `contrato/puertos.json`: 23, no 12.** 9 viven en `client-app`/`presentacion` | Añadir un método sin añadirlo al JSON rompe `contrato/verificar_puertos.py` |
+| 14 | **Los datos de contrato tienen UNA sola copia y los tests de los 3 la enlazan**: `schema-local.sql` (canónico en `common-protocol/dto/src/main/resources/`), `contrato/framing.json`, `common-protocol/test-fixtures/client-properties-fixture.properties` | Una copia a mano hace que el store de un cliente ejecute un esquema que el otro no, y nada falla hasta producción |
 
 ## 6. Trampas verificadas en el código
 
@@ -164,9 +179,11 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 
 - Estados `PENDIENTE→ENVIADO→ENTREGADO→LEIDO` + `ERROR` como `CASE` SQL **idéntico** en los 3
   clientes; canónico en `DIAGRAMAS/estados/st-mensaje.mmd`.
-- Python y .NET **comparten el mismo SQLite** en un PC. .NET escribe fechas UTC con `Z`
-  (`ToString("O")`); Python normaliza aware→naive (`transversal/fechas._leer`, misma semántica que
-  `FormatoFecha.TryLeer`). Si añades fecha al historial, lee/escribe **ambos formatos** en los 3.
+- Python y .NET resuelven la BD local con la **misma convención de nombre**
+  (`mensajeria_cliente_<CUENTA>.db`, un archivo por cuenta desde un archivo legado), así que dos
+  instancias del mismo usuario en el mismo PC **comparten el SQLite**. .NET escribe fechas UTC con
+  `Z` (`ToString("O")`); Python normaliza aware→naive (`transversal/fechas._leer`, misma semántica
+  que `FormatoFecha.TryLeer`). Si añades fecha al historial, lee/escribe **ambos formatos** en los 3.
   El servidor nunca envía zona (`LocalDateTime.now()`).
 - Tests E2E usan **semilla propia** (`src/test/resources/usuarios_iniciales.csv`) y **dejan
   `activo=0`** en esa BD; el arranque normal reactiva. Si el login dice "usuario no registrado",
