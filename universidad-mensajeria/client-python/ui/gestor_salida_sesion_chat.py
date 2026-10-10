@@ -4,6 +4,9 @@ from PySide6.QtWidgets import QMessageBox
 
 
 class GestorSalidaSesionChat:
+    def expulsar_otras(self):
+        self._ejecutar("kick_otras", self.fachada.expulsar_otras_sesiones)
+
     def salir_en_todos(self):
         respuesta = QMessageBox.question(
             self, "Confirmar salida", "¿Cerrar todas las sesiones de esta cuenta?",

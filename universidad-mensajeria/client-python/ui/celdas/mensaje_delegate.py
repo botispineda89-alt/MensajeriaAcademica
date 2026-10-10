@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QApplication, QStyledItemDelegate, QStyle
 from transversal.fechas import hora_corta
 from ui.lista_virtual import ROL_ITEM
 from ui.renderizado_texto import resaltar_html
-from ui.tema import tokens
+from ui.tema import TOKENS_CANONICOS, normalizar, tokens
 from ui.miniaturas_chat import MiniaturasChat
 from transversal.etapas_filtrado import resumir_etapas_filtrado
 
@@ -153,10 +153,11 @@ class MensajeDelegate(QStyledItemDelegate):
         if not isinstance(item, dict):
             return
         t = tokens(self._modo)
+        canon = TOKENS_CANONICOS[normalizar(self._modo)]
         painter.save()
         try:
             if option.state & QStyle.StateFlag.State_Selected:
-                painter.fillRect(option.rect, QColor("#243447"))
+                painter.fillRect(option.rect, QColor(canon["list.selected.bg"]))
             if item.get("es_separador"):
                 self._pintar_separador(painter, option, item, t)
                 return
@@ -170,7 +171,8 @@ class MensajeDelegate(QStyledItemDelegate):
                                  else t["burbuja_ajena_borde"]))
             bx, by, bw, bh = lay["burbuja"]
             painter.drawRoundedRect(ox + bx, oy + by, bw, bh, 8, 8)
-            painter.setPen(QColor(t["remitente"]))
+            color_remitente = canon["sender.out.fg"] if propia else canon["sender.fg"]
+            painter.setPen(QColor(color_remitente))
             if "remitente" in lay:
                 painter.setFont(self._fuente_remitente)
                 x, y, w, h = lay["remitente"]
@@ -244,16 +246,14 @@ class MensajeDelegate(QStyledItemDelegate):
                          item.get("etiqueta", ""))
 
     def _pintar_boton(self, painter, option, rect, texto, t):
-        from PySide6.QtWidgets import QApplication
-        pal = QApplication.palette()
         painter.save()
-        painter.setBrush(pal.button())
-        painter.setPen(pal.mid().color())
+        painter.setBrush(QColor(t["burbuja_ajena"]))
+        painter.setPen(QColor(t["burbuja_ajena_borde"]))
         x, y, w, h = rect
         painter.drawRoundedRect(option.rect.x() + x, option.rect.y() + y,
                                 w, h, 4, 4)
         painter.setFont(self._fuente_mini)
-        painter.setPen(pal.buttonText().color())
+        painter.setPen(QColor(t["texto"]))
         painter.drawText(option.rect.x() + x, option.rect.y() + y, w, h,
                          Qt.AlignmentFlag.AlignCenter, texto)
         painter.restore()

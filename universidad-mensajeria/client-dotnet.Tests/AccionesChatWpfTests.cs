@@ -22,9 +22,34 @@ namespace Mensajeria.Tests
                 elemento => (string?)elemento.Attribute(xaml + "Name") == "txtMensaje");
 
             Assert.Equal("True", (string?)composer.Attribute("AcceptsReturn"));
-            Assert.Equal("TxtMensaje_KeyDown", (string?)composer.Attribute("KeyDown"));
+            // UIX-20: tiene que ser PreviewKeyDown. Con KeyDown, el manejador de
+            // clase del TextBox insertaba el salto de línea ANTES de que llegara
+            // el manejador de instancia y Enter nunca enviaba el mensaje.
+            Assert.Equal("TxtMensaje_PreviewKeyDown",
+                (string?)composer.Attribute("PreviewKeyDown"));
+            Assert.Null(composer.Attribute("KeyDown"));
             Assert.Contains("Enter para enviar, Mayús+Enter para salto",
                 (string?)composer.Attribute("PlaceholderText"));
+        }
+
+        [Fact]
+        public void ElLoginNoSeEstiraAlMaximizarComoEnJava()
+        {
+            // UIX-20: en Java la tarjeta es VBox(maxWidth=420) dentro de un
+            // StackPane centrado. Si aquí la tarjeta no lleva MaxWidth ni
+            // centrado, al maximizar el formulario ocupa toda la pantalla.
+            string ruta = Path.Combine(RaizMonorepo, "client-dotnet", "Views", "LoginWindow.xaml");
+            var documento = XDocument.Load(ruta);
+            XNamespace wpf = "http://schemas.microsoft.com/winfx/2006/xaml/presentation";
+            var ventana = Assert.Single(documento.Descendants(wpf + "Window"));
+
+            var tarjeta = Assert.IsType<System.Xml.Linq.XElement>(
+                Assert.Single(ventana.Elements(wpf + "ScrollViewer")
+                    .Elements(wpf + "Grid")
+                    .Elements(wpf + "Border")));
+            Assert.Equal("420", (string?)tarjeta.Attribute("MaxWidth"));
+            Assert.Equal("Center", (string?)tarjeta.Attribute("HorizontalAlignment"));
+            Assert.Equal("Center", (string?)tarjeta.Attribute("VerticalAlignment"));
         }
 
         [Fact]

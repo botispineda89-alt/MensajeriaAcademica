@@ -69,6 +69,9 @@ namespace Mensajeria.Views
             // en el XAML pero ninguna vista lo cambiaba, así que la pérdida de
             // conexión era invisible en .NET.
             _fachada.OnEstadoConexion += Fachada_OnEstadoConexion;
+            // UIX-20: la fachada reconecta y reautentica sola tras una caída;
+            // la vista solo tiene que repintar cuando la sesión vuelve.
+            _fachada.OnSesionRestaurada += Fachada_OnSesionRestaurada;
             PintarEstadoConexion(_fachada.EstadoConexion);
             // UIX-06/UIX-07: debounce compartido para las dos búsquedas (300 ms).
             _timerBuscar.Interval = TimeSpan.FromMilliseconds(300);
@@ -116,7 +119,26 @@ namespace Mensajeria.Views
         private void Fachada_OnEstadoConexion(EstadoConexion estado)
         {
             // Llega desde el hilo de red: el salto al hilo de UI es obligatorio.
-            Dispatcher.Invoke(() => PintarEstadoConexion(estado));
+            // UIX-20: BeginInvoke y NO Invoke. Invoke es bloqueante, y este
+            // aviso se emite desde el hilo lector de TCP; con Invoke, el lector
+            // se quedaba esperando al hilo de UI y el socket dejaba de consumirse
+            // justo cuando más falta hacía.
+            if (_cerrando) return;
+            Dispatcher.BeginInvoke(() => PintarEstadoConexion(estado));
+        }
+
+        /// <summary>UIX-20: la sesión volvió sola tras una caída; hay que repintar.</summary>
+        private void Fachada_OnSesionRestaurada(string codigo)
+        {
+            if (_cerrando) return;
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (_cerrando) return;
+                LimpiarAvisoInline();
+                CargarUsuarios();
+                if (_usuarioDestino != null)
+                    CargarHistorialRemoto(_usuarioDestino, 0);
+            });
         }
 
         private void PintarEstadoConexion(EstadoConexion estado)
@@ -188,9 +210,17 @@ namespace Mensajeria.Views
         {
             _cerrando = true;
             CancelarTodasLasCargas();
+            _timerBuscar.Stop();
+            _timerFiltro.Stop();
             _fachada.OnMensajeRecibido -= Fachada_OnMensajeRecibido;
             _fachada.OnCierre -= Fachada_OnCierre;
             _fachada.OnPresencia -= Fachada_OnPresencia;
+            // UIX-20: estos dos también se habían suscrito y no se quitaban. La
+            // fachada vive toda la aplicación, así que cada cierre de sesión
+            // dejaba una ventana muerta suscrita a los eventos: el aviso de
+            // reconexión alcanzaba un Dispatcher ya cerrado.
+            _fachada.OnEstadoConexion -= Fachada_OnEstadoConexion;
+            _fachada.OnSesionRestaurada -= Fachada_OnSesionRestaurada;
             _fachada.Desconectar();
             new LoginWindow(_fachada, aviso).Show();
         }
@@ -1052,7 +1082,39 @@ namespace Mensajeria.Views
             bordeRespuesta.Visibility = Visibility.Collapsed;
         }
 
-        private async void BtnEnviar_Click(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// UIX-20: Enter envía, Mayús+Enter mete salto de línea.
+        /// Va en <c>PreviewKeyDown</c> a propósito: con <c>AcceptsReturn="True"</c>
+        /// el <c>TextBox</c> consume Enter en su manejador de clase, que corre
+        /// antes que cualquier manejador de instancia de <c>KeyDown</c>; el salto
+        /// se insertaba antes de poder cancelarlo y el mensaje nunca salía.
+        /// En la fase de túnel el evento se cancela a tiempo.
+        /// </summary>
+        private void TxtMensaje_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Escape)
+            {
+                LimpiarCita();
+                LimpiarAdjunto();
+                LimpiarAdjuntoArchivo();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key != System.Windows.Input.Key.Enter) return;
+            // Mayús reserva el salto de línea. Se consulta el modificador del
+            // propio evento y no el teclado físico: así funciona igual con
+            // Caps Lock y con cualquier disposición de teclado.
+            if (e.KeyboardDevice.Modifiers.HasFlag(System.Windows.Input.ModifierKeys.Shift))
+                return;
+            e.Handled = true;
+            EnviarMensajeActual();
+        }
+
+        /// <summary>
+        /// Envío compartido por el botón y por Enter. Se separa del manejador
+        /// <c>Click</c> para no inventarse un RoutedEventArgs sintético.
+        /// </summary>
+        private async void EnviarMensajeActual()
         {
             if (string.IsNullOrEmpty(_usuarioDestino)) return;
             string texto = (txtMensaje.Text ?? "").Trim();
@@ -1103,26 +1165,9 @@ namespace Mensajeria.Views
             finally { ActualizarEstadoEnvio(); }
         }
 
-        private void TxtMensaje_TextChanged(object sender, TextChangedEventArgs e) => ActualizarEstadoEnvio();
+        private void BtnEnviar_Click(object sender, RoutedEventArgs e) => EnviarMensajeActual();
 
-        private void TxtMensaje_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-        {
-            if (e.Key == System.Windows.Input.Key.Escape)
-            {
-                LimpiarCita();
-                LimpiarAdjunto();
-                LimpiarAdjuntoArchivo();
-                e.Handled = true;
-                return;
-            }
-            if (e.Key == System.Windows.Input.Key.Enter
-                && !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.LeftShift)
-                && !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.RightShift))
-            {
-                e.Handled = true;
-                BtnEnviar_Click(sender, new RoutedEventArgs());
-            }
-        }
+        private void TxtMensaje_TextChanged(object sender, TextChangedEventArgs e) => ActualizarEstadoEnvio();
 
         private void ActualizarEstadoEnvio() =>
             btnEnviar.IsEnabled = _usuarioDestino != null

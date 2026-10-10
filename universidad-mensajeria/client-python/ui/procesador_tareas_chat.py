@@ -40,6 +40,8 @@ class ProcesadorTareasChat:
                 self._actualizar_vacio_chat()
             elif tipo == "historial_remoto":
                 self.lbl_presencia.setText("Mostrando historial local")
+            elif tipo == "kick_otras":
+                self._aviso_red(f"No se pudo expulsar: {error}")
             return
 
         if tipo == "directorio":
@@ -140,6 +142,8 @@ class ProcesadorTareasChat:
             self.fachada.desconectar()
             self.on_logout()
             self.close()
+        elif tipo == "kick_otras":
+            self.lbl_estado_red.setText("Se solicitó cerrar tus otras sesiones")
         elif tipo == "imagen":
             mensaje_id, imagen, ruta = resultado
             # UIX-09: resultado de una carga cancelada: se descarta sin tocar

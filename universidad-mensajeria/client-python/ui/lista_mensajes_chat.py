@@ -20,6 +20,10 @@ class ListaMensajesChat(QListView):
         super().resizeEvent(evento)
         self._actualizar_fondo()
 
+    def showEvent(self, evento):
+        super().showEvent(evento)
+        self._actualizar_fondo()
+
     def _actualizar_fondo(self):
         tamano = self.viewport().size()
         if self._imagen_fondo.isNull() or tamano.isEmpty():

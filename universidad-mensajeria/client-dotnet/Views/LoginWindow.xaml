@@ -5,77 +5,89 @@
         Title="Mensajería Académica | Iniciar sesión" MinHeight="560" MinWidth="440"
         SizeToContent="WidthAndHeight" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBgBrush}">
-    <Border Margin="24" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="0"
-            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
-        <StackPanel>
-            <Border Background="{DynamicResource HeaderBrush}" CornerRadius="12,12,0,0" Padding="18,14">
+    <!-- UIX-20 (paridad con Java): la tarjeta nunca se estira a los lados.
+         Java arma el mismo guion con ScrollPane + StackPane(alignment=CENTER)
+         + VBox(maxWidth=420); aquí es un ScrollViewer que centra una Border
+         con MaxWidth. Antes la Border era la única hija del Window y, al
+         maximizar, se estiraba de borde a borde dejando el formulario perdido
+         en una banda enorme. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid MinHeight="460">
+            <Border MaxWidth="420" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="24" Background="{DynamicResource CardBrush}" CornerRadius="12" Padding="0"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock Text="UNIVERSIDAD" Foreground="{DynamicResource EyebrowBrush}" FontSize="11" FontWeight="Bold"/>
-                    <TextBlock Text="Mensajería Académica" Foreground="{DynamicResource TitleBrush}" FontSize="20" FontWeight="Bold"/>
-                    <TextBlock Text="Iniciar sesión"
-                               Foreground="{DynamicResource SubtitleBrush}" FontSize="12" TextWrapping="Wrap"/>
+                    <Border Background="{DynamicResource HeaderBrush}" CornerRadius="12,12,0,0" Padding="18,14">
+                        <StackPanel>
+                            <TextBlock Text="UNIVERSIDAD" Foreground="{DynamicResource EyebrowBrush}" FontSize="11" FontWeight="Bold"/>
+                            <TextBlock Text="Mensajería Académica" Foreground="{DynamicResource TitleBrush}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="Iniciar sesión"
+                                       Foreground="{DynamicResource SubtitleBrush}" FontSize="12" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                    <StackPanel Margin="28,18,28,24">
+                        <TextBlock Text="Código universitario" FontWeight="SemiBold" Margin="0,0,0,5"
+                                   Foreground="{DynamicResource LabelBrush}"/>
+                        <ui:TextBox x:Name="txtCodigo" PlaceholderText="A001234567" ClearButtonEnabled="True" Margin="0,0,0,12"
+                                    AutomationProperties.Name="Código universitario"/>
+
+                        <TextBlock Text="Contraseña" FontWeight="SemiBold" Margin="0,0,0,5"
+                                   Foreground="{DynamicResource LabelBrush}"/>
+                        <ui:PasswordBox x:Name="txtContrasena" PlaceholderText="••••••••••" Margin="0,0,0,12"
+                                        AutomationProperties.Name="Contraseña"/>
+
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Servidor" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
+                                <ui:TextBox x:Name="txtHost" PlaceholderText="localhost" IsEnabled="False"
+                                            AutomationProperties.Name="Servidor configurado, solo informativo"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Puerto" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
+                                <ui:TextBox x:Name="txtPuerto" PlaceholderText="5000" IsEnabled="False"
+                                            AutomationProperties.Name="Puerto configurado, solo informativo"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Tema" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="cmbTema" Margin="0,0,0,8" SelectionChanged="CmbTema_SelectionChanged"
+                                  AutomationProperties.Name="Tema de la interfaz">
+                            <ComboBoxItem Content="Oscuro"/>
+                            <ComboBoxItem Content="Claro"/>
+                        </ComboBox>
+                        <ui:Button x:Name="btnEntrar" Content="Iniciar sesión →" Appearance="Primary"
+                                   Click="BtnEntrar_Click" MinHeight="40" HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Center" IsDefault="True"
+                                   AutomationProperties.Name="Iniciar sesión"/>
+                        <!-- Fase 10.2 (P2): sin «Crear cuenta»: el alta es solo por archivo plano (CSV). -->
+
+                        <!-- UIX-00f: "Conectando…" es un estado de carga, no un error. Antes
+                             se escribia en txtError y se hacia visible bordeError, que es
+                             rojo (#FDECEA / #B91C1C): pareceria una caída. Ahora el aviso de
+                             carga tiene su propia etiqueta en gris neutro. -->
+                        <TextBlock x:Name="txtCargando" Foreground="{DynamicResource MutedBrush}"
+                                   FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"
+                                   Visibility="Collapsed"/>
+
+                        <Border x:Name="bordeError" Background="#FDECEA" BorderBrush="#F1A9A5" BorderThickness="1"
+                                CornerRadius="8" Padding="9" Margin="0,12,0,0" Visibility="Collapsed"
+                                AutomationProperties.Name="Error de inicio de sesión"
+                                AutomationProperties.LiveSetting="Polite">
+                            <TextBlock x:Name="txtError" Foreground="#B91C1C" TextWrapping="Wrap"/>
+                        </Border>
+                        <Border x:Name="bordeAviso" Background="#FFFBEB" BorderBrush="#F2CE84" BorderThickness="1"
+                                CornerRadius="8" Padding="9" Margin="0,8,0,0" Visibility="Collapsed"
+                                AutomationProperties.Name="Aviso de inicio de sesión"
+                                AutomationProperties.LiveSetting="Polite">
+                            <TextBlock x:Name="txtAviso" Foreground="#B45309" TextWrapping="Wrap"/>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </Border>
-            <StackPanel Margin="28,18,28,24">
-                <TextBlock Text="Código universitario" FontWeight="SemiBold" Margin="0,0,0,5"
-                           Foreground="{DynamicResource LabelBrush}"/>
-                <ui:TextBox x:Name="txtCodigo" PlaceholderText="A001234567" ClearButtonEnabled="True" Margin="0,0,0,12"
-                            AutomationProperties.Name="Código universitario"/>
-
-                <TextBlock Text="Contraseña" FontWeight="SemiBold" Margin="0,0,0,5"
-                           Foreground="{DynamicResource LabelBrush}"/>
-                <ui:PasswordBox x:Name="txtContrasena" PlaceholderText="••••••••••" Margin="0,0,0,12"
-                                AutomationProperties.Name="Contraseña"/>
-
-                <Grid Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                        <TextBlock Text="Servidor" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
-                        <ui:TextBox x:Name="txtHost" PlaceholderText="localhost" IsEnabled="False"
-                                    AutomationProperties.Name="Servidor configurado, solo informativo"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="Puerto" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
-                        <ui:TextBox x:Name="txtPuerto" PlaceholderText="5000" IsEnabled="False"
-                                    AutomationProperties.Name="Puerto configurado, solo informativo"/>
-                    </StackPanel>
-                </Grid>
-                <TextBlock Text="Tema" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,5"/>
-                <ComboBox x:Name="cmbTema" Margin="0,0,0,8" SelectionChanged="CmbTema_SelectionChanged"
-                          AutomationProperties.Name="Tema de la interfaz">
-                    <ComboBoxItem Content="Oscuro"/>
-                    <ComboBoxItem Content="Claro"/>
-                </ComboBox>
-                <ui:Button x:Name="btnEntrar" Content="Iniciar sesión →" Appearance="Primary"
-                           Click="BtnEntrar_Click" MinHeight="40" HorizontalAlignment="Stretch"
-                           HorizontalContentAlignment="Center" IsDefault="True"
-                           AutomationProperties.Name="Iniciar sesión"/>
-                <!-- Fase 10.2 (P2): sin «Crear cuenta»: el alta es solo por archivo plano (CSV). -->
-
-                <!-- UIX-00f: "Conectando…" es un estado de carga, no un error. Antes
-                     se escribia en txtError y se hacia visible bordeError, que es
-                     rojo (#FDECEA / #B91C1C): pareceria una caída. Ahora el aviso de
-                     carga tiene su propia etiqueta en gris neutro. -->
-                <TextBlock x:Name="txtCargando" Foreground="{DynamicResource MutedBrush}"
-                           FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"
-                           Visibility="Collapsed"/>
-
-                <Border x:Name="bordeError" Background="#FDECEA" BorderBrush="#F1A9A5" BorderThickness="1"
-                        CornerRadius="8" Padding="9" Margin="0,12,0,0" Visibility="Collapsed"
-                        AutomationProperties.Name="Error de inicio de sesión"
-                        AutomationProperties.LiveSetting="Polite">
-                    <TextBlock x:Name="txtError" Foreground="#B91C1C" TextWrapping="Wrap"/>
-                </Border>
-                <Border x:Name="bordeAviso" Background="#FFFBEB" BorderBrush="#F2CE84" BorderThickness="1"
-                        CornerRadius="8" Padding="9" Margin="0,8,0,0" Visibility="Collapsed"
-                        AutomationProperties.Name="Aviso de inicio de sesión"
-                        AutomationProperties.LiveSetting="Polite">
-                    <TextBlock x:Name="txtAviso" Foreground="#B45309" TextWrapping="Wrap"/>
-                </Border>
-            </StackPanel>
-        </StackPanel>
-    </Border>
+        </Grid>
+    </ScrollViewer>
 </Window>

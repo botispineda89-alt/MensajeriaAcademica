@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading;
@@ -50,34 +51,81 @@ namespace Mensajeria.Componentes
             // validar_tls de Python). Un client.properties roto se ve al arrancar.
             ValidarTls.Validar(TlsHabilitado, puerto, TlsPuerto, TlsConfianza);
 
-            _cliente = new TcpClient();
-            if (!TlsHabilitado)
+            var cliente = new TcpClient();
+            try
             {
-                await _cliente.ConnectAsync(host, puerto);
-                _stream = _cliente.GetStream();
+                cliente.NoDelay = true; // tramas de protocolo, no un flujo TCP: sin Nagle
+                if (!TlsHabilitado)
+                {
+                    await cliente.ConnectAsync(host, puerto);
+                    _stream = cliente.GetStream();
+                }
+                else
+                {
+                    int tlsPuerto = TlsPuerto > 0 ? TlsPuerto : puerto;
+                    await cliente.ConnectAsync(host, tlsPuerto);
+                    var ssl = new System.Net.Security.SslStream(
+                        cliente.GetStream(), false,
+                        (remitente, certificado, cadena, errores) =>
+                            ValidarCertificado?.Invoke(remitente, certificado, cadena, errores)
+                            ?? errores == System.Net.Security.SslPolicyErrors.None);
+                    await ssl.AuthenticateAsClientAsync(host);
+                    _stream = ssl;
+                }
+                EndurecerSocket(cliente);
+                _cliente = cliente;
             }
-            else
+            catch
             {
-                int tlsPuerto = TlsPuerto > 0 ? TlsPuerto : puerto;
-                await _cliente.ConnectAsync(host, tlsPuerto);
-                var ssl = new System.Net.Security.SslStream(
-                    _cliente.GetStream(), false,
-                    (remitente, certificado, cadena, errores) =>
-                        ValidarCertificado?.Invoke(remitente, certificado, cadena, errores)
-                        ?? errores == System.Net.Security.SslPolicyErrors.None);
-                await ssl.AuthenticateAsClientAsync(host);
-                _stream = ssl;
+                cliente.Close();
+                _stream = null;
+                throw;
             }
             _cts = new CancellationTokenSource();
 
             _ = Task.Run(() => EscucharAsync(_cts.Token));
         }
 
+        /// <summary>
+        /// Detecta pronto una conexión medio muerta (NAT, cortafuegos o el
+        /// cierre por inactividad del servidor). Sin esto el socket sigue
+        /// "abierto" en local, nada falla hasta el siguiente envío y el error
+        /// aparece como si fuese de la aplicación.
+        /// </summary>
+        private static void EndurecerSocket(TcpClient cliente)
+        {
+            try
+            {
+                var socket = cliente.Client;
+                socket.SetSocketOption(SocketOptionLevel.Socket,
+                    SocketOptionName.KeepAlive, true);
+                socket.SetSocketOption(SocketOptionLevel.Tcp,
+                    SocketOptionName.TcpKeepAliveTime, 30);
+                socket.SetSocketOption(SocketOptionLevel.Tcp,
+                    SocketOptionName.TcpKeepAliveInterval, 10);
+                socket.SetSocketOption(SocketOptionLevel.Tcp,
+                    SocketOptionName.TcpKeepAliveRetryCount, 3);
+            }
+            catch (SocketException error)
+            {
+                // Windows no implementa todos los temporizadores de TCP: se
+                // acepta el que funcione y no se cae la conexión por ello.
+                System.Diagnostics.Trace.TraceWarning(
+                    "No se pudo configurar el keepalive del socket: {0}", error.Message);
+            }
+        }
+
         public void Desconectar()
         {
             _cts?.Cancel();
+            _cts = null;
             _stream?.Close();
             _cliente?.Close();
+            // Sin esto, un envío posterior encuentra un stream cerrado y falla
+            // con ObjectDisposedException, que NO es fallo de transporte: el
+            // mensaje no se encolaba y se perdía.
+            _stream = null;
+            _cliente = null;
             foreach (var kv in _pendientes)
                 kv.Value.TrySetCanceled();
             _pendientes.Clear();
@@ -85,7 +133,7 @@ namespace Mensajeria.Componentes
 
         public void Enviar(Dictionary<string, object?> msg)
         {
-            if (_stream == null) throw new InvalidOperationException("No conectado");
+            if (_stream == null) throw new IOException("No hay conexion con el servidor");
             if (!msg.ContainsKey("id")) msg["id"] = Guid.NewGuid().ToString();
             _envioLock.Wait();
             try { TramaCodec.Escribir(_stream, msg); }
@@ -98,7 +146,7 @@ namespace Mensajeria.Componentes
         public async Task<Dictionary<string, JsonElement>> Pedir(Dictionary<string, object?> msg,
             TimeSpan timeout)
         {
-            if (_stream == null) throw new InvalidOperationException("No conectado");
+            if (_stream == null) throw new IOException("No hay conexion con el servidor");
 
             string id = msg.ContainsKey("id") ? msg["id"]?.ToString()! : Guid.NewGuid().ToString();
             msg["id"] = id;
@@ -129,7 +177,12 @@ namespace Mensajeria.Componentes
             {
                 while (!token.IsCancellationRequested && _stream != null)
                 {
-                    var msg = await Task.Run(() => TramaCodec.Leer(_stream), token);
+                    // Se captura el stream en local: si Desconectar() lo anula
+                    // entre la comprobacion y el arranque de la tarea, el lector
+                    // no debe colgarse leyendo un campo ya vaciado.
+                    var stream = _stream;
+                    if (stream == null) break;
+                    var msg = await Task.Run(() => TramaCodec.Leer(stream), token);
 
                     // CLOSE_NOTICE nunca completa un pendiente (carrera del KICK:
                     // el aviso viaja con el id de la solicitud y el ACK llega despues).

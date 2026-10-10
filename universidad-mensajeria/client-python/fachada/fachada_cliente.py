@@ -95,10 +95,10 @@ class FachadaCliente:
             detener_flush=self.detener_flush_pendientes,
         )
         self._publicador_eventos = PublicadorEventosCliente(
-            on_mensaje=self.on_mensaje_recibido_ui,
-            on_presencia=self.on_presencia_ui,
-            on_cierre=self.on_cierre_ui,
-            on_desconexion=self.on_desconexion_ui,
+            on_mensaje=lambda m: self.on_mensaje_recibido_ui(m) if self.on_mensaje_recibido_ui else None,
+            on_presencia=lambda m: self.on_presencia_ui(m) if self.on_presencia_ui else None,
+            on_cierre=lambda m: self.on_cierre_ui(m) if self.on_cierre_ui else None,
+            on_desconexion=lambda: self.on_desconexion_ui() if self.on_desconexion_ui else None,
         )
         self._receptor_entrante = ReceptorEntranteCliente(
             historial_actual=lambda: self.historial,

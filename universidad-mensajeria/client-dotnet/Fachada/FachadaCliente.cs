@@ -30,6 +30,7 @@ namespace Mensajeria.Fachada
         private readonly IMapeadorDatos _mapeadorDatos;
         private readonly CoordinadorMensajeriaCliente _coordinadorMensajeria;
         private readonly ReintentadorPendientesCliente _reintentadorPendientes;
+        private readonly GestorReconexionSesion _gestorReconexion;
 
         private string _host = "localhost";
         private int _puerto = 5000;
@@ -44,6 +45,7 @@ namespace Mensajeria.Fachada
         public event Action<Dictionary<string, JsonElement>>? OnCierre;
         public event Action<Dictionary<string, JsonElement>>? OnPresencia;
         public event Action? OnDesconectado;
+        public event Action<string>? OnSesionRestaurada;
         public string? UsuarioActual => _autenticacion?.CodigoActual;
 
         /// <summary>Produccion: lee client.properties (mismo formato, §5.2).</summary>
@@ -54,6 +56,7 @@ namespace Mensajeria.Fachada
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
+            _gestorReconexion = CrearGestorReconexion();
             CargarPropiedades();
         }
 
@@ -65,6 +68,7 @@ namespace Mensajeria.Fachada
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
+            _gestorReconexion = CrearGestorReconexion();
             CargarPropiedades();
         }
 
@@ -82,8 +86,20 @@ namespace Mensajeria.Fachada
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
+            _gestorReconexion = CrearGestorReconexion();
             SuscribirRed();
         }
+
+        /// <summary>
+        /// El gestor solo existe en la fachada: decide cuándo reconectar y con
+        /// qué credencial, sin que la vista tenga que enterarse.
+        /// </summary>
+        private GestorReconexionSesion CrearGestorReconexion() =>
+            new GestorReconexionSesion(
+                ReconectarYReautenticarAsync,
+                CambiarEstado,
+                codigo => OnSesionRestaurada?.Invoke(codigo),
+                DetenerFlushPendientes);
 
         private void CargarPropiedades()
         {
@@ -135,14 +151,61 @@ namespace Mensajeria.Fachada
                     : null
             };
             await conexion.ConectarAsync(host, puerto);
+            // Con la reconexión automática el socket anterior queda muerto: sin cerrarlo
+            // se acumularía un hilo lector por cada intento.
+            _conexion?.Desconectar();
             _conexion = conexion;
             string dbPath = _dbUrl.StartsWith("sqlite:///") ? _dbUrl["sqlite:///".Length..] : _dbUrl;
-            _store = new LocalStore(dbPath);
+            LocalStore store = AbrirStore(dbPath);
             // Nota: _historial/_cache readonly solo en ctor DI; aqui se asignan una vez.
-            _historialProd = new HistorialLocal(_store);
-            _cacheProd = new CacheUsuarios(_store);
+            _historialProd = new HistorialLocal(store);
+            _cacheProd = new CacheUsuarios(store);
             _autenticacion = new Autenticacion(conexion);
             SuscribirRed();
+        }
+
+        /// <summary>
+        /// Abre (o reabre) el store local cerrando el anterior. Antes se
+        /// sobrescribía el campo sin cerrar: cada reconexión dejaba un pool de
+        /// SQLite abierto y el archivo bloqueado para el cliente Python.
+        /// </summary>
+        private LocalStore AbrirStore(string dbPath)
+        {
+            if (_store != null
+                && string.Equals(_store.DbPath, dbPath, StringComparison.OrdinalIgnoreCase))
+                return _store;
+            _store?.Dispose();
+            _store = new LocalStore(dbPath);
+            return _store;
+        }
+
+        /// <summary>
+        /// Rehace socket y sesión tras una caída (lo llama el gestor de
+        /// reconexión, nunca la UI). Devuelve false si el servidor ya no acepta
+        /// esas credenciales: en ese caso hay que volver a entrar a mano.
+        /// </summary>
+        private async Task<bool> ReconectarYReautenticarAsync(string codigo, string contrasena)
+        {
+            Interlocked.Exchange(ref _reconectando, 1);
+            try
+            {
+                await ConectarInternoAsync(_host, _puerto).ConfigureAwait(false);
+                var autenticacion = _autenticacion
+                    ?? throw new InvalidOperationException("no hay autenticacion disponible");
+                if (!await autenticacion.LoginAsync(codigo, contrasena).ConfigureAwait(false))
+                {
+                    _conexion?.Desconectar();
+                    return false;
+                }
+                CambiarAStorePorCuenta(codigo);
+                await ReintentarPendientesAsync().ConfigureAwait(false);
+                IniciarFlushPendientes(IntervaloFlushSegundos);
+                return true;
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _reconectando, 0);
+            }
         }
 
         // Backing para la ruta de produccion (la de tests viene por ctor).
@@ -163,7 +226,11 @@ namespace Mensajeria.Fachada
         public void AlCierre(RespuestaRed aviso)
         {
             // PAT-03: CLOSE_NOTICE cierra la sesión, sin convertirlo en una
-            // caída recuperable de transporte.
+            // caída recuperable de transporte. Por eso además se olvida la
+            // credencial en custodia: un KICK o un cierre del servidor no se
+            // reintenta solo, se vuelve a entrar (espejo de Java).
+            _gestorReconexion.OlvidarSesion();
+            DetenerFlushPendientes();
             CambiarEstado(EstadoConexion.SesionCerrada);
             OnCierre?.Invoke(MapeadorRespuestaRed.ACrudo(aviso));
         }
@@ -173,31 +240,57 @@ namespace Mensajeria.Fachada
 
         public void AlDesconexion()
         {
-            // Un cierre voluntario no degrada una sesión que ya fue cerrada.
-            if (_estado != EstadoConexion.SesionCerrada)
-                CambiarEstado(EstadoConexion.SinRed);
             OnDesconectado?.Invoke();
+            // UIX-20: al reconectar se cierra el socket anterior para no dejar
+            // un hilo lector colgado, y ese cierre vuelve a avisar por aquí.
+            // Tomarlo en serio programaría un segundo intento que tumbaría el
+            // socket que acabamos de levantar.
+            if (Volatile.Read(ref _reconectando) != 0) return;
+            // Un cierre voluntario no degrada una sesión que ya fue cerrada.
+            if (EstadoConexion == EstadoConexion.SesionCerrada) return;
+            CambiarEstado(EstadoConexion.SinRed);
+            // ESTO es lo que faltaba: sin programar el reintento, la primera
+            // caída dejaba la sesión muerta y el usuario tenía que reiniciar
+            // el programa a mano (el banner decía "se reintentan solos" y no
+            // se reintentaba nada).
+            _gestorReconexion.ProgramarReconexion();
         }
 
         // ------------------------------------------------------- PAT-03: estado
 
+        /// <summary>1 mientras el gestor está rehaciendo socket y sesión.</summary>
+        private int _reconectando;
+
+        // El estado lo escriben tres hilos distintos (UI, lector TCP y el
+        // temporizador de reconexión): se serializa para que una caída no
+        // pise al "Conectado" de un login que terminó en ese instante.
+        private readonly object _cerrojoEstado = new();
         private EstadoConexion _estado = EstadoConexion.SinRed;
 
         /// <summary>Estado actual de la conexión (antes nadie lo consultaba).</summary>
-        public EstadoConexion EstadoConexion => _estado;
+        public EstadoConexion EstadoConexion
+        {
+            get { lock (_cerrojoEstado) return _estado; }
+        }
 
         /// <summary>La vista se suscribe aquí para pintar el banner (UIX-00a).</summary>
         public event Action<EstadoConexion>? OnEstadoConexion;
 
         private void CambiarEstado(EstadoConexion nuevo)
         {
-            if (nuevo == _estado) return;
-            _estado = nuevo;
+            lock (_cerrojoEstado)
+            {
+                if (nuevo == _estado) return;
+                _estado = nuevo;
+            }
             OnEstadoConexion?.Invoke(nuevo);
         }
 
         public void Desconectar()
         {
+            // Primero la custodia: si no, un intento de reconexión ya programado
+            // podría resucitar la sesión justo después de cerrar.
+            _gestorReconexion.Cerrar();
             DetenerFlushPendientes();
             _autenticacion?.Logout();
             _conexion?.Desconectar();
@@ -213,6 +306,9 @@ namespace Mensajeria.Fachada
             if (ok)
             {
                 CambiarEstado(EstadoConexion.Conectado);
+                // La credencial pasa a custodia del gestor mientras dure la
+                // sesión: es lo que permite reconectar sin volver a escribirla.
+                _gestorReconexion.GuardarSesion(codigo, contrasena);
                 CambiarAStorePorCuenta(codigo);
                 AsegurarEnCache(codigo);
                 await ReintentarPendientesAsync();
@@ -268,10 +364,9 @@ namespace Mensajeria.Fachada
                 if (_store != null && string.Equals(_store.DbPath, porCuenta, StringComparison.OrdinalIgnoreCase))
                     return;
                 LocalStore.MigrarLegadoACuenta(legada, porCuenta, codigo);
-                _store?.Dispose();
-                _store = new LocalStore(porCuenta);
-                _historialProd = new HistorialLocal(_store);
-                _cacheProd = new CacheUsuarios(_store);
+                LocalStore store = AbrirStore(porCuenta);
+                _historialProd = new HistorialLocal(store);
+                _cacheProd = new CacheUsuarios(store);
             }
             catch { }
         }
