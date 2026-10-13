@@ -29,6 +29,10 @@ final class ChatEnvioAccion {
     private final Supplier<String> seleccionado;
     private final BooleanProperty enviando;
     private final Runnable pedirFocoEntrada;
+    /** §7 paridad: fila de progreso y botón de cancelar del lote. */
+    private final BarraProgresoEnvioChat progreso;
+    /** El lote en curso, para poder cancelarlo desde el botón. */
+    private volatile EnviarMensajeComando envioEnCurso;
 
     ChatEnvioAccion(InterfazChatViewModel viewModel,
                     Executor tareasFondo,
@@ -38,7 +42,8 @@ final class ChatEnvioAccion {
                     BiConsumer<String, TipoAviso> mostrarAviso,
                     Supplier<String> seleccionado,
                     BooleanProperty enviando,
-                    Runnable pedirFocoEntrada) {
+                    Runnable pedirFocoEntrada,
+                    BarraProgresoEnvioChat progreso) {
         this.viewModel = viewModel;
         this.tareasFondo = tareasFondo;
         this.adjuntosEntrada = adjuntosEntrada;
@@ -48,6 +53,7 @@ final class ChatEnvioAccion {
         this.seleccionado = seleccionado;
         this.enviando = enviando;
         this.pedirFocoEntrada = pedirFocoEntrada;
+        this.progreso = progreso;
     }
 
     /**
@@ -77,13 +83,55 @@ final class ChatEnvioAccion {
         adjuntosEntrada.limpiar();
         viewModel.cancelarRespuesta();
 
-        new EnviarMensajeComando(viewModel, tareasFondo, destino, plan, respuesta,
-                this::alEnvioTerminado, this::alEnvioFallido).ejecutar();
+        EnviarMensajeComando comando = new EnviarMensajeComando(viewModel, tareasFondo, destino,
+                plan, respuesta, this::alEnvioTerminado, this::alEnvioFallido,
+                this::alAvance, this::alPulsarCancelar);
+        envioEnCurso = comando;
+        comando.ejecutar();
         return true;
     }
 
+    /** §7 paridad: el botón Cancelar delega aquí; el comando consulta la bandera. */
+    void cancelar() {
+        EnviarMensajeComando enCurso = envioEnCurso;
+        if (enCurso == null) {
+            return;
+        }
+        if (progreso != null) {
+            progreso.mostrarTexto("Cancelando…");
+        }
+        enCurso.cancelar();
+    }
+
+    private void alAvance(ProgresoEnvio avance) {
+        if (progreso != null) {
+            progreso.mostrar(avance);
+        }
+    }
+
+    private void alPulsarCancelar() {
+        if (progreso != null) {
+            progreso.mostrarTexto("Cancelando…");
+        }
+    }
+
+    /**
+     * Cancelación: lo que no llegó a salir vuelve a la bandeja. Perderlo sería
+     * justo lo que el botón promete evitar, así que se reinyecta por el ViewModel
+     * y se avisa, igual que en Python ({@code restantes}) y .NET.
+     */
+    private void devolverRestantes(EnviarMensajeComando comando) {
+        List<AdjuntoPendiente> pendientes = comando.restantes();
+        if (pendientes.isEmpty()) {
+            return;
+        }
+        viewModel.agregarAdjuntos(pendientes);
+        mostrarAviso.accept("Envío cancelado: " + pendientes.size()
+                + " adjunto(s) volvieron a la bandeja.", TipoAviso.ADVERTENCIA);
+    }
+
     private void alEnvioTerminado(boolean enRed) {
-        enviando.set(false);
+        cerrarLote();
         if (enRed) {
             estado.accept("Enviado");
             mostrarAviso.accept("Mensaje enviado.", TipoAviso.EXITO);
@@ -99,10 +147,22 @@ final class ChatEnvioAccion {
     }
 
     private void alEnvioFallido(String detalle) {
-        enviando.set(false);
+        EnviarMensajeComando enCurso = envioEnCurso;
+        cerrarLote();
+        if (enCurso != null) {
+            devolverRestantes(enCurso);
+        }
         estado.accept("No se completó el envío: " + detalle);
         mostrarAviso.accept("No se completó el envío: " + detalle, TipoAviso.ERROR);
         paginador.cargarConversacion();
         pedirFocoEntrada.run();
+    }
+
+    private void cerrarLote() {
+        enviando.set(false);
+        envioEnCurso = null;
+        if (progreso != null) {
+            progreso.ocultar();
+        }
     }
 }

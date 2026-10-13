@@ -143,8 +143,22 @@ Reglas de correlación:
 - Descarga: `DESCARGAR_ARCHIVO {archivoId}` → devuelve base64 bajo demanda
   (el historial NUNCA trae `contenidoImagen`); si el archivo supera 1 MiB, el
   servidor responde con la secuencia `ARCHIVO_INICIO` + `ARCHIVO_PARTE`* +
-  `ARCHIVO_FIN` correlacionada por `id` (igual que una subida).
+  `ARCHIVO_FIN` correlacionada por `id` (igual que una subida). El cliente
+  **tiene que reensamblarla**: la primera trama completa la espera de la
+  respuesta y las `PARTE` llegan fuera de ella. Sin colector, la descarga escribe
+  un archivo de 0 bytes **sin error** (roadmap §5.15).
 - Archivos genéricos chicos caben en `MENSAJE_ARCHIVO` de una sola trama.
+- **La entrega de un adjunto NO lleva los bytes dentro de la trama.** Cuando el
+  `MENSAJE_ARCHIVO` de entrega (al destinatario o al eco multi-PC) no cabe en
+  16 MiB —el base64 de un archivo de más de ~12 MiB ya lo supera— el servidor
+  reintenta con la **versión ligera**: el mismo mensaje sin `contenidoImagen`,
+  conservando `id`, `nombreArchivo`, `mime`, `contenido` (el pie/caption),
+  `tamanoArchivo`, `hashSha256` y `archivoId`. El receptor baja los bytes con
+  `DESCARGAR_ARCHIVO`. Antes este reintento no existía: la entrega fallaba y además **se expulsaba la sesión del
+  destinatario** (`EntregaCaso.entregar`), de modo que un archivo de 20 MiB
+  cerraba la sesión de quien lo recibía (roadmap §5.15). Un cliente **debe**
+  aceptar `MENSAJE_ARCHIVO` sin `contenidoImagen` y descargar por `archivoId`; no
+  puede asumir que los bytes vienen en línea.
 - Archivos hasta **50 MB** (tope propio; efectivo = menor entre
   `configuracion_limites` y `archivo.max-mb` de `server.properties`) usan la
   secuencia fragmentada: el cliente genera `idTransferencia` (uuid), envía

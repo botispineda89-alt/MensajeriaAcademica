@@ -5,6 +5,7 @@
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.ProgressIndicator?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.SplitPane?>
@@ -102,6 +103,18 @@
                 <Label fx:id="etiquetaAdjunto" styleClass="attachment-name" maxWidth="Infinity"/>
                 <Button text="✕" onAction="#alQuitarImagen" styleClass="icon-button"
                         accessibleText="Quitar los adjuntos pendientes"/>
+            </HBox>
+            <!-- §7 paridad: avance del lote de adjuntos y su cancelación. Reutiliza
+                 `attachment-preview` a proposito: los CSS se generan desde el
+                 contrato de diseño y anadir una clase tocaria a los 3 clientes. -->
+            <HBox fx:id="barraProgresoEnvio" spacing="8" alignment="CENTER_LEFT"
+                  visible="false" managed="false" styleClass="attachment-preview">
+                <padding><Insets top="6" right="10" bottom="6" left="10"/></padding>
+                <ProgressBar fx:id="barraProgreso" prefWidth="120" progress="0"/>
+                <Label fx:id="etiquetaProgreso" styleClass="status-label" maxWidth="Infinity"
+                       HBox.hgrow="ALWAYS"/>
+                <Button fx:id="botonCancelarEnvio" text="Cancelar envío" onAction="#alCancelarEnvio"
+                        styleClass="quiet-button" accessibleText="Cancelar el envío de adjuntos"/>
             </HBox>
             <HBox spacing="8" alignment="BOTTOM_CENTER" styleClass="composer-row">
                 <Button fx:id="botonAdjuntar" text="＋" onAction="#alElegirImagen"

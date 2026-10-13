@@ -4,7 +4,9 @@ import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 import universidad.mensajeria.cliente.transversal.records.RecienteChat;
 import universidad.mensajeria.cliente.transversal.records.UsuarioLocal;
 
+import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
 import javafx.beans.property.BooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -13,6 +15,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.util.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -320,5 +323,32 @@ public final class RefrescadorContactosChat {
         void iniciar(Runnable refresco);
 
         void detener();
+    }
+
+    /**
+     * El respaldo de producción: un {@link javafx.animation.Timeline} que vive en
+     * el hilo de JavaFX, para que se detenga solo al cerrar la ventana y no
+     * pueda tocar un control ya liberado. Vive aquí y no en el controlador para
+     * que este no cargue con la mecánica de un reloj que no es suya; los tests
+     * inyectan su propio doble.
+     */
+    public static TimelineRespaldo respaldoTimeline(Duration periodo) {
+        return new TimelineRespaldo() {
+            private Timeline linea;
+
+            @Override
+            public void iniciar(Runnable refresco) {
+                linea = new Timeline(new KeyFrame(periodo, evento -> refresco.run()));
+                linea.setCycleCount(Timeline.INDEFINITE);
+                linea.play();
+            }
+
+            @Override
+            public void detener() {
+                if (linea != null) {
+                    linea.stop();
+                }
+            }
+        };
     }
 }

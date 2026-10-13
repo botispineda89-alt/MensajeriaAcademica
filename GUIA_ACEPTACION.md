@@ -28,13 +28,26 @@ dotnet build client-dotnet/Mensajeria.csproj -c Release
 
 La aceptación automatizada no sustituye la prueba manual entre procesos y computadores.
 
-**Estado de las suites (corte 2026-10-11):** JavaFX **280/280** (47 clases, ArchUnit incluida),
-Python **278** (5 omitidas) y .NET **366/366** en verde; build WPF Release 0/0.
+**Smoke de adjunto grande (20 MiB, servidor real).** Es el único chequeo que no usa dobles de red:
+levanta dos sesiones TCP contra el servidor de verdad y compara el SHA-256 de lo que llega. Desde la
+raíz del repositorio, con MySQL arriba y el servidor **escuchando** en 5000 (su consola JLine espera
+`7 Iniciar`):
+
+```powershell
+.\universidad-mensajeria\client-python\.venv\Scripts\python.exe smoke\smoke_adjunto_20mb.py
+```
+
+Sale con 0 si A→B y B→A cuadran byte a byte. La dirección A→A se reporta aparte: quien se envía un
+adjunto a sí mismo no puede descargarlo porque el historial remoto no le devuelve su `archivoId`
+(deuda abierta, `ESTADO_ROADMAP.md` §5.15c).
+
+**Estado de las suites (corte 2026-10-13):** JavaFX **299/299** (50 clases, ArchUnit incluida),
+Python **294** (5 omitidas) y .NET **368/368** en verde; build WPF Release 0/0.
 `contrato/verificar.py` pasa **9/9** (tokens, estados, puertos, contrato, iconos y las 3 suites +
-build WPF) y **ya sirve como puerta de calidad**: la deriva del esquema distribuible de Python quedó
-cerrada (`ESTADO_ROADMAP.md` §5.8). `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
-`servidor-app` no se re-ejecutó; su último registro fechado es del 2026-10-08: 106 casos, 102 en
-verde, 4 fallos preexistentes (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`).
+build WPF) y **sirve como puerta de calidad**. `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
+De `servidor-app` solo se ejecutó la prueba nueva de la entrega ligera (4/4); su suite completa
+conserva el registro del 2026-10-08: 106 casos, 102 en verde, 4 fallos preexistentes (2 umbrales
+temporales de `CargaMixtaTest` + 2 de `MensajesTest`).
 
 ## Preparación del smoke
 

@@ -5,6 +5,7 @@ import shutil
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from ui.estado_aviso_inline import TipoAviso
 from ui.lista_virtual import ROL_ITEM
 from ui.visor_imagen_chat import VisorImagenChat as _VisorImagen
 from ui.cargador_adjunto_entrada_chat import CargadorAdjuntoEntradaChat
@@ -52,7 +53,9 @@ class GestorAdjuntosChat:
             self.preview_container.setVisible(True)
             self.btn_quitar_adjunto.setVisible(True)
         if rechazadas:
-            self._aviso_red("Algunos archivos no se adjuntaron; máximo 12 archivos por envío.")
+            self._aviso_red(
+                "Algunos archivos no se adjuntaron; máximo 12 archivos por envío.",
+                TipoAviso.ADVERTENCIA)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -85,7 +88,9 @@ class GestorAdjuntosChat:
                 self.preview_container.setVisible(True)
                 self.btn_quitar_adjunto.setVisible(True)
             if rechazadas:
-                self._aviso_red("Algunos archivos arrastrados no se pudieron adjuntar.")
+                self._aviso_red(
+                    "Algunos archivos arrastrados no se pudieron adjuntar.",
+                    TipoAviso.ADVERTENCIA)
             if agregadas:
                 event.acceptProposedAction()
                 return

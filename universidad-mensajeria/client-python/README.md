@@ -121,10 +121,19 @@ arranque también funcionen cuando solo se distribuye esta carpeta.
 - Las imágenes recibidas ofrecen «Guardar imagen» y se copian desde la caché
   local al destino elegido. Los avisos de descarga y envío aparecen dentro del
   chat, se cierran automáticamente y tienen un botón accesible para cerrarlos.
-  Los fondos de conversación claro y oscuro se pintan a cover y centrados en
+  Cada aviso lleva **severidad** (Error / Atención / Aviso / Listo) con su plazo,
+  y se **anuncia** a los lectores de pantalla limpiando y volviendo a poner el
+  texto accesible, para que un aviso repetido también se lea. Los fondos de
+  conversación claro y oscuro se pintan a cover y centrados en
   el `paintEvent` de la lista — como el CSS del cliente Java — junto al tema
   global de QFluentWidgets. Pintarlos ahí (y no en la paleta del viewport) es
   lo que los hace inmunes a los stylesheets de los paneles vecinos.
+- **Descargar un adjunto de más de 1 MiB** llega como secuencia
+  `ARCHIVO_INICIO` + `ARCHIVO_PARTE`\* + `ARCHIVO_FIN`, no como una trama
+  sola: la reensambla `fachada/servicios/colector_fragmentos.py` (la primera
+  trama completaba la espera de la petición y las partes se perdían, dejando un
+  archivo de 0 bytes sin error). Lo mismo con un adjunto grande recibido, que el
+  servidor ya entrega sin los bytes dentro de la trama (roadmap §5.15).
 - La difusión del servidor aparece como mensaje de `SERVIDOR`.
 - El cierre del login pide confirmación, y cancelar mantiene abierta la ventana.
   Los ecos de mensajes propios de otras sesiones de la misma cuenta se asocian
@@ -162,7 +171,7 @@ También funciona con unittest:
 .\.venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-Última validación local con unittest: 281 pruebas, 5 omitidas (2026-10-11).
+Ultima validación local con unittest: 294 pruebas, 5 omitidas (2026-10-13).
 
 ## Revisión visual manual pendiente
 

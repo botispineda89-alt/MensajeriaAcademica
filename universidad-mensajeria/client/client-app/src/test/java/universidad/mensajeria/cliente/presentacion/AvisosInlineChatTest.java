@@ -1,5 +1,7 @@
 package universidad.mensajeria.cliente.presentacion;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -59,12 +61,101 @@ class AvisosInlineChatTest {
         });
     }
 
+    @Test
+    void cadaSeveridadMuestraSuTituloYSuPlazo() throws Exception {
+        iniciarJavaFx();
+        AvisosInlineChat avisos = crearEnJavaFx();
+
+        for (TipoAviso tipo : TipoAviso.values()) {
+            avisos.mostrar("mensaje", tipo);
+            ejecutarEnJavaFx(() -> {
+                assertEquals(tituloEsperado(tipo), titulo.getText(),
+                        "título de " + tipo);
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void elAvisoSeAnunciaConTituloYMensaje() throws Exception {
+        iniciarJavaFx();
+        List<String> anuncios = new ArrayList<>();
+        AvisosInlineChat avisos = crearEnJavaFx(anuncios::add);
+
+        avisos.mostrar("Conexión recuperada.", TipoAviso.EXITO);
+        ejecutarEnJavaFx(() -> null);
+        ejecutarEnJavaFx(() -> null);
+
+        assertEquals(List.of("", "Listo: Conexión recuperada."), anuncios);
+    }
+
+    @Test
+    void elMismoAvisoDosVecesVuelveAnunciarse() throws Exception {
+        iniciarJavaFx();
+        List<String> anuncios = new ArrayList<>();
+        AvisosInlineChat avisos = crearEnJavaFx(anuncios::add);
+
+        // Un lector de pantalla solo repite si el texto cambia: el mismo error
+        // saltando dos veces (un reintento que vuelve a fallar) debe re-leerse.
+        // Por eso se limpia antes de volver a ponerlo.
+        avisos.mostrar("No se pudo enviar.", TipoAviso.ERROR);
+        ejecutarEnJavaFx(() -> null);
+        ejecutarEnJavaFx(() -> null);
+        anuncios.clear();
+
+        avisos.mostrar("No se pudo enviar.", TipoAviso.ERROR);
+        ejecutarEnJavaFx(() -> null);
+        ejecutarEnJavaFx(() -> null);
+
+        assertEquals(List.of("", "Error: No se pudo enviar."), anuncios,
+                "el segundo aviso se vuelve a anunciar igual");
+    }
+
+    @Test
+    void limpiarTambienSilenciaElAnuncio() throws Exception {
+        iniciarJavaFx();
+        List<String> anuncios = new ArrayList<>();
+        AvisosInlineChat avisos = crearEnJavaFx(anuncios::add);
+
+        avisos.mostrar("Error de red", TipoAviso.ERROR);
+        ejecutarEnJavaFx(() -> null);
+        ejecutarEnJavaFx(() -> null);
+        anuncios.clear();
+        avisos.limpiar();
+
+        assertEquals(List.of(""), anuncios);
+        ejecutarEnJavaFx(() -> {
+            assertFalse(contenedor.isVisible());
+            return null;
+        });
+    }
+
+    @Test
+    void elAnuncioLlevaTituloYMensajeComoEnQtYEnWpf() {
+        assertEquals("Atención: Sin red.", AvisosInlineChat.anuncioDe("Atención", "Sin red."));
+        assertEquals("Aviso: ya se va", AvisosInlineChat.anuncioDe("Aviso", "ya se va"));
+    }
+
+    private static String tituloEsperado(TipoAviso tipo) {
+        return switch (tipo) {
+            case ERROR -> "Error";
+            case ADVERTENCIA -> "Atención";
+            case EXITO -> "Listo";
+            case INFORMACION -> "Aviso";
+        };
+    }
+
     private AvisosInlineChat crearEnJavaFx() throws Exception {
+        return crearEnJavaFx(null);
+    }
+
+    private AvisosInlineChat crearEnJavaFx(java.util.function.Consumer<String> anuncio)
+            throws Exception {
         return ejecutarEnJavaFx(() -> {
             contenedor = new HBox();
             titulo = new Label();
             texto = new Label();
-            return new AvisosInlineChat(contenedor, titulo, texto);
+            return new AvisosInlineChat(contenedor, titulo, texto, anuncio);
         });
     }
 

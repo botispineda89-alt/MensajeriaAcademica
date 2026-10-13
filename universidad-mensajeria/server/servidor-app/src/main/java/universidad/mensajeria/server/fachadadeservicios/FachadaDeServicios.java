@@ -475,6 +475,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
                             .mime(trama.mime())
                             .contenido(trama.contenido())
                             .contenidoImagen(trama.contenidoImagen())
+                            .tamanoArchivo((long) bytes.length)
                             .hashSha256(dto.hashSha256())
                             .archivoId(dto.archivoId() == null ? null : String.valueOf(dto.archivoId()))
                             .ipRemitente(trama.ipRemitente())

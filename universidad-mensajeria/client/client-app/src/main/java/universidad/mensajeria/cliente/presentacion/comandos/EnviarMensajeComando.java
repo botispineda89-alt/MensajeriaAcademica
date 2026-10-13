@@ -1,5 +1,6 @@
 package universidad.mensajeria.cliente.presentacion.comandos;
 
+import universidad.mensajeria.cliente.presentacion.AgregadorProgreso;
 import universidad.mensajeria.cliente.presentacion.AdjuntoPendiente;
 import universidad.mensajeria.cliente.presentacion.FormatoErrorCliente;
 import universidad.mensajeria.cliente.presentacion.InterfazChatViewModel;
@@ -8,6 +9,7 @@ import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Adjunto;
 import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Envio;
 import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Grupo;
 import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Texto;
+import universidad.mensajeria.cliente.presentacion.ProgresoEnvio;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 
 import java.util.ArrayList;
@@ -23,9 +25,23 @@ import javafx.concurrent.Task;
  * el servidor tiene un pool con token bucket por conexión y en el chat del
  * destinatario el orden importa. Uno que falla no impide a los demás: se recoge
  * el motivo y se reporta al final.
+ * </p>
  * <p>
  * Con un solo adjunto se comporta exactamente como antes: UN mensaje con el texto
  * como pie. Con varios, el texto viaja como mensaje propio y los adjuntos sueltos.
+ * </p>
+ * <p>
+ * §7 paridad: con {@code alProgreso} informa el avance del lote por bytes y con
+ * {@link #cancelar()} lo detiene. Lo ya enviado queda enviado; lo que no llegó a
+ * salir se devuelve en {@link #restantes()} para que la vista lo vuelva a poner en
+ * la bandeja, igual que en Python y .NET.
+ * </p>
+ * <p>
+ * <b>Trampa del executor:</b> la tarea se entrega como
+ * {@code javafx.concurrent.Task}, que <b>solo se ejecuta si el executor la
+ * despacha al hilo de JavaFX</b> (por eso {@codeecutor = Platform::runLater}). Con
+ * un executor directo, {@code call()} no llega a invocarse y el envío no ocurre
+ * sin que salte ningún error.
  * </p>
  */
 public final class EnviarMensajeComando implements ComandoChat {
@@ -38,10 +54,13 @@ public final class EnviarMensajeComando implements ComandoChat {
     private final Consumer<Boolean> alTerminar;
     private final Consumer<String> alError;
     /** §7 paridad: progreso del lote y cancelación (como ProgresoEnvio de .NET). */
-    private final Consumer<String> alProgreso;
+    private final Consumer<ProgresoEnvio> alProgreso;
     private final Runnable alCancelar;
+    private final AgregadorProgreso progreso;
     /** Fallos del lote, para el aviso final. Vive fuera de la Task a propósito. */
     private final List<String> fallos = new ArrayList<>();
+    /** Adjuntos que no se intentaron (cancelación): vuelven a la bandeja. */
+    private final List<AdjuntoPendiente> restantes = new ArrayList<>();
     /** Cancelación consultada entre envíos del lote; volátil para el hilo de fondo. */
     private volatile boolean cancelado;
 
@@ -54,7 +73,7 @@ public final class EnviarMensajeComando implements ComandoChat {
     public EnviarMensajeComando(InterfazChatViewModel viewModel, Executor fondo,
                                 String destino, List<Envio> plan, MensajeLocal respuesta,
                                 Consumer<Boolean> alTerminar, Consumer<String> alError,
-                                Consumer<String> alProgreso, Runnable alCancelar) {
+                                Consumer<ProgresoEnvio> alProgreso, Runnable alCancelar) {
         this.viewModel = viewModel;
         this.fondo = fondo;
         this.destino = destino;
@@ -64,6 +83,8 @@ public final class EnviarMensajeComando implements ComandoChat {
         this.alError = alError;
         this.alProgreso = alProgreso;
         this.alCancelar = alCancelar;
+        this.progreso = new AgregadorProgreso(this.plan.stream()
+                .map(EnviarMensajeComando::bytesDe).toList());
     }
 
     /** §7 paridad: la UI marca la cancelación; el lote la consulta entre envíos. */
@@ -74,18 +95,29 @@ public final class EnviarMensajeComando implements ComandoChat {
         }
     }
 
+    /**
+     * Adjuntos que no llegaron a enviarse porque se canceló el lote. Vacío si el
+     * lote se completó o falló entero. Lo lee la vista, ya en el hilo de JavaFX,
+     * después de que la Task termine.
+     */
+    public List<AdjuntoPendiente> restantes() {
+        return List.copyOf(restantes);
+    }
+
     @Override
     public void ejecutar() {
         Task<Boolean> tarea = new Task<>() {
             @Override
             protected Boolean call() {
                 boolean todosEnRed = true;
-                for (Envio envio : plan) {
+                for (int i = 0; i < plan.size(); i++) {
+                    Envio envio = plan.get(i);
                     if (cancelado) {
                         fallos.add(nombreDe(envio) + ": cancelado por el usuario");
+                        sumarRestantes(envio);
                         continue;
                     }
-                    informarProgreso(envio);
+                    informarProgreso(i, nombreDe(envio), progreso.bytesCompletados());
                     try {
                         boolean enRed = switch (envio) {
                             case Texto t -> viewModel.enviarTexto(destino, t.cuerpo(), respuesta);
@@ -103,6 +135,8 @@ public final class EnviarMensajeComando implements ComandoChat {
                         todosEnRed = false;
                         fallos.add(nombreDe(envio) + ": " + FormatoErrorCliente.mensaje(fallo));
                     }
+                    long acumulado = progreso.completar(i);
+                    informarProgreso(i + 1, nombreDe(envio), acumulado);
                 }
                 return todosEnRed;
             }
@@ -121,15 +155,32 @@ public final class EnviarMensajeComando implements ComandoChat {
         fondo.execute(tarea);
     }
 
-    /** §7 paridad: avisa al hilo de UI cuánto va del lote. */
-    private void informarProgreso(Envio envio) {
+    /** §7 paridad: avisa al hilo de UI cuánto va del lote, en bytes. */
+    private void informarProgreso(int hechos, String nombre, long bytesEnviados) {
         if (alProgreso == null) {
             return;
         }
-        long bytes = envio instanceof Adjunto a ? a.archivo().bytes().length : 0L;
-        String nombre = nombreDe(envio);
-        javafx.application.Platform.runLater(() -> alProgreso.accept(
-                nombre + " (" + (bytes / 1024) + " KB)"));
+        ProgresoEnvio avance = new ProgresoEnvio(hechos, plan.size(), nombre,
+                bytesEnviados, progreso.bytesTotales());
+        javafx.application.Platform.runLater(() -> alProgreso.accept(avance));
+    }
+
+    /** Cancelación: lo no intentado vuelve a la bandeja en vez de perderse. */
+    private void sumarRestantes(Envio envio) {
+        switch (envio) {
+            case Adjunto a -> restantes.add(a.archivo());
+            case Grupo g -> restantes.addAll(g.imagenes());
+            case Texto t -> { }
+        }
+    }
+
+    /** Peso del envío en la barra: los bytes que ocupa en el lote. */
+    private static long bytesDe(Envio envio) {
+        return switch (envio) {
+            case Texto t -> 0L;
+            case Adjunto a -> a.archivo().bytes().length;
+            case Grupo g -> g.imagenes().stream().mapToLong(p -> p.bytes().length).sum();
+        };
     }
 
     private boolean enviarAdjunto(Adjunto a) throws Exception {

@@ -49,6 +49,15 @@ public final class EntregaCaso {
                 protocolo.enviar(s, entrega);
                 alMenosUna = true;
             } catch (Exception e) {
+                // Un adjunto grande no cabe en UNA trama (16 MiB): los bytes van
+                // en base64 dentro del mismo frame que los metadatos. Antes esto
+                // mataba la sesion del destinatario y el adjunto se perdia.
+                // Se reintenta con la version ligera (sin contenido) y el
+                // cliente lo baja con DESCARGAR_ARCHIVO, que ya hacen los tres.
+                if (excedeTrama(e) && enviarLigero(s, entrega)) {
+                    alMenosUna = true;
+                    continue;
+                }
                 LOG.warn("No se pudo entregar a {}: {}", codigo, e.getMessage());
                 conexiones.remover(codigo, s);
             }
@@ -77,6 +86,42 @@ public final class EntregaCaso {
         }
     }
 
+    /** El codec rechaza el frame antes de escribir nada: se puede reintentar. */
+    private boolean excedeTrama(Exception fallo) {
+        String motivo = fallo.getMessage();
+        return motivo != null && motivo.contains("excede el maximo");
+    }
+
+    /** Reintento sin los bytes: el receptor conserva metadatos y archivoId. */
+    private boolean enviarLigero(IdSesion sesion, Mensaje entrega) {
+        if (entrega.contenidoImagen() == null || entrega.contenidoImagen().isBlank()) {
+            return false;
+        }
+        try {
+            protocolo.enviar(sesion, sinContenido(entrega));
+            return true;
+        } catch (Exception e) {
+            LOG.debug("Tampoco cupo la version ligera de {}: {}",
+                    entrega.id(), e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Copia del mismo mensaje sin los bytes en linea. Se conserva {@code contenido}
+     * porque en un adjunto es el pie (caption), no el archivo; lo pesado vive solo
+     * en {@code contenidoImagen}.
+     */
+    static Mensaje sinContenido(Mensaje m) {
+        return new Mensaje(m.tipo(), m.id(), m.fechaHora(), m.codigo(), m.contrasena(),
+                m.nombres(), m.apellidos(), m.programa(), m.remitente(), m.destinatario(),
+                m.contenido(), m.hashSha256(), m.numCaracteres(), m.numPalabras(),
+                m.etapasFiltrado(), m.nombreArchivo(), m.tamanoArchivo(), m.archivoId(),
+                m.mime(), null, m.pagina(), m.totalPaginas(), m.exito(), m.mensajeError(),
+                m.ipRemitente(), m.ipDestinatario(), m.usuariosConectados(), m.totalPartes(),
+                m.indiceParte(), m.tipoOriginal());
+    }
+
     private void ecoRemitente(String codigoDestino, Mensaje entrega, IdSesion excepto) {
         String remitente = entrega.remitente();
         if (remitente == null || remitente.isBlank() || remitente.equals(codigoDestino)) {
@@ -89,6 +134,12 @@ public final class EntregaCaso {
             try {
                 protocolo.enviar(s, entrega);
             } catch (Exception e) {
+                // Mismo motivo que en el destinatario: el eco de un adjunto grande
+                // tampoco cabe. Se manda la version ligera; si ni esa cabe, el
+                // otro PC lo synchroniza con la pagina remota 0 al reconectar.
+                if (excedeTrama(e) && enviarLigero(s, entrega)) {
+                    continue;
+                }
                 LOG.debug("No se pudo enviar eco a {}: {}", remitente, e.getMessage());
             }
         }

@@ -175,6 +175,14 @@ debe tener acceso a MySQL.
   `uploads` para “limpiar” una sesión: los metadatos e historiales pueden seguir referenciándolos.
 - La presencia viva se conserva en memoria y refleja sesiones conectadas, no una columna que pueda
   inspeccionarse con una consulta aislada.
+- **La entrega de un adjunto no lleva los bytes dentro de la trama.** Un archivo de más de ~12 MiB
+  convertido a base64 supera los 16 MiB de la trama, así que `EntregaCaso` reintenta con la versión
+  ligera (mismo mensaje sin `contenidoImagen`, conservando `archivoId`, `nombreArchivo`,
+  `tamanoArchivo`, `hashSha256` y el pie) y el receptor baja los bytes con `DESCARGAR_ARCHIVO`.
+  Antes, la trama se rechazaba y **el servidor expulsaba la sesión del destinatario**. Si ves
+  `No se pudo entregar a <código>: Payload de N bytes excede el maximo de 16777216` en el log, mira
+  también la línea siguiente: si no hay reintento ligero, el problema no es de tamaño sino de la
+  sesión. Detalle en `ESTADO_ROADMAP.md` §5.15.
 
 ## Funcionamiento
 

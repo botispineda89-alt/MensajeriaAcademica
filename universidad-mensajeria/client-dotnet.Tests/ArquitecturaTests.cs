@@ -42,8 +42,11 @@ namespace Mensajeria.Tests
         [Fact]
         public void PresentacionNoAbreSocketNiAccedeALaBaseLocal()
         {
+            // Todos los .cs de Views, no solo los *.xaml.cs: el code-behind se
+            // repartió en parciales (ChatWindow.Estado.cs, ChatWindow.Envio.cs…)
+            // y las reglas tienen que mirar los parciales también.
             string carpeta = Path.Combine(RutaCliente(), "Views");
-            string[] archivos = Directory.GetFiles(carpeta, "*.xaml.cs");
+            string[] archivos = Directory.GetFiles(carpeta, "*.cs");
             Assert.NotEmpty(archivos);
             string[] dependenciasProhibidas =
             {
@@ -89,7 +92,7 @@ namespace Mensajeria.Tests
             Assert.Contains("LoginWindow(IFachadaCliente fachada", login, StringComparison.Ordinal);
 
             string[] archivos = Directory.GetFiles(
-                Path.Combine(RutaCliente(), "Views"), "*.xaml.cs");
+                Path.Combine(RutaCliente(), "Views"), "*.cs");
             foreach (string archivo in archivos)
             {
                 string fuente = File.ReadAllText(archivo);
@@ -97,6 +100,53 @@ namespace Mensajeria.Tests
                 Assert.DoesNotMatch(@"\b(?:private|protected|public|internal)\s+(?:readonly\s+)?FachadaCliente\b", fuente);
                 Assert.DoesNotMatch(@"\bFachadaCliente\.", fuente);
             }
+        }
+
+        [Fact]
+        public void NingunArchivoDeLaVistaSupera400Lineas()
+        {
+            // Fase 2.5, regla 6 (equivalente a la de Python y el objetivo de
+            // Java): el code-behind del chat se repartió en parciales por
+            // responsabilidad, así que ningún archivo tiene que explicarse solo.
+            // FachadaCliente.cs sigue fuera de este regla: su descomposición es
+            // lo pendiente de la Fase 2 en .NET (ESTADO_ROADMAP.md).
+            string carpeta = Path.Combine(RutaCliente(), "Views");
+            string[] archivos = Directory.GetFiles(carpeta, "*.cs");
+            Assert.NotEmpty(archivos);
+
+            foreach (string archivo in archivos)
+            {
+                int lineas = File.ReadAllLines(archivo).Length;
+                Assert.True(lineas <= 400,
+                    $"{Path.GetFileName(archivo)} tiene {lineas} líneas (máximo 400)");
+            }
+        }
+
+        [Fact]
+        public void LaVistaDelChatEstaDivididaPorResponsabilidad()
+        {
+            // El code-behind del chat no puede volver a crecer como un bloque:
+            // si falta comportamiento, se reparte en otro parcial.
+            string carpeta = Path.Combine(RutaCliente(), "Views");
+            string[] parciales = Directory.GetFiles(carpeta, "ChatWindow.*.cs");
+            string[] responsabilidades =
+            {
+                "ChatWindow.Estado.cs", "ChatWindow.Sesion.cs", "ChatWindow.Eventos.cs",
+                "ChatWindow.Vista.cs", "ChatWindow.Contactos.cs", "ChatWindow.Historial.cs",
+                "ChatWindow.Navegacion.cs", "ChatWindow.Busqueda.cs",
+                "ChatWindow.Adjuntos.cs", "ChatWindow.Envio.cs"
+            };
+
+            foreach (string esperado in responsabilidades)
+            {
+                string ruta = Path.Combine(carpeta, esperado);
+                Assert.True(File.Exists(ruta), $"falta el parcial {esperado}");
+                string fuente = File.ReadAllText(ruta);
+                Assert.Contains("partial class ChatWindow", fuente, StringComparison.Ordinal);
+            }
+
+            Assert.True(parciales.Length >= responsabilidades.Length,
+                $"se esperaban al menos {responsabilidades.Length} parciales y hay {parciales.Length}");
         }
 
         private static string LeerFuenteCliente(string rutaRelativa) =>

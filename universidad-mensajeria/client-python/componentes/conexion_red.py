@@ -42,6 +42,10 @@ class ConexionRed:
         self.conectado = False
         self.lock = threading.Lock()
         self._envio_lock = threading.Lock()
+        # Descargas fragmentadas en vuelo: id de peticion -> colector. Sin esto,
+        # la trama ARCHIVO_INICIO completaba la espera de la respuesta y las
+        # PARTES iban al receptor de mensajes, que las descarta (no son burbuja).
+        self._colectores = {}
 
     def conectar(self):
         # Fail-fast ANTES de abrir el puerto plano (paridad con validarTls):
@@ -127,11 +131,27 @@ class ConexionRed:
             req_info['respuesta'] = msg
             req_info['event'].set()
             return
+        # Descarga fragmentada: la parte no pertenece a ningun pendiente vivo,
+        # pero si a un colector enroscado por id.
+        with self.lock:
+            colector = self._colectores.get(str(id_)) if id_ else None
+        if colector is not None:
+            colector.alimentar(msg)
+            return
         if self.on_mensaje_recibido:
             try:
                 self.on_mensaje_recibido(msg)
             except Exception:
                 pass
+
+    def enroscar_fragments(self, id_peticion, colector):
+        """Registra un colector de descarga fragmentada para este id."""
+        with self.lock:
+            self._colectores[str(id_peticion)] = colector
+
+    def desenroscar_fragmentos(self, id_peticion):
+        with self.lock:
+            self._colectores.pop(str(id_peticion), None)
 
     def pedir(self, msg, timeout=TIMEOUT_RESPUESTA_SEG):
         """Envia correlacionando por id y DEVUELVE la respuesta (o eleva)."""

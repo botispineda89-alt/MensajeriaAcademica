@@ -6,7 +6,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from ui.estado_aviso_inline import EstadoAvisoInline
+from ui.estado_aviso_inline import (
+    DURACION_ERROR_MS,
+    DURACION_EXITO_MS,
+    EstadoAvisoInline,
+    TipoAviso,
+    anuncio_de,
+)
 
 
 class PruebasEstadoAvisoInline(unittest.TestCase):
@@ -24,6 +30,63 @@ class PruebasEstadoAvisoInline(unittest.TestCase):
 
         self.assertFalse(aviso.isVisible())
         aviso.close()
+
+    def test_cada_severidad_muestra_su_titulo(self):
+        aviso = EstadoAvisoInline()
+        esperados = {
+            TipoAviso.ERROR: "Error",
+            TipoAviso.ADVERTENCIA: "Atención",
+            TipoAviso.INFORMACION: "Aviso",
+            TipoAviso.EXITO: "Listo",
+        }
+        for tipo, titulo in esperados.items():
+            aviso.mostrar("mensaje", tipo)
+            self.assertEqual(titulo, aviso.etiqueta_titulo.text(), f"título de {tipo}")
+            self.assertIs(tipo, aviso.tipo)
+        aviso.close()
+
+    def test_el_plazo_depende_de_la_severidad(self):
+        aviso = EstadoAvisoInline()
+        for tipo, plazo in ((TipoAviso.EXITO, DURACION_EXITO_MS),
+                            (TipoAviso.ERROR, DURACION_ERROR_MS)):
+            aviso.mostrar("mensaje", tipo)
+            # El temporizador queda armado con el plazo del tipo, no con uno fijo
+            # de 5000 ms como antes.
+            self.assertEqual(plazo, aviso._temporizador.interval())
+        aviso.close()
+
+    def test_el_aviso_se_anuncia_con_titulo_y_mensaje(self):
+        aviso = EstadoAvisoInline()
+        aviso.mostrar("Conexión recuperada.", TipoAviso.EXITO)
+        QTest.qWait(10)
+        self.assertEqual("Listo: Conexión recuperada.",
+                         aviso.accessibleDescription())
+        aviso.close()
+
+    def test_el_mismo_aviso_dos_veces_vuelve_anunciarse(self):
+        aviso = EstadoAvisoInline()
+        aviso.mostrar("No se pudo enviar.", TipoAviso.ERROR)
+        QTest.qWait(10)
+        self.assertEqual("Error: No se pudo enviar.", aviso.accessibleDescription())
+
+        # Un lector de pantalla solo repite si el texto cambia: el mismo error
+        # saltando dos veces (un reintento que vuelve a fallar) debe re-leerse.
+        aviso.mostrar("No se pudo enviar.", TipoAviso.ERROR)
+        self.assertEqual("", aviso.accessibleDescription(), "se limpia antes de repetir")
+        QTest.qWait(10)
+        self.assertEqual("Error: No se pudo enviar.", aviso.accessibleDescription())
+        aviso.close()
+
+    def test_un_texto_vacio_no_abre_el_aviso(self):
+        aviso = EstadoAvisoInline()
+        aviso.mostrar("   ")
+        self.assertFalse(aviso.isVisible())
+        aviso.close()
+
+    def test_el_anuncio_es_igual_en_los_tres_clientes(self):
+        self.assertEqual("Atención: Sin red.", anuncio_de("Sin red.", TipoAviso.ADVERTENCIA))
+        self.assertEqual("Error: No se pudo enviar.",
+                         anuncio_de("No se pudo enviar.", TipoAviso.ERROR))
 
 
 if __name__ == "__main__":

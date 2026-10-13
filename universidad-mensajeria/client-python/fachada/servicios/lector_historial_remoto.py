@@ -4,7 +4,9 @@ import binascii
 import datetime
 import json
 import os
+import uuid
 
+from fachada.servicios.colector_fragmentos import ColectorFragmentos
 from fachada.servicios.respuestas import lanzar_si_error
 from transversal.fechas import a_utc, ahora_utc
 from transversal.tipo_mensaje import TipoMensaje
@@ -32,21 +34,46 @@ class LectorHistorialRemotoCliente:
     def descargar_archivo(self, archivo_id, ruta_destino, on_progreso=None):
             """DESCARGAR_ARCHIVO bajo demanda (Fase 6/§7.2): guarda bytes en disco.
 
-            on_progreso(bytes_escritos, total_bytes) se llama al finalizar la descarga.
-            Retorna ruta_destino escrita.
+            El servidor responde de dos formas (PROTOCOLO.md §5): una sola trama
+            ``DESCARGAR_ARCHIVO_RESPUESTA`` para archivos chicos, y una secuencia
+            ``ARCHIVO_INICIO`` + PARTES + ``ARCHIVO_FIN`` para los de mas de 1 MiB,
+            porque un archivo grande no cabe en una trama de 16 MiB. Antes solo se
+            contemplaba la primera: las partes se descartaban y el archivo se
+            escribia de 0 bytes sin decir nada.
             """
             self._exigir_sesion()
             if archivo_id is None or str(archivo_id).strip() == "":
                 raise RuntimeError("la descarga necesita el identificador del archivo")
-            resp = self.conexion.pedir({
+            peticion = {
                 "tipo": TipoMensaje.DESCARGAR_ARCHIVO,
                 "archivoId": str(archivo_id),
                 "fechaHora": datetime.datetime.now().isoformat()
-            })
-            self._lanzar_si_error(resp, "descarga rechazada",
-                                  ok_tipos=(TipoMensaje.DESCARGAR_ARCHIVO_RESPUESTA,))
-            b64 = resp.get("contenidoImagen") or ""
-            datos = base64.b64decode(b64)
+            }
+            id_peticion = str(uuid.uuid4())
+            # El id lo ponemos aqui, no lo deja generar pedir(): el servidor
+            # responde con este mismo id y el colector esta enroscado por el.
+            peticion["id"] = id_peticion
+            colector = ColectorFragmentos(id_peticion)
+            enrosca = getattr(self.conexion, "enroscar_fragments", None)
+            desenrosca = getattr(self.conexion, "desenroscar_fragmentos", None)
+            if enrosca:
+                enrosca(id_peticion, colector)
+            try:
+                resp = self.conexion.pedir(peticion)
+                self._lanzar_si_error(resp, "descarga rechazada",
+                                      ok_tipos=(TipoMensaje.DESCARGAR_ARCHIVO_RESPUESTA,
+                                                TipoMensaje.ARCHIVO_INICIO))
+                if resp.get("tipo") == TipoMensaje.DESCARGAR_ARCHIVO_RESPUESTA:
+                    datos = base64.b64decode(resp.get("contenidoImagen") or "")
+                else:
+                    colector.fijar_id(id_peticion)
+                    colector.alimentar(resp)
+                    datos = colector.bytes()
+            finally:
+                if desenrosca:
+                    desenrosca(id_peticion)
+            if not datos:
+                raise RuntimeError("el servidor devolvio el archivo vacio")
             with open(ruta_destino, "wb") as f:
                 f.write(datos)
             if on_progreso:

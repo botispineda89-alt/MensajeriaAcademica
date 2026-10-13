@@ -8,6 +8,7 @@ from ui.busqueda_historial_chat import BusquedaHistorialChat
 from ui.chat_view_model import ChatViewModel
 from ui.componentes_chat import EventosChat as _UiEvents, TareaChat as _Task
 from ui.constructor_vista_chat import ConstructorVistaChat
+from ui.estado_aviso_inline import TipoAviso
 from ui.flujo_conversacion_chat import FlujoConversacionChat
 from ui.gestor_adjuntos_chat import GestorAdjuntosChat
 from ui.gestor_salida_sesion_chat import GestorSalidaSesionChat
@@ -256,9 +257,9 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
 
 
 
-    def _aviso_red(self, texto):
+    def _aviso_red(self, texto, tipo=TipoAviso.ERROR):
         """Banner inline para errores de red/descarga (no abre ventanas)."""
-        self.aviso_inline.mostrar(texto)
+        self.aviso_inline.mostrar(texto, tipo)
 
 
 

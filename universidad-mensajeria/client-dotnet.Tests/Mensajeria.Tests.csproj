@@ -33,7 +33,11 @@
     <Compile Include="..\client-dotnet\Store\*.cs" />
     <Compile Include="..\client-dotnet\Composicion\*.cs" />
     <Compile Include="..\client-dotnet\Fachada\Servicios\*.cs" />
-    <Compile Include="..\client-dotnet\Fachada\FachadaCliente.cs" />
+    <!-- Fase 2: la fachada se reparte en parciales (Red, Sesion, Envio,
+         Historial, Mensajes, Soporte). El glob es a proposito: nombrar un solo
+         fichero compilaria el nucleo sin sus parciales y los tests dejarian de
+         ver la fachada completa en silencio. -->
+    <Compile Include="..\client-dotnet\Fachada\FachadaCliente*.cs" />
     <Compile Include="..\client-dotnet\Fachada\IFachadaCliente.cs" />
   </ItemGroup>
 

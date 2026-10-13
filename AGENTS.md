@@ -119,14 +119,18 @@ Notas que se adivinan mal:
   relativo al directorio de trabajo (Python) o a la carpeta del ejecutable (.NET).
 - Tests WPF requieren **SDK 10** aunque la app sea `net8.0-windows`. No hay CI workflows en
   `.github/`; la verificación es local (`contrato/verificar.py`).
-- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-11):
-  JavaFX **280/280** (47 clases, ArchUnit incluida; framing data-driven §5.14), Python **281** (5 omitidas) y .NET **366/366**
+- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-13):
+  JavaFX **299/299** (50 clases, ArchUnit incluida), Python **294** (5 omitidas) y .NET **368/368**
   en verde; build WPF Release 0/0; `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
-  **`contrato/verificar.py` pasó 9/9** y ya sirve como puerta de calidad: la deriva de Python de
-  §5.8 (faltaba `caption` en su `schema-local.sql`) está cerrada.
-- `servidor-app` **no se re-ejecutó** el 2026-10-10; su último registro fechado es el del 2026-10-08:
-  106 casos, **102 en verde y 4 fallos preexistentes** (2 umbrales temporales de `CargaMixtaTest` +
-  2 de `MensajesTest`), ajenos a los cambios de cliente.
+  **`contrato/verificar.py` pasó 9/9** y sirve como puerta de calidad.
+- `servidor-app` solo ejecutó `EntregaCasoPayloadGrandeTest` (4/4) el 2026-10-13; **la suite completa
+  no se re-ejecutó**: su último registro fechado es el del 2026-10-08, 106 casos, **102 en verde y
+  4 fallos preexistentes** (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`), ajenos
+  a los cambios de cliente.
+- **Smoke real (no dobles):** `smoke/smoke_adjunto_20mb.py` levanta dos sesiones TCP contra el
+  servidor de verdad y compara SHA-256. Requiere MySQL arriba y el servidor escuchando en 5000; el
+  servidor **no levanta el puerto solo**: su consola JLine espera `7 Iniciar`, así que hay que
+  redirigirle la entrada (`(echo 7 & ping -t 127.0.0.1 >nul) | java -jar ...`).
 - Los reportes Surefire viven en `target/`, que está en `.gitignore`: en un clon o worktree recién
   hecho **no existen**, así que hay que ejecutarlos o citar el roadmap fechado, no "los reportes
   presentes".
@@ -166,6 +170,8 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 | 16 | **El pie de un adjunto viaja en el `contenido` de la MISMA trama** (`MENSAJE_IMAGEN` / `ARCHIVO_INICIO`) y se guarda en la columna `caption` | Un pie en un segundo mensaje es otra burbuja, y el texto se perdía al enviar una sola imagen sin montaje |
 | 17 | **Formatos de imagen: PNG/JPEG/GIF/BMP, WebP, AVIF, HEIC/HEIF y SVG.** WebP por su firma en el offset 8 (no cualquier `RIFF`), AVIF/HEIC por `ftyp` + marca (no cualquier `ftyp`), SVG por el primer elemento real del documento. AVIF/HEIC/SVG los decodifica ImageMagick, no el JDK. Los 3 clientes los clasifican como imagen y los mandan como `MENSAJE_IMAGEN`; **no reconvierten al enviar** y para pintar llevan el original a PNG (Python: Pillow + QtSvg; .NET: Magick.NET; Java: jsvg + ImageMagick opcional vía im4java) | Un `.wav`/`.avi` también empiezan por `RIFF` y un `.mp4` por `ftyp`; y renombrar el archivo al enviar hacía que quien lo recibiera recibiera otro |
 | 18 | **El icono por tipo de archivo es el MISMO dibujo en los 3 clientes** (`iconos/{pdf,xlsx,csv,json,docs}.png` en los recursos de JavaFX, `ui/iconos/` de Python y `Iconos/` de WPF; el catálogo extensión→icono vive en `IconoArchivo.java`, `transversal/iconos_archivo.py` y `Transversal/IconosArchivo.cs`) y el MISMO tamaño: 48 DIP en burbuja y bandeja, estilo tarjeta de archivo de Telegram Web. Cuando el tipo tiene icono propio, el `📎` genérico del texto **se quita** (doble icono); solo queda para extensiones sin catálogo | Cada distribuidor es independiente y ninguno lee los recursos del otro: cambiar un PNG o una extensión en un solo cliente deja el mismo PDF distinto según quién lo mire, y ninguna suite se entera. `contrato/verificar_iconos.py` compara las 3 copias byte a byte y los 3 catálogos. Trampa WPF: esos lados los consume el XAML con `x:Static` sobre `Width`/`Height`; declarados `int`, WPF no convierte y revienta con `InvalidCastException (Int32→Double)` en `MinMax..ctor` — van como `double` (IconosArchivo.cs) |
+| 19 | **La entrega de un adjunto NO lleva los bytes dentro de la trama.** El servidor manda el `MENSAJE_ARCHIVO` con los bytes en base64 y, si no cabe en 16 MiB (todo lo de más de ~12 MiB), reintenta con la **versión ligera**: mismo mensaje sin `contenidoImagen`, conservando `archivoId`, `nombreArchivo`, `tamanoArchivo`, `hashSha256` y el pie. El receptor baja con `DESCARGAR_ARCHIVO` | Sin el reintento, el codec rechaza la trama y el servidor **expulsa la sesión del destinatario**: un archivo de 20 MiB cerraba la sesión de quien lo recibía. Un cliente no puede asumir que los bytes vienen en línea (`PROTOCOLO.md` §5, roadmap §5.15) |
+| 20 | **Toda descarga tiene que saber reensamblar.** El servidor responde con una trama única si el archivo cabe y con `ARCHIVO_INICIO` + `ARCHIVO_PARTE`\* + `ARCHIVO_FIN` si pasa de 1 MiB; la primera trama completa la espera de la petición y las partes llegan **fuera** de ella. Cada cliente necesita su colector: `ColectorFragmentos` (.NET), el recolector de `GestorAdjuntosChat` (JavaFX) y `fachada/servicios/colector_fragmentos.py` (Python) | Sin colector se escribe un archivo de **0 bytes sin ningún error**: la peor forma de fallar, porque el usuario cree que tiene el archivo (roadmap §5.15) |
 
 ## 6. Trampas verificadas en el código
 
@@ -235,6 +241,17 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 - `Servicios` trata límite `0` como **sin límite**; el pool usa token bucket, no semáforo.
 - `ProtocoloComunicacion.enviar` declara `throws IOException` frente a `throws Exception` de la
   interfaz: *narrowing* legítimo.
+- **Un `javafx.concurrent.Task` solo se ejecuta si el executor lo despacha al hilo de JavaFX**
+  (`executor = Platform::runLater`). Con un executor directo (`Runnable::run`) `call()` no llega a
+  invocarse y la operación no ocurre **sin que salte ningún error**: los tests de
+  `EnviarMensajeComando` vacían la cola de JavaFX antes de afirmar.
+- **Al repartir un code-behind en parciales hay que revisar los `.csproj` que lo enumeran uno a uno.**
+  `client-dotnet.Tests.csproj` nombraba `Fachada\FachadaCliente.cs`; al dividirlo en parciales
+  compilaba el núcleo sin ellos y los tests veían una fachada que no implementaba la interfaz, sin
+  avisar de nada raro. Ahora usa `Fachada\FachadaCliente*.cs`.
+- **Un lector de pantalla no vuelve a leer el mismo texto.** Por eso el aviso inline limpia el texto
+  accesible y lo vuelve a poner en el siguiente pulso (`AvisosInlineChat` en JavaFX,
+  `_anunciar` en Python): si no, el mismo error saltando dos veces seguidas se queda mudo.
 
 ## 7. Cómo trabajar aquí
 

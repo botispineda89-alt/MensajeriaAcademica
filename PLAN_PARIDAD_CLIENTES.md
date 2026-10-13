@@ -737,9 +737,9 @@ tres clientes y sigue pendiente en el tercero:
 | Vista previa local de varias imágenes (sin subir el montaje) | ✅ | ✅ (envía cada original por separado) | ✅ |
 | Texto como pie del adjunto en la misma burbuja (`caption`) | ✅ | ✅ (SQLite, envío y reintentos) | ✅ |
 | Selección/arrastre múltiple con bandeja | ✅ (tope 5) | ✅ (tope 12) | ✅ (tope 12 + `adjuntos.lote-max-mb`) |
-| Progreso por bytes y cancelación del envío | ⬜ | ⬜ | ✅ |
+| Progreso por bytes y cancelación del envío | ✅ (barra + Cancelar, roadmap §5.16) | ✅ | ✅ |
 | Botón de guardar en imágenes | ✅ | ✅ | ✅ |
-| Aviso inline con cierre automático | ✅ | ✅ | ✅ |
+| Aviso inline con cierre automático | ✅ (con severidad y anuncio, §5.17) | ✅ (con severidad y anuncio) | ✅ |
 | `Shift+Enter` = salto de línea | ✅ | ✅ | ✅ |
 | `.webp` como imagen (el servidor ya lo acepta) | ✅ | ✅ (Pillow solo para vista) | ✅ |
 | Preview de la lista por `origen = yo`, "Sin mensajes aún" | ✅ | ✅ | ✅ |
@@ -937,7 +937,7 @@ El objetivo del proyecto se cumple cuando **todo** lo siguiente es cierto:
 
 ## 7. Pendientes consolidados (checkbox)
 
-Estado auditado el 2026-10-11 contra las tres suites (JavaFX 280, .NET 366, Python 281). Ordenado
+Estado auditado el 2026-10-13 contra las tres suites (JavaFX 299, .NET 368, Python 294). Ordenado
 por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
 
 ### Python
@@ -964,34 +964,62 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
   6 vectores + 5 rechazos: byte a byte contra `trama_hex`, ida y vuelta por stream, los 5 rechazos
   en `decodificar` y por stream, tope de trama del contrato y control negativo del bug de
   caracteres. 6 pruebas (15 literales hex fuera del código). Roadmap §5.14 cerrado.
-- [ ] Smoke visual formal del plan de arquitectura archivado: queda ejecutar y marcar
+- [ ] Smoke visual formal del plan de arquitectura archivado: falta ejecutar y marcar
   `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` (creado el 2026-10-11, espejo del de Python).
+  Requiere una sesión con el cliente abierto; no se puede cerrar desde la suite.
 - [x] ArchUnit reglas 4–5: añadir los 5 colaboradores de presentación nacidos en octubre
   (`PlanEnvioAdjuntos`, `EstadoAvisoInline`, `TecladoCompositor`, `NavegadorCitaChat`,
   `MontajeImagenes`). **Hecho el 2026-10-11** (las reglas enumeran ya las 13 clases; ArchUnit 6/6).
-- [ ] `ChatController` (545 líneas tras extraer `AvisosInlineChat` y `ConfiguradorCeldasChat` el 2026-10-11; el lote de octubre aún devolvió cableado): queda la navegación de cita y el resto del cableado hacia ≤ 350.
+  **2026-10-13**: reglas 4 y 5 ampliadas también a los 9 colaboradores nuevos de §5.16 (ArchUnit 6/6).
+- [x] `ChatController` hacia ≤ 350 ✅ **2026-10-13**: **191 líneas** (físicas, no no-vacías; el 570
+  original era casi todo cableado). Salieron `CompositorChat`, `CambioConversacionChat`,
+  `ConfiguradorVistaChat`, `ReceptorEventosChat`, `PresentadorEstadoConexionChat`,
+  `BarraProgresoEnvioChat`, `ChatComponentes` (composition root) y `NodosChat`. El controlador queda
+  como adaptador FXML puro. Roadmap §5.16.
 - [x] **Progreso y cancelación a nivel comando** ✅ 2026-10-11 — `EnviarMensajeComando` acepta
   `alProgreso` (Consumer<String>, por Platform.runLater) y `cancelar()` (volátil, consultado entre
-  envíos del lote). El cableado de la UI (botón Cancelar en FXML + barra de progreso) queda
-  pendiente junto con la extracción restante hacia ≤ 350.
+  envíos del lote).
+- [x] **Progreso y cancelación en la UI** ✅ **2026-10-13** — `barraProgresoEnvio` en `chat.fxml`
+  (`ProgressBar` + «Enviando i/n · X,0/Y,0 MB · nombre» + «Cancelar envío»), `BarraProgresoEnvioChat`
+  como cableado y `ProgresoEnvio`/`AgregadorProgreso` como modelo por bytes (espejo de
+  `Transversal/ProgresoEnvio.cs`). **Cancelar devuelve a la bandeja lo no enviado** (`restantes()` →
+  `agregarAdjuntos`), igual que Python y .NET. Pruebas: `AgregadorProgresoTest` (8),
+  `EnvioLoteCancelacionTest` (5). Trampa anotada: un `javafx.concurrent.Task` solo se ejecuta si el
+  executor lo despacha al hilo de JavaFX. Roadmap §5.16.
 
 ### .NET
 
-- [ ] Fase 2 abierta: `ChatWindow.xaml.cs` sigue por encima del objetivo (≈1.4k líneas) y faltan
-  puertos/colaboradores de la arquitectura por capas.
-- [ ] Aviso inline unificado con severidad (Información/Éxito/Error) y anuncio dinámico (§3.3).
+- [x] Fase 2 abierta: ✅ **2026-10-13** — `ChatWindow.xaml.cs` bajó de **1 973 a 191 líneas** y
+  `FachadaCliente.cs` de **960 a 218**, repartidos en 11 + 6 parciales por responsabilidad (mayor
+  parcial: 309). Dos reglas nuevas en `ArquitecturaTests.cs` lo impiden: ningún `.cs` de `Views/`
+  supera 400 líneas y los parciales del chat existen. Al dividir `FachadaCliente` hubo que arreglar
+  el `.csproj` de los tests, que enumeraba un solo fichero. Los puertos y `Composicion/FabricaCliente`
+  ya estaban desde el 2026-10-08. Roadmap §5.18.
+- [x] Aviso inline unificado con severidad (Información/Éxito/Error) y anuncio dinámico (§3.3).
+  ✅ **2026-10-13**: los tres clasifican igual (Error / Atención / Aviso / Listo, plazos 4/6/8/12 s) y
+  los tres anuncian los cambios: WPF con `LiveSetting="Polite"`, Qt con `setAccessibleDescription`,
+  JavaFX reescribiendo el texto accesible (limpia y vuelve a poner, o el mismo aviso dos veces se
+  queda mudo). Antes Python tenía un rótulo plano de 5 s sin severidad. Roadmap §5.17.
 
 ### Los 3
 
-- [x] Smoke real de interoperabilidad con **adjunto de 20 MiB** en la matriz de 6 direcciones
-  (criterio de salida de la Fase 1; el fragmentado está implementado y probado contra dobles).
+- [x] Smoke real de interoperabilidad con **adjunto de 20 MiB** en la matriz de 6 direcciones.
+  Ejecutado de verdad el **2026-10-13** con `smoke/smoke_adjunto_20mb.py` (dos sesiones TCP contra el
+  servidor, 20 MiB no comprimibles, SHA-256 por delante): **A→B y B→A cuadran byte a byte**. La
+  ejecución encontró tres defectos que la evidencia contra dobles no veía —el servidor mataba la
+  sesión del destinatario con un adjunto grande, Python escribía 0 bytes al descargar de más de
+  1 MiB, y el historial remoto no devuelve `archivoId` de los mensajes propios (este último sigue
+  abierto)—. Roadmap §5.15.
 - [x] Reempaquetar y **reiniciar el servidor**: el jar en `target` es anterior al Informe 3 DESC
-  (roadmap §5.12) y a los guardias de cliente.
+  (roadmap §5.12) y a los guardias de cliente. **2026-10-13**: reempaquetado otra vez con la entrega
+  ligera (§5.15) y arrancado para el smoke; el jar es el que se distribuye.
 - [ ] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
-  paleta).
-- [ ] Fase 5: paridad de pruebas (Python ≥ 174 y .NET ≥ 174 casos ya se superan de facto: 278 y
-  366; falta el inventario cruzado de capacidades sin test).
+  paleta). **Sigue abierta**: no existen ni el guion ni el comparador, y capturing exige una sesión
+  con los tres clientes a la vez (2 temas × 12 escenarios × 3 clientes). Es trabajo de sesión, no de
+  suite; conviene abordarlo con `pyside6.launch_app` para Python y a mano para JavaFX y WPF.
+- [ ] Fase 5: paridad de pruebas (Python ≥ 174 y .NET ≥ 174 casos ya se superan de facto: 294 y
+  368; falta el inventario cruzado de capacidades sin test).
 - [x] Fase 6: `distribuir-todos.cmd` creado ✅ 2026-10-11 (universidad-mensajeria/distribuir-todos.cmd), con los assets idénticos (fondos, `schema-local.sql`,
   `client.properties`, `iconos/`) y actualizar los documentos cruzados.
-- [x] `contrato/verificar.py` en cada cierre de lote ✅ 2026-10-11: **9/9 pasos, exit 0** tras este
-  lote (JavaFX 280 en 47 clases, Python 281, .NET 366, build WPF limpio).
+- [x] `contrato/verificar.py` en cada cierre de lote ✅ **2026-10-13**: **9/9 pasos, exit 0**
+  (JavaFX 299 en 50 clases, Python 294 con 5 omitidas, .NET 368, build WPF limpio).

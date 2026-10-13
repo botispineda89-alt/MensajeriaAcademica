@@ -60,18 +60,19 @@ ejecutados: su contenido único quedó en el diario y no se vuelven a abrir.
 
 ## 1. Estado actual por componente
 
-| Componente | Estado registrado | Evidencia disponible al 2026-10-11 |
+| Componente | Estado registrado | Evidencia disponible al 2026-10-13 |
 |---|---|---|
-| `servidor-app` | ⚠️ **No re-ejecutado hoy**; último registro fechado con 4 fallos preexistentes | Surefire del 2026-10-08: 106 casos, 102 en verde; los 4 fallos son ajenos a los cambios de cliente (2 umbrales temporales de `CargaMixtaTest`, 2 de `MensajesTest`). No hay ejecución nueva de esta revisión. |
-| `contrato/verificar.py` | ✅ **Ejecutado 2026-10-11** | **9/9 pasos OK, exit 0**: tokens (--check), estado-mensaje, puertos, suite de contrato, iconos, suite JavaFX, suite Python, build WPF y suite .NET. Es la puerta de calidad vigente. |
-| Cliente JavaFX | ✅ **Ejecutado 2026-10-11** | `mvn -pl client/client-app -am test`: **280/280** en **47 clases**, 0 fallos (paso 6 de `verificar.py`). El test de framing se reescribió data-driven (§5.14: 15 literales → 6 pruebas que leen `contrato/framing.json`). Incluye ArchUnit 6/6 (con los 5 colaboradores nuevos), `IconoArchivoTest`, el guardia de 12 MB en `ValidacionClienteTest` y `TranscodificadorImagenTest`. |
+| `servidor-app` | ✅ **Ejecutado 2026-10-13** (solo `EntregaCasoPayloadGrandeTest` 4/4; suite completa sigue con el registro del 2026-10-08) | Surefire del 2026-10-08: 106 casos, 102 en verde; los 4 fallos son ajenos a los cambios de cliente (2 umbrales temporales de `CargaMixtaTest`, 2 de `MensajesTest`). La suite completa **no** se re-ejecutó en el lote del 2026-10-13; lo que sí pasó es el test nuevo de la entrega ligera (§5.15). |
+| `contrato/verificar.py` | ✅ **Ejecutado 2026-10-13** | **9/9 pasos OK, exit 0**: tokens (--check), estado-mensaje, puertos, suite de contrato, iconos, suite JavaFX, suite Python, build WPF y suite .NET. Es la puerta de calidad vigente. |
+| Cliente JavaFX | ✅ **Ejecutado 2026-10-13** | `mvn -pl client/client-app -am test`: **299/299** en **50 clases**, 0 fallos (paso 6 de `verificar.py`). +19 por la barra de progreso con cancelación (§5.16), los 9 colaboradores nuevos de `ChatController`/`ChatComponentes` y la regla de tamaño. |
 | `server/utilerias` | ✅ **Ejecutado 2026-10-10** | Surefire: **15/15**, 0 fallos, incluidos `ImagenMagicaTest` y `ImagenWebpTest` tras el soporte WebP (§5.5). |
 | `common-protocol/codec` | ✅ **Ejecutado 2026-10-10** | Surefire: **7/7**, 0 fallos. |
 | Adaptadores del servidor (`comp-*`) | ✅ Último registro fechado | Surefire del 2026-10-08: 48 casos sin fallos. No re-ejecutados hoy. |
-| Python | ✅ **Ejecutado 2026-10-11** | `python -m unittest discover -s tests`: **281 pruebas, 0 fallos, 5 omitidas** (pasos 7 de `verificar.py`; 24 nuevas por los tres bugs del smoke, FORMATOS-01/02, iconos y la reparación de caché, §5.10–§5.14). Los tres bugs los confirmó el usuario con la app real: historial propio visible de nuevo, fondo ilustrado pintando en ambos temas y sin bucle de reconexión. |
-| .NET tests | ✅ **Ejecutado 2026-10-11** | `dotnet test client-dotnet.Tests/Mensajeria.Tests.csproj`: **366/366**, 0 fallos, 0 omitidos (paso 9 de `verificar.py`). Antes del lote de octubre eran 272. Incluye `IconosArchivoTests`, `CatalogoAdjuntosTests` con los formatos amplios y `TranscodificadorImagenTests` con AVIF/SVG reales vía Magick.NET. |
-| WPF build | ✅ **Ejecutado 2026-10-11** | `dotnet build client-dotnet/Mensajeria.csproj -c Release`: **0 advertencias y 0 errores** (paso 8 de `verificar.py`, configuración Debug; el Release se validó aparte). `dotnet publish` verificado con las nativas de Skia. |
-| `contrato/verificar_puertos.py` | ✅ **Ejecutado 2026-10-11** | OK (exit 0, paso 3 de `verificar.py`): 23 puertos, **202 métodos**, 28 valores de `TipoMensajeCliente`, 4 textos de `EstadoConexion`. Las 11 firmas del lote se registraron sin cambiar semántica de protocolo. |
+| Python | ✅ **Ejecutado 2026-10-13** | `python -m unittest discover -s tests`: **294 pruebas, 0 fallos, 5 omitidas** (paso 7 de `verificar.py`). +13 por la severidad y el anuncio del aviso inline (§5.17) y el colector de descarga fragmentada (§5.15). |
+| .NET tests | ✅ **Ejecutado 2026-10-13** | `dotnet test client-dotnet.Tests/Mensajeria.Tests.csproj`: **368/368**, 0 fallos, 0 omitidos (paso 9 de `verificar.py`). +2 reglas de arquitectura: tamaño de los parciales de la vista y su reparto por responsabilidad (§5.18). |
+| WPF build | ✅ **Ejecutado 2026-10-13** | `dotnet build client-dotnet/Mensajeria.csproj -c Release`: **0 errores y 0 advertencias** (paso 8 de `verificar.py`). |
+| `contrato/verificar_puertos.py` | ✅ **Ejecutado 2026-10-13** | OK (exit 0, paso 3 de `verificar.py`): 23 puertos, **202 métodos**, 28 valores de `TipoMensajeCliente`, 4 textos de `EstadoConexion`. |
+| Smoke real de 20 MiB | ✅ **Ejecutado 2026-10-13** | `smoke/smoke_adjunto_20mb.py` contra el servidor real: **A→B y B→A cuadran byte a byte (SHA-256)**. Encontró y documentó tres defectos (§5.15). |
 | WPF / cliente Java publicados, contenedor y carga | ✅ Verificación histórica | Las pruebas de distribución, arranque, contenedor y carga corresponden a los hitos fechados más abajo; revisar su fecha/entorno antes de repetir en otro PC. |
 | `server/servidor-app` | 🔴 **Bug abierto: subida duplicada** | Ver §5.7. Mandar dos veces la misma imagen reventa el `insert` (`archivos.ruta` única) y **se pierde el mensaje**. Es del servidor y sigue abierto. |
 
@@ -660,6 +661,82 @@ contra `trama_hex` + ida y vuelta por stream + control negativo del bug de carac
 rechazos en `decodificar` y por el stream (aceptando `CodecException` o el corte de stream que la
 trama incompleta produce). 6 pruebas; los 15 literales hex salieron del código. La paridad de framing
 ya es mecánica en los 3 clientes.
+
+### 5.15 Smoke real de 20 MiB: tres defectos de entrega y descarga — ✅ dos cerrados, 🔴 uno abierto
+
+La casilla de §7 del plan de paridad marcaba la matriz de 6 direcciones como hecha, pero la evidencia
+solo era "implementado y probado contra dobles". El smoke real (`smoke/smoke_adjunto_20mb.py`, dos
+sesiones TCP contra el servidor de verdad, 20 MiB **no comprimibles** y comparación de SHA-256)
+destapó tres cosas:
+
+**a) El servidor mataba la sesión de quien recibía un adjunto grande — cerrado.**
+`EntregaCaso.entregar` mandaba el `MENSAJE_ARCHIVO` entero en una trama, con los bytes en base64
+dentro de `contenidoImagen`. Un archivo de 20 MiB son 27 962 406 bytes de payload y la trama vive de
+16 MiB: el codec lo rechazaba y el servidor **expulsaba la sesión del destinatario** (log:
+`No se pudo entregar a 160004716: Payload de 27962406 bytes excede el maximo de 16777216` +
+`Sesion eliminada`). El mismo fallo pasaba con el eco multi-PC, que se perdía en silencio.
+Ahora, si la trama no cabe, se reintenta con la **versión ligera** (mismo mensaje sin
+`contenidoImagen`, conservando `archivoId`, `nombreArchivo`, `tamanoArchivo`, `hashSha256` y el pie)
+y **solo se expulsa la sesión si tampoco cabe esa**. El receptor baja los bytes con
+`DESCARGAR_ARCHIVO`. Pruebas: `EntregaCasoPayloadGrandeTest` (4 casos). El `PROTOCOLO.md` §5
+documenta la regla.
+
+**b) Python escribía un archivo de 0 bytes al descargar cualquier cosa de más de 1 MiB — cerrado.**
+`descargar_archivo` solo entendía la trama única `DESCARGAR_ARCHIVO_RESPUESTA`. El servidor, para
+más de 1 MiB, responde `ARCHIVO_INICIO` + `ARCHIVO_PARTE`\* + `ARCHIVO_FIN`: la primera trama
+completaba la espera de la petición y las partes llegaban fuera, así que se escribía un archivo vacío
+**sin ningún error** (Java y .NET ya tenían colector). Añadido `ColectorFragmentos`
+(`fachada/servicios/colector_fragmentos.py`) y el enroscado por id en `ConexionRed`, más un fallo
+explícito si el servidor devuelve el archivo vacío. 7 pruebas nuevas
+(`test_colector_fragmentos.py`).
+
+**c) El historial remoto no devuelve `archivoId` de los mensajes propios — 🔴 abierto.** En A→A el
+servidor no hace eco a la sesión que originó el envío (ella ya correlaciona su ACK, por diseño), así
+que el adjunto propio llega por la página remota; ahí la fila se queda sin `archivoId` y **quien se
+envía un archivo a sí mismo no puede descargarlo**. El smoke lo reporta como `DEUDA` y no falla por
+ello. Pendiente: revisar `HistorialCaso`/`AutenticarCaso` para los mensajes propios y la fusión del
+cliente (`buscar_equivalente`). No es una regresión de este lote.
+
+### 5.16 JavaFX: progreso por bytes y cancelación en la UI — ✅ cerrado 2026-10-13
+
+El comando ya aceptaba `alProgreso`/`cancelar()`, pero no había ni barra ni botón: la capacidad
+figuraba como ausente en la matriz de paridad. Ahora hay `barraProgresoEnvio` en `chat.fxml`
+(`ProgressBar` + etiqueta + "Cancelar envío"), `BarraProgresoEnvioChat` como cableado JavaFX,
+`ProgresoEnvio`/`AgregadorProgreso` como modelo por bytes (espejo de `Transversal/ProgresoEnvio.cs`) y
+`EnviarMensajeComando.restantes()` para que **lo cancelado vuelva a la bandeja** en vez de perderse.
+Granularidad documentada: .NET y Python reciben un aviso por cada parte del fragmentado; Java informa
+al cerrar cada adjunto, porque exponer ese callback tocaría `client-interfaces` y el contrato de
+puertos. Pruebas: `AgregadorProgresoTest` (8) y `EnvioLoteCancelacionTest` (5).
+
+**Trampa documentada:** un `javafx.concurrent.Task` **solo se ejecuta si el executor lo despacha al
+hilo de JavaFX**. Con un executor directo, `call()` no llega a invocarse y el envío no ocurre sin que
+salte ningún error; los tests de `EnviarMensajeComando` usan `Platform::runLater` y vacían la cola.
+
+### 5.17 Aviso inline con severidad y anuncio dinámico en JavaFX y Python — ✅ cerrado 2026-10-13
+
+Python tenía un rótulo plano de 5 s sin severidad ni título; JavaFX tenía severidad pero no anunciaba
+los cambios. Ahora los tres clasifican igual (Error / Atención / Aviso / Listo, con los mismos plazos
+4/6/8/12 s) y los tres **anuncian**: WPF con `LiveSetting="Polite"`, Qt con
+`setAccessibleDescription` y JavaFX reescribiendo el texto accesible del contenedor. El truco es el
+mismo en Qt y JavaFX y está comentado en ambos: un lector de pantalla no vuelve a leer lo mismo, así
+que el texto se limpia y se vuelve a poner, o el mismo error saltando dos veces se quedaría mudo.
+Pruebas: `AvisosInlineChatTest` (+5 en JavaFX) y `test_estado_aviso_inline.py` (7 en Python).
+
+### 5.18 .NET Fase 2: code-behind repartido en parciales — ✅ cerrado 2026-10-13
+
+`ChatWindow.xaml.cs` (1 973 líneas) y `FachadaCliente.cs` (960) eran los dos archivos que impedían
+cerrar el objetivo de < 400 líneas. Repartidos por responsabilidad, sin tocar una línea de lógica:
+
+| Antes | Después | Parciales |
+|---|---|---|
+| `ChatWindow.xaml.cs` (1 973) | **191** | Estado, Sesion, Eventos, Vista, Contactos, Historial, Scroll, Navegacion, Busqueda, Adjuntos, Envio |
+| `FachadaCliente.cs` (960) | **218** | Red, Sesion, Envio, Historial, Mensajes, Soporte |
+
+El mayor parcial se queda en 309 líneas. Dos reglas nuevas en `ArquitecturaTests.cs` lo impiden
+regresar: ningún `.cs` de `Views/` supera 400 líneas, y los parciales del chat existen todos. La
+división de `FachadaCliente` obligó también a corregir el `.csproj` de los tests, que enumeraba un
+solo `FachadaCliente.cs`: compilaba el núcleo sin sus parciales y la fachada "desaparecía" en
+silencio de los tests.
 
 ---
 

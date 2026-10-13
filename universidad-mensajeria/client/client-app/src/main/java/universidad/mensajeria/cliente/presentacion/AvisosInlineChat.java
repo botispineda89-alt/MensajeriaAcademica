@@ -7,6 +7,8 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.HBox;
 import javafx.util.Duration;
 
+import java.util.function.Consumer;
+
 /**
  * UIX-26/PAT-VM: cableado JavaFX del aviso inline del chat — pintar, cerrar y el
  * reloj que lo retira solo.
@@ -27,12 +29,19 @@ final class AvisosInlineChat {
     private final Label titulo;
     private final Label texto;
     private final EstadoAvisoInline estado = new EstadoAvisoInline();
+    /** Sega de anuncio: por defecto escribe el texto accesible del contenedor. */
+    private final Consumer<String> anuncio;
     private Timeline reloj;
 
     AvisosInlineChat(HBox contenedor, Label titulo, Label texto) {
+        this(contenedor, titulo, texto, null);
+    }
+
+    AvisosInlineChat(HBox contenedor, Label titulo, Label texto, Consumer<String> anuncio) {
         this.contenedor = contenedor;
         this.titulo = titulo;
         this.texto = texto;
+        this.anuncio = anuncio;
     }
 
     /** Muestra un aviso que se quita solo. Llega del hilo de red: salta a JavaFX. */
@@ -42,12 +51,43 @@ final class AvisosInlineChat {
                 return;
             }
             estado.mostrar(mensaje, tipo, System.currentTimeMillis());
-            titulo.setText(tituloDe(tipo));
+            String encabezado = tituloDe(tipo);
+            titulo.setText(encabezado);
             texto.setText(estado.mensaje());
             contenedor.setVisible(true);
             contenedor.setManaged(true);
+            anunciar(anuncioDe(encabezado, estado.mensaje()));
             arrancarReloj();
         });
+    }
+
+    /**
+     * Anuncia el aviso a quien use un lector de pantalla.
+     * <p>
+     * JavaFX no tiene equivalente de {@code LiveSetting} de WPF: lo más cerca es
+     * reescribir el texto accesible del contenedor. Y hay un detalle que solo se
+     * ve al usarlo: un lector de pantalla <b>no vuelve a leer lo mismo</b>, así
+     * que el mismo error saltando dos veces seguidas (un reintento que vuelve a
+     * fallar) se quedaría mudo. Por eso se limpia primero y se vuelve a poner en
+     * el siguiente pulso; en Qt se hace el mismo truco.
+     * </p>
+     */
+    private void anunciar(String anuncio) {
+        escribirAccesible("");
+        Platform.runLater(() -> escribirAccesible(anuncio));
+    }
+
+    private void escribirAccesible(String valor) {
+        if (anuncio != null) {
+            anuncio.accept(valor);
+        } else if (contenedor != null) {
+            contenedor.setAccessibleText(valor);
+        }
+    }
+
+    /** Lo que se lee en voz alta: el título da el tono sin depender del color. */
+    static String anuncioDe(String titulo, String mensaje) {
+        return titulo + ": " + mensaje;
     }
 
     /** Quita el aviso ya: por aquí pasan el ✕ y el plazo vencido. */
@@ -58,6 +98,7 @@ final class AvisosInlineChat {
             contenedor.setVisible(false);
             contenedor.setManaged(false);
         }
+        escribirAccesible("");
     }
 
     private void arrancarReloj() {

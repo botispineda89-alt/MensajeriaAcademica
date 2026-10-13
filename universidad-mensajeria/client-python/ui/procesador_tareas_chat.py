@@ -3,6 +3,10 @@
 from pathlib import Path
 
 from PySide6.QtGui import QPixmap
+
+from ui.estado_aviso_inline import TipoAviso
+
+
 class ProcesadorTareasChat:
     def _procesar_tarea(self, tipo, resultado, error):
         if self._cerrando:
@@ -38,7 +42,7 @@ class ProcesadorTareasChat:
             elif tipo == "historial_remoto":
                 self.lbl_presencia.setText("Mostrando historial local")
             elif tipo == "kick_otras":
-                self._aviso_red(f"No se pudo expulsar: {error}")
+                self._aviso_red(f"No se pudo expulsar: {error}", TipoAviso.ERROR)
             return
 
         if tipo == "directorio":
@@ -143,9 +147,14 @@ class ProcesadorTareasChat:
                 if texto_devuelto:
                     self.entry_msg.setPlainText(texto_devuelto)
                 self._aviso_red(
-                    f"Envío cancelado: {len(restantes)} adjuntos volvieron a la bandeja.")
+                    f"Envío cancelado: {len(restantes)} adjuntos volvieron a la bandeja.",
+                    TipoAviso.ADVERTENCIA)
             elif avisos:
-                self._aviso_red("\n".join(avisos))
+                # La lista mezcla fallos duros con "quedó en cola para reintentar":
+                # si hay alguno duro, el aviso sube a error; si no, es informativo.
+                hay_fallo = any("No se pudo" in aviso for aviso in avisos)
+                self._aviso_red("\n".join(avisos),
+                                TipoAviso.ERROR if hay_fallo else TipoAviso.INFORMACION)
             self._solicitar_historial(usuario, 0)
             # Mi envío también es "último mensaje": la tarjeta sube arriba.
             self._programar_refresco_recientes()
@@ -184,4 +193,5 @@ class ProcesadorTareasChat:
                 mensaje["descargando"] = False
                 mensaje["descargado_ruta"] = ruta_guardada
                 self._modelo_mensajes.refrescar(mensaje_id)
-            self.aviso_inline.mostrar(f"Archivo guardado en: {ruta_guardada}")
+            self.aviso_inline.mostrar(f"Archivo guardado en: {ruta_guardada}",
+                                    TipoAviso.EXITO)
