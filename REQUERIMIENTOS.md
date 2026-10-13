@@ -107,6 +107,8 @@ El sistema se compone de dos aplicaciones:
 | **RF-S16** | Cada filtro genera una **nueva imagen**, que debe **almacenarse**. | Obligatorio |
 | **RF-S17** | Los filtros se ejecutan **secuencialmente**. | Obligatorio |
 | **RF-S33** | El procesamiento de texto e imagen se implementa como una **tubería de filtros (*Pipes & Filters*)**, con etapas independientes y reutilizables. | Extra |
+| **RF-S59** | Los formatos de imagen aceptados son **PNG, JPEG, GIF, BMP y WebP**. La validación se hace por **magic bytes** (para WebP, la firma `WEBP` en el offset 8, de modo que un `.wav` o un `.avi` se rechacen) y la tubería **decodifica** lo que la validación deja pasar. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.6). | Obligatorio |
+| **RF-S60** | Subir **dos veces el mismo archivo con el mismo propietario no pierde el mensaje**: la clave `archivos.ruta` es única y hoy esa resubida revienta el `insert`. **Abierto** (`ESTADO_ROADMAP.md` §5.7). | Obligatorio |
 
 ### 3.5 Persistencia y logs
 
@@ -194,8 +196,8 @@ El sistema se compone de dos aplicaciones:
 |---|---|---|
 | **RF-C03** | El cliente debe permitir **intercambiar mensajes (texto o archivos)** con un **usuario específico**. | Obligatorio |
 | **RF-C09** | La interfaz de envío tiene **un único botón "Enviar"**. **No existe un botón independiente de "Enviar imagen"**. | Ajuste |
-| **RF-C10** | La caja de redacción incluye un **campo de texto** y una **acción para adjuntar una imagen** (con vista previa y opción de quitarla). Adjuntar no envía por sí mismo; el envío siempre lo hace el botón "Enviar". | Ajuste |
-| **RF-C11** | El botón "Enviar" permite enviar **solo texto**, **solo imagen** (sin texto) o **texto e imagen** juntos. Si hay texto e imagen, se envían como dos mensajes consecutivos al mismo destinatario (uno de tipo texto y otro de tipo imagen). | Ajuste |
+| **RF-C10** | La caja de redacción incluye un **campo de texto** y una **acción para adjuntar una imagen** (con vista previa y opción de quitarla). Adjuntar no envía por sí mismo; el envío siempre lo hace el botón "Enviar". Ampliado 2026-10-10: la acción admite **varios adjuntos por operación** (selección y arrastre múltiple) en al menos un cliente, y el resto acepta uno. | Ajuste |
+| **RF-C11** | El botón "Enviar" permite enviar **solo texto**, **solo imagen** (sin texto) o **texto e imagen** juntos. **Si hay texto e imagen, forman un único mensaje**: el texto viaja como **pie del adjunto** en la misma trama y en la misma burbuja. Sustituye a la redacción anterior ("dos mensajes consecutivos"), que dejó de cumplirse en 2026-10-10 porque el texto se perdía al enviar una sola imagen. | Ajuste |
 | **RF-C12** | El botón "Enviar" permanece **deshabilitado** cuando no hay texto ni imagen adjunta, y no se envían mensajes vacíos. | Ajuste |
 | **RF-C13** | Tras el envío, el campo de texto y la imagen adjunta se **limpian**. El mensaje aparece en la conversación con su estado (enviado / error). | Ajuste |
 | **RF-C14** | El cliente permite emitir un **mensaje a toda la comunidad** conectada. | Extra |
@@ -223,6 +225,11 @@ El sistema se compone de dos aplicaciones:
 | **RF-C29** | Las imágenes del historial se pueden **ampliar con zoom y desplazamiento**, y se pueden **cancelar** las cargas que salen de vista. Añadido 2026-10-05 (`UIX-08`, `UIX-09`). | Ajuste |
 | **RF-C30** | Los clientes ofrecen **agrupación de mensajes consecutivos** (el remitente no se repite en una racha) y **separadores de día**. Añadido 2026-10-05 (`UIX-05`, `UIX-04`). | Extra |
 | **RF-C31** | Las listas largas se muestran **virtualizadas**. Añadido 2026-10-05 (`UIX-01`). | Ajuste |
+| **RF-C32** | Al enviar **varias imágenes** en una operación, el cliente las compone en un montaje y las entrega como **una sola burbuja**; el texto, si lo hay, es el pie de esa burbuja. Los documentos no se componen y siguen yendo en mensajes propios. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
+| **RF-C33** | Los envíos de archivos grandes son **secuenciales** por el protocolo fragmentado (`ARCHIVO_INICIO` → N×`ARCHIVO_PARTE` → `ARCHIVO_FIN`, una parte en vuelo y `ACK` por parte), con progreso ponderado por bytes y cancelación cooperativa. Cancelar no deja pendientes en la cola offline; un fallo de transporte encola solo el adjunto fallido. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.4). | Obligatorio |
+| **RF-C34** | El servidor acepta como imagen **PNG, JPEG, GIF, BMP y WebP** (validación por *magic bytes*, con la firma `WEBP` en el offset 8) y la tubería de filtros **decodifica** lo que la validación deja pasar. Los clientes envían el archivo **sin renombrar ni convertir**; convertir a PNG, si lo hacen, es solo para representarlo. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.6). | Obligatorio |
+| **RF-C35** | Las imágenes recibidas se pueden **guardar en el equipo**: el archivo entregado es el **original**, no la copia de visualización. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
+| **RF-C36** | Los avisos recuperables (envío correcto, fallo, pérdida y recuperación de red) se muestran en una banda sobre el chat y **se retiran solos** con plazos por tipo; también se pueden cerrar manualmente. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
 
 El contrato anterior es independiente de lenguaje y toolkit: cada UI implementa las mismas
 capacidades mediante su fachada y conserva el protocolo TCP común. Java usa H2 por cuenta; Python y
@@ -366,7 +373,8 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 | Arquitectura y diseño | RNF-01, RNF-02, RNF-10, PD-01 a PD-13 |
 | **Arquitectura continua de todo el proyecto** | **RNF-21, PD-14** |
 | **Autorización de tramas** | **RF-S34, RF-S35, PD-02** |
-| **Calidad de la interfaz** | RF-C23 a RF-C31, RNF-17, RNF-18, RNF-19, PD-09, PD-10, PD-11 |
+| **Calidad de la interfaz** | RF-C23 a RF-C31, RF-C35, RF-C36, RNF-17, RNF-18, RNF-19, PD-09, PD-10, PD-11 |
+| **Adjuntos, montaje y formatos** | **RF-C10, RF-C11, RF-C32, RF-C33, RF-S59, RF-S60** |
 | **Persistencia local intercambiable** | PD-13, RNF-04 |
 | **Transporte TCP/TLS** | RNF-03, RNF-13, PD-12 |
 | **Higiene del código** | **RNF-16** |
@@ -374,7 +382,7 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 
 > Los IDs en **negrita** corresponden a cambios recientes: los puntos 11–15 se añadieron el
 > **2026-10-05** en la ronda de auditoría y el punto 16 el **2026-10-06** para la consola
-> administrativa ([`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md)). Nota sobre numeración:
+> administrativa ([`docs/archivo/ANALISIS_TECNICO-historico.md`](../docs/archivo/ANALISIS_TECNICO-historico.md)). Nota sobre numeración:
 > `RF-S34` y `RF-S35` son
 > **nuevos** y se solapan con el rango histórico `RF-S34..RF-S38` de §3.7 (interfaz de consola).
 > Conviene renumerar en la siguiente versión del documento; mientras tanto, la desambiguación es
@@ -406,3 +414,4 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 | **18** | **Sesión B vista administrativa 2026-10-07.** Conectados con `Nombre Apellidos [código]` y sync lista↔combo; confirmación Sí/No al desconectar; Usuarios centrado; ficha Mensajes con paridad (filtro local, detalle, divisor, selección por id); Informes manual sin auto-refresh con conservación de fila | **RF-S51, RF-S52, RF-S54, RF-S55, RF-S58** |
 | **19** | **Cierre de parciales y fidelidad 2026-10-08.** Bloque uniforme multilínea en consola con rutas de derivadas en IMAGEN; IP viva del destinatario en tabla y detalle de Mensajes; las 5 lecturas de casos de uso pasan por E10 (`InterfazMensajes`, pass-throughs sin flechas ni métodos netos nuevos) con candado en `DiagramaFidelidadTest` | **RF-S36, RF-S53** |
 | **20** | **Deuda SOLID/Clean Code saldada 2026-10-08.** `DifusionCaso` + `EntregaCaso` extraídos de la fachada (FachadaDeServicios 901→650); despacho de cola por tabla `EnumMap` en vez de `switch`; pool de entrega creado por `Fabrica`; `DetalleMensaje` extraído a clase propia (VistaEscritorio 1699→1418); fallback 50 MB unificado en `LimitesDTO.TAMANO_MAXIMO_POR_DEFECTO`. Diagrama intacto: 0 flechas y 0 métodos netos nuevos | **PD-04, RNF-16** |
+| **21** | **Lote de clientes 2026-10-10/11.** El texto escrito junto a un adjunto pasa a ser el **pie de la misma burbuja** (cambia `RF-C11`); varias imágenes salen en una sola burbuja por montaje; el envío fragmentado es secuencial con progreso por bytes y cancelación que no deja pendientes; los avisos se retiran solos; las imágenes se pueden guardar en su formato original; y el servidor acepta **WebP** de punta a punta. Se declara además `RF-S60` para el defecto **abierto** de resubida duplicada | **RF-C11, RF-C32, RF-C33, RF-C35, RF-C36, RF-S59, RF-S60** |

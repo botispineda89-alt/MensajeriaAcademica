@@ -56,5 +56,23 @@ namespace Mensajeria.Tests
             Assert.Equal(DateTime.Today.ToString("yyyy-MM-dd"),
                 FormatoFecha.ClaveDia(DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")));
         }
+
+        [Fact]
+        public void OtroAnoMuestraDiaMesYAno()
+        {
+            string viejo = DateTime.Today.AddYears(-1).AddDays(-1).Date.AddHours(8)
+                .ToString("yyyy-MM-dd HH:mm:ss");
+
+            Assert.Matches(@"^\d{2}-\d{2}-\d{4}$", FormatoFecha.EtiquetaDia(viejo));
+            Assert.Matches(@"^\d{2}-\d{2}-\d{4} 08:00$", FormatoFecha.HoraCorta(viejo));
+        }
+
+        [Fact]
+        public void LaLecturaNoDependeDeLaCulturaDelPc()
+        {
+            // Con cultura invariante "01-02-2020" es 2 de enero, no 1 de febrero.
+            // Si se leyera con la cultura del equipo, en-GB lo invertiria.
+            Assert.Equal("02-01-2020", FormatoFecha.EtiquetaDia("01-02-2020"));
+        }
     }
 }

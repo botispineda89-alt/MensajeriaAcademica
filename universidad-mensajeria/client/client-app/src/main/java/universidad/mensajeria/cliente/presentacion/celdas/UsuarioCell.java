@@ -13,6 +13,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import universidad.mensajeria.cliente.transversal.records.RecienteChat;
+import universidad.mensajeria.cliente.transversal.utilerias.TextoCliente;
 
 /** Conversación del panel lateral: identidad, presencia, preview y no leídos. */
 public final class UsuarioCell extends ListCell<RecienteChat> {
@@ -46,11 +47,10 @@ public final class UsuarioCell extends ListCell<RecienteChat> {
         nombre.setMaxWidth(Double.MAX_VALUE);
         nombre.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
         Tooltip.install(nombre, new Tooltip(nombre.getText()));
-        String preview = item.ultimoContenido() == null || item.ultimoContenido().isBlank()
-                ? "Sin mensajes aún" : item.ultimoContenido().replaceAll("\\s+", " ");
-        if (preview.length() > 54) {
-            preview = preview.substring(0, 53) + "…";
-        }
+        // R1: el formateo del preview vive en TextoCliente (puro y testeable);
+        // aquí solo se pinta.
+        String preview = TextoCliente.previoConversacion(
+                item.ultimoContenido(), item.ultimoPropio());
         Label detalle = new Label(preview);
         detalle.getStyleClass().add("chat-list-preview");
         detalle.setMaxWidth(Double.MAX_VALUE);

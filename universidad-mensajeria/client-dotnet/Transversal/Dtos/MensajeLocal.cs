@@ -1,7 +1,7 @@
 namespace Mensajeria.Transversal.Dtos
 {
     /// <summary>
-    /// Fila de <c>historial_local</c> (17 componentes). Espejo de
+    /// Fila de <c>historial_local</c> (18 componentes). Espejo de
     /// <c>transversal/records/MensajeLocal.java</c>; el contrato es
     /// <c>contrato/puertos.json</c> §records.
     ///
@@ -29,5 +29,19 @@ namespace Mensajeria.Transversal.Dtos
         bool Descargado,
         string? Estado,
         string? ArchivoId,
-        string? EtapasFiltrado = null);
+        string? EtapasFiltrado = null,
+        /// <summary>
+        /// Pie de imagen o archivo, en la MISMA burbuja; null = sin pie.
+        /// Para un adjunto el <c>contenido</c> es el pie y los bytes van aparte.
+        /// </summary>
+        string? Caption = null)
+    {
+        /// <summary>
+        /// True si hay pie visible. Espejo de <c>MessagesLocal.tieneCaption()</c>
+        /// del cliente Java: solo los adjuntos llevan pie.
+        /// </summary>
+        public bool TieneCaption() =>
+            (Tipo == "MENSAJE_IMAGEN" || Tipo == "MENSAJE_ARCHIVO")
+            && !string.IsNullOrWhiteSpace(Caption);
+    }
 }

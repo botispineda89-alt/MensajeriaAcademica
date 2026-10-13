@@ -131,11 +131,16 @@ namespace Mensajeria.Tests
             _red.Recibir(Doc(new Dictionary<string, object?>
                 { { "tipo", "MENSAJE_ARCHIVO" }, { "id", "a-1" }, { "remitente", "B002" },
                   { "nombreArchivo", "informe.pdf" }, { "hashSha256", "h" },
+                  { "contenido", "el informe del trimestre" },
                   { "archivoId", "9" }, { "fechaHora", "2026-01-01T10:00:00" } }));
             var conv = _f.CargarHistorial("B002");
             Assert.Single(conv);
             Assert.Equal("ENTREGADO", conv[0]["estado"]);
-            Assert.Equal("[Archivo: informe.pdf]", conv[0]["contenido"]);
+            Assert.Equal("informe.pdf", conv[0]["nombreArchivo"]);
+            // El texto que acompana al archivo es su pie: se guarda en caption
+            // y el cuerpo del adjunto queda vacio.
+            Assert.Equal("el informe del trimestre", conv[0]["caption"]);
+            Assert.False(conv[0].ContainsKey("contenido"));
         }
 
         private static Dictionary<string, JsonElement> Doc(Dictionary<string, object?> obj)

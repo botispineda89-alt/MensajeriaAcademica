@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:Mensajeria.Views"
+        xmlns:transversal="clr-namespace:Mensajeria.Transversal"
         Title="Mensajería Académica | Chat" Height="760" Width="1120"
         MinHeight="600" MinWidth="880" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBgBrush}">
@@ -71,7 +72,10 @@
                                                    Foreground="{DynamicResource RemitenteBrush}" Margin="8,0,0,0"
                                                    Visibility="{Binding MostrarInsignia}"/>
                                     </DockPanel>
-                                    <TextBlock Text="{Binding Presencia}" FontSize="11" Foreground="{DynamicResource MutedBrush}"/>
+                                    <TextBlock Text="{Binding TextoPreview}" FontSize="11"
+                                               Foreground="{DynamicResource MutedBrush}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                               Visibility="{Binding MostrarPreview}"/>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
@@ -83,7 +87,9 @@
             <Border DockPanel.Dock="Top" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0" Padding="18,12">
                 <DockPanel>
                     <StackPanel>
-                        <TextBlock x:Name="txtTitulo" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource LabelBrush}" Text="Selecciona una conversación"/>
+                        <TextBlock x:Name="txtTitulo" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource LabelBrush}" Text="Selecciona una conversación"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTipService.ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                         <TextBlock x:Name="txtEstado" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -146,26 +152,111 @@
                                    VerticalAlignment="Center"/>
                     </DockPanel>
                 </Border>
-                <TextBlock x:Name="txtImagenAdjunta" Foreground="{DynamicResource LabelBrush}" Margin="16,8,16,0" Text=""/>
-                <StackPanel x:Name="panelArchivo" Orientation="Horizontal" Margin="16,6,16,0" Visibility="Collapsed">
-                    <TextBlock x:Name="txtArchivoAdjunto" Foreground="{DynamicResource LabelBrush}" VerticalAlignment="Center" Text=""/>
-                    <ui:Button Content="Quitar" Click="BtnQuitarArchivo_Click"
-                               VerticalAlignment="Center" Margin="8,0,0,0"/>
-                </StackPanel>
-                <StackPanel x:Name="panelPreview" Orientation="Horizontal" Margin="16,6,16,0" Visibility="Collapsed">
-                    <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" Padding="4">
-                        <Image x:Name="imgPreview" MaxHeight="90" MaxWidth="140" Stretch="Uniform"/>
-                    </Border>
-                    <ui:Button Content="Quitar" Click="BtnQuitarImagen_Click"
-                               VerticalAlignment="Center" Margin="8,0,0,0"/>
-                </StackPanel>
+                <Border x:Name="panelAdjuntos" Margin="16,8,16,0" Padding="8"
+                        Background="{DynamicResource InputBgBrush}"
+                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                        CornerRadius="7" Visibility="Collapsed">
+                    <StackPanel>
+                        <DockPanel LastChildFill="True">
+                            <TextBlock x:Name="txtResumenAdjuntos" DockPanel.Dock="Right"
+                                       Foreground="{DynamicResource MutedBrush}" FontSize="11"
+                                       VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            <ui:Button DockPanel.Dock="Right" Content="Quitar todos"
+                                       Click="BtnQuitarTodosAdjuntos_Click" Margin="8,0,0,0"
+                                       AutomationProperties.Name="Quitar todos los adjuntos"/>
+                            <TextBlock Text="Adjuntos" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource LabelBrush}"/>
+                        </DockPanel>
+                        <ItemsControl x:Name="lstAdjuntos" Margin="0,6,0,0" MaxHeight="132">
+                            <ItemsControl.Template>
+                                <ControlTemplate TargetType="ItemsControl">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </ControlTemplate>
+                            </ItemsControl.Template>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="92" Margin="0,0,6,6" Padding="4" CornerRadius="5"
+                                            Background="{DynamicResource CardBrush}"
+                                            BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1"
+                                            ToolTip="{Binding ToolTip}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="64"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="4"/>
+                                            </Grid.RowDefinitions>
+                                            <Grid Grid.Row="0">
+                                                <!-- FORMATOS-02: la miniatura de una imagen
+                                                     y, para un documento, el icono de su tipo
+                                                     con tamaño fijo (el PNG trae su propia
+                                                     resolución y no se puede dejar al natural). -->
+                                                <Image Source="{Binding Miniatura}" Stretch="Uniform"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <Image Source="{Binding IconoArchivo}"
+                                                       Width="{x:Static transversal:IconosArchivo.LadoIconoBandeja}"
+                                                       Height="{x:Static transversal:IconosArchivo.LadoIconoBandeja}"
+                                                       Stretch="Uniform"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <TextBlock Text="{Binding IconoTexto}" FontSize="17"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource MutedBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Visibility="{Binding MostrarIconoTexto}"/>
+                                                <Button Content="✕" HorizontalAlignment="Right"
+                                                        VerticalAlignment="Top" Padding="4,0" Margin="0,1,1,0"
+                                                        FontSize="9" Background="Transparent" BorderThickness="0"
+                                                        Click="BtnQuitarAdjunto_Click"
+                                                        AutomationProperties.Name="Quitar este adjunto"
+                                                        ToolTipService.ToolTip="Quitar del lote"/>
+                                                <TextBlock Text="{Binding EstadoTexto}"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                           FontSize="9" Margin="0,0,2,2"
+                                                           Foreground="{Binding EstadoColor}"
+                                                           AutomationProperties.Name="Estado del adjunto"/>
+                                            </Grid>
+                                            <TextBlock Grid.Row="1" Text="{Binding Nombre}" FontSize="9"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,3,0,0"
+                                                       Foreground="{DynamicResource LabelBrush}"
+                                                       ToolTip="{Binding Nombre}"/>
+                                            <ProgressBar Grid.Row="2" Height="3" Minimum="0" Maximum="1"
+                                                         Value="{Binding Progreso, Mode=OneWay}"
+                                                         Visibility="{Binding ProgresoVisible}"
+                                                         Foreground="{DynamicResource SendBrush}"
+                                                         Background="{DynamicResource DividerBrush}"
+                                                         AutomationProperties.Name="Progreso del archivo"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <DockPanel x:Name="panelProgresoEnvio" Visibility="Collapsed" Margin="16,8,16,0">
+                    <ui:Button DockPanel.Dock="Right" Content="Cancelar envío"
+                               Click="BtnCancelarEnvio_Click" Margin="8,0,0,0"
+                               AutomationProperties.Name="Cancelar envío"/>
+                    <StackPanel>
+                        <TextBlock x:Name="txtProgresoEnvio" FontSize="11"
+                                   Foreground="{DynamicResource MutedBrush}"/>
+                        <ProgressBar x:Name="barraProgresoEnvio" Height="6" Margin="0,3,0,0"
+                                     Minimum="0" Maximum="100"/>
+                    </StackPanel>
+                </DockPanel>
                 <Grid Margin="14,10,14,14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <ui:Button Grid.Column="0" Content="＋" Click="BtnAdjuntar_Click" AutomationProperties.Name="Adjuntar imagen" Margin="0,0,8,0" MinWidth="44" ToolTipService.ToolTip="Adjuntar archivo (Todos *.*)"/>
+                    <ui:Button Grid.Column="0" Content="＋" Click="BtnAdjuntar_Click" AutomationProperties.Name="Adjuntar archivos" Margin="0,0,8,0" MinWidth="44" ToolTipService.ToolTip="Adjuntar archivos (Todos *.*)"/>
 <!-- UIX-20: PreviewKeyDown, NO KeyDown. Con AcceptsReturn="True" el TextBox
          inserta el salto de línea en su manejador de clase, que se ejecuta
          ANTES que cualquier manejador de instancia de KeyDown: por eso Enter
@@ -213,7 +304,54 @@
                                                Visibility="{Binding MostrarEncabezado}"/>
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding Estado}" Foreground="{Binding ColorEstado}" FontSize="11" Margin="16,0,0,0"/>
                                 </DockPanel>
-                                <local:ResaltadoTextBlock Texto="{Binding Contenido}" Patron="{Binding PatronResaltado}"
+                                <!-- UIX-28: guardar imagen y guardar archivo van ARRIBA
+                                     de la burbuja y son dos botones distintos. Antes
+                                     había uno genérico al final ("⬇ Guardar") que
+                                     salía incluso en mensajes de texto y no decía si
+                                     lo que se iba a guardar era una foto o un PDF. -->
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                    <Button Content="⬇ Guardar imagen" Margin="0,0,6,0" Padding="6,2"
+                                            HorizontalAlignment="Left"
+                                            Visibility="{Binding MostrarDescargaImagen}"
+                                            Click="BtnDescargarArchivo_Click"
+                                            ToolTipService.ToolTip="Guardar la imagen en este equipo"/>
+                                    <Button Content="⬇ Guardar archivo" Padding="6,2"
+                                            HorizontalAlignment="Left"
+                                            Visibility="{Binding MostrarDescargaArchivo}"
+                                            Click="BtnDescargarArchivo_Click"
+                                            ToolTipService.ToolTip="Guardar el archivo en este equipo"/>
+                                </StackPanel>
+                                <!-- FORMATOS-02: la fila del adjunto, con el icono de
+                                     su tipo. Antes la burbuja de un archivo no decía
+                                     ni su nombre: solo el botón de guardar. -->
+                                <DockPanel Margin="0,6,0,0" LastChildFill="True"
+                                           Visibility="{Binding MostrarArchivo}">
+                                    <Image DockPanel.Dock="Left" Source="{Binding IconoArchivo}"
+                                           Width="{x:Static transversal:IconosArchivo.LadoIconoBurbuja}"
+                                           Height="{x:Static transversal:IconosArchivo.LadoIconoBurbuja}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,6,0"
+                                           Visibility="{Binding MostrarIconoArchivo}"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                    <TextBlock Text="{Binding NombreArchivo}" TextWrapping="Wrap"
+                                               FontWeight="SemiBold" VerticalAlignment="Center"
+                                               Foreground="{Binding ColorContenido}"/>
+                                </DockPanel>
+                                <!-- UIX-24: la respuesta se pinta como bloque citado,
+                                     con el mensaje original arriba y mas claro, y la
+                                     respuesta debajo. El texto que viaja no cambia. -->
+                                 <Border Background="{DynamicResource CitaBgBrush}"
+                                         BorderBrush="{DynamicResource CitaBorderBrush}" BorderThickness="3,1,1,1"
+                                         CornerRadius="4" Padding="7,4" Margin="0,8,0,0"
+                                         Visibility="{Binding MostrarCita}" Cursor="Hand"
+                                         Tag="{Binding Cita}" MouseLeftButtonUp="Cita_MouseLeftButtonUp"
+                                         ToolTip="Ir al mensaje original">
+                                    <TextBlock Text="{Binding Cita}" TextTrimming="CharacterEllipsis"
+                                               TextWrapping="Wrap" MaxHeight="40"
+                                               Foreground="{DynamicResource CitaTextBrush}"
+                                               FontSize="12"/>
+                                </Border>
+                                <local:ResaltadoTextBlock Texto="{Binding Cuerpo}" Patron="{Binding PatronResaltado}"
                                                    TextWrapping="Wrap" Margin="0,7,0,0" Foreground="{Binding ColorContenido}"
                                                    Visibility="{Binding MostrarTexto}"/>
                                 <Image Source="{Binding Imagen}" MaxHeight="260" MaxWidth="420" Stretch="Uniform"
@@ -227,12 +365,25 @@
                                            Visibility="{Binding MostrarEtapasFiltrado}"/>
                                 <TextBlock Text="{Binding EstadoImagen}" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,4,0,0"
                                            Visibility="{Binding MostrarImagen}"/>
+                                <!-- Pie de imagen/archivo: el texto que acompaña al
+                                     adjunto en la MISMA burbuja (columna caption). -->
+                                 <Border Background="{DynamicResource CitaBgBrush}"
+                                         BorderBrush="{DynamicResource CitaBorderBrush}" BorderThickness="3,1,1,1"
+                                         CornerRadius="4" Padding="7,4" Margin="0,6,0,0"
+                                         Visibility="{Binding MostrarPieCita}" Cursor="Hand"
+                                         Tag="{Binding PieCita}" MouseLeftButtonUp="Cita_MouseLeftButtonUp"
+                                         ToolTip="Ir al mensaje original">
+                                    <TextBlock Text="{Binding PieCita}" TextWrapping="Wrap" MaxHeight="40"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource CitaTextBrush}" FontSize="12"/>
+                                </Border>
+                                <local:ResaltadoTextBlock Texto="{Binding Pie}" Patron="{Binding PatronResaltado}"
+                                                           TextWrapping="Wrap" Margin="0,5,0,0" Foreground="{Binding ColorContenido}"
+                                                           Visibility="{Binding MostrarPie}"/>
                                 <Button Content="Reintentar imagen" HorizontalAlignment="Left" Margin="0,3,0,0"
                                          Visibility="{Binding MostrarReintento}" Click="BtnReintentarImagen_Click"/>
                                 <Button Content="Cancelar" HorizontalAlignment="Left" Margin="0,3,0,0"
                                          Visibility="{Binding MostrarCancelar}" Click="BtnCancelarImagen_Click"/>
-                                <Button Content="⬇ Descargar" HorizontalAlignment="Left" Margin="0,3,0,0"
-                                         Visibility="{Binding MostrarDescarga}" Click="BtnDescargarArchivo_Click"/>
                                 <DockPanel LastChildFill="False" Margin="0,8,0,0">
                                     <TextBlock Text="{Binding Fecha}" Foreground="{DynamicResource FechaBrush}" FontSize="11"
                                                VerticalAlignment="Center"/>

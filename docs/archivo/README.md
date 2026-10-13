@@ -6,6 +6,22 @@ Documentos conservados solo por trazabilidad. No son normativa vigente.
 |---|---|---|
 | `REQ-original.md` | Brief original del enunciado | `../../REQUERIMIENTOS.md` |
 | `PLAN_MEJORAS-historico.md` | Diario de ejecución 2026-10-04/05 | `../../ESTADO_ROADMAP.md` |
+| `PLAN_CLIENTES-2026-10-historico.md` | Diario del lote de clientes JavaFX/WPF de 2026-10-10/11 (envío múltiple en WPF, seis fallos de JavaFX y .NET, WebP) | `../../ESTADO_ROADMAP.md` |
+| `PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` | Plan y auditoría de arquitectura del cliente Java (fases 1–4 verificadas el 2026-10-11: puertos, ViewModel, fachada fina, ArchUnit; framing data-driven §5.14) | `../../ESTADO_ROADMAP.md` §6 (`PAT-ARQ-JAVA`) y `../../PLAN_PATRONES_UI.md` §4 |
+| `ANALISIS_TECNICO-historico.md` | Auditoría técnica inicial (2026-10-05/06): seguridad, código muerto, bugs UI, patrones, contrato visual, diagramas. Hallazgos volcados a `ESTADO_ROADMAP.md`, `PLAN_PATRONES_UI.md`, `PLAN_PARIDAD_CLIENTES.md` | `../../ESTADO_ROADMAP.md` (tabla §2–§6), `../../PLAN_PATRONES_UI.md` (fases), `../../PLAN_PARIDAD_CLIENTES.md` (pendientes) |
+
+Checklists de verificación visual activos (fuera del archivo):
+
+- `universidad-mensajeria/client-python/VERIFICACION_VISUAL_CHAT_PENDIENTE.md`
+- `universidad-mensajeria/client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md`
+
+Retirados de la raíz el **2026-10-10**, ya ejecutados; su contenido único está en
+`PLAN_CLIENTES-2026-10-historico.md` y su estado vigente en `../../ESTADO_ROADMAP.md` §5:
+
+- `PLAN3.MD` — envío múltiple de imágenes y archivos en WPF (4 decisiones de diseño, 11 clases
+  nuevas, deuda de paridad asumida).
+- `PLAN_AMBOS.md` — seis errores de los clientes JavaFX y .NET, con las cuatro correcciones que
+  destapó la prueba en pantalla y los dos bugs de raíz de la ronda 4.
 
 Eliminados el 2026-10-07 por fusión, con su contenido único preservado:
 

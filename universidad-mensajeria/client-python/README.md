@@ -32,8 +32,10 @@ cmd distribuir.cmd
 
 Genera `dist\MensajeriaPython\` sin `.venv`, cachés, pruebas, imágenes recibidas (`imagenes/`) ni
 bases SQLite. **Sí incluye los recursos gráficos estáticos de la interfaz**, en particular
-`ui\fondos\fondo_chat_claro.jpg` y `ui\fondos\fondo_chat_oscuro.jpg`. Verifica el contenido mínimo
-(`main.py`, `requirements.txt`, `client.properties`, `store\schema-local.sql`, fachada y UI), compila
+`ui\fondos\fondo_chat_claro.jpg`, `ui\fondos\fondo_chat_oscuro.jpg` y los cinco iconos por tipo de
+archivo de `ui\iconos\` (`FORMATOS-02`). Verifica el contenido mínimo
+(`main.py`, `requirements.txt`, `client.properties`, `store\schema-local.sql`, fachada, UI y los cinco
+iconos), compila
 la copia con `compileall` para detectar errores de sintaxis y deja un `version.txt` con la fecha de
 generación.
 
@@ -93,14 +95,46 @@ arranque también funcionen cuando solo se distribuye esta carpeta.
   leídos y buscador. La lista se pinta al instante desde la caché SQLite y la
   red la refresca por detrás; el directorio se escribe en lote (una sola
   transacción). El historial remoto se fusiona sin duplicar burbujas ya
-  recibidas en vivo.
-- Enviar admite texto, imagen o archivo genérico hasta 50 MB por el
-  protocolo fragmentado (`ARCHIVO_INICIO/PARTE/FIN`); el `FIN` recibe `ACK`
-  del servidor. Los archivos recibidos se descargan bajo demanda.
+  recibidas en vivo. Las fechas se guardan en UTC con sufijo `Z` (el mismo
+  formato "O" de .NET) y al abrir la base se normaliza a ese formato todo lo
+  heredado: como la SQLite por cuenta se comparte con el cliente .NET y la
+  columna se ordena como TEXTO, guardar hora local sin zona sacaba los
+  mensajes propios recién enviados de la primera página del historial.
+- Enviar admite texto, imágenes y archivos de hasta 50 MB. Las imágenes viajan
+  en una sola trama hasta 12 MB (la misma regla del cliente .NET); una imagen
+  mayor se rechaza con aviso claro antes de tocar la red, porque su base64 ya
+  no cabería en la trama de 16 MiB que fija el servidor. Los archivos usan
+  el protocolo fragmentado (`ARCHIVO_INICIO/PARTE/FIN`); el `FIN` recibe `ACK`
+  del servidor. Se pueden seleccionar o arrastrar hasta 12 adjuntos por lote,
+  quitar elementos individualmente y ver un montaje visual local cuando hay
+  varias imágenes. El montaje nunca se sube: cada archivo original se envía
+  individualmente y en orden.
+- El texto escrito junto a un único adjunto se guarda como caption; cuando el
+  lote contiene solo imágenes, se adjunta a la primera imagen. Se conserva en
+  el historial local,
+  incluidas las entregas pendientes y sus reintentos. WebP se transmite en
+  formato original como imagen y Pillow solo lo decodifica para la vista cuando
+  Qt no lo admite; guardar conserva el archivo original. Lo mismo aplica a
+  AVIF, HEIC/HEIF y SVG (`FORMATOS-01`): viajan como imagen, el servidor los
+  filtra vía ImageMagick y el cliente los pinta con los plugins de Pillow y
+  `QSvgRenderer` (`ui/decodificador_imagen.py`).
+- Las imágenes recibidas ofrecen «Guardar imagen» y se copian desde la caché
+  local al destino elegido. Los avisos de descarga y envío aparecen dentro del
+  chat, se cierran automáticamente y tienen un botón accesible para cerrarlos.
+  Los fondos de conversación claro y oscuro se pintan a cover y centrados en
+  el `paintEvent` de la lista — como el CSS del cliente Java — junto al tema
+  global de QFluentWidgets. Pintarlos ahí (y no en la paleta del viewport) es
+  lo que los hace inmunes a los stylesheets de los paneles vecinos.
 - La difusión del servidor aparece como mensaje de `SERVIDOR`.
+- El cierre del login pide confirmación, y cancelar mantiene abierta la ventana.
+  Los ecos de mensajes propios de otras sesiones de la misma cuenta se asocian
+  a la conversación indicada por `destinatario`, cuando el servidor los entrega.
 - Sin red, los envíos quedan en una cola local y se reintentan solos cada 30 s
   (`INTERVALO_FLUSH_SEGUNDOS`): si la red vuelve, la cola se vacía sin que el
-  usuario toque nada. El intento se para al cerrar sesión o desconectar.
+  usuario toque nada. El intento se para al cerrar sesión o desconectar. Un
+  pendiente que nunca podrá salir (una imagen mayor que la trama única) se
+  marca «! No enviado» y se saca de la cola en vez de tumbar la conexión en
+  cada reintento.
 
 ## Uso y solución de problemas
 
@@ -128,4 +162,11 @@ También funciona con unittest:
 .\.venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-Última ejecución anotada (2026-10-08): 222 aprobados, 5 omitidos y 741 subtests con pytest.
+Última validación local con unittest: 281 pruebas, 5 omitidas (2026-10-11).
+
+## Revisión visual manual pendiente
+
+La suite automatizada verifica la carga de los fondos y estados de UI en modo
+offscreen, pero no sustituye la comprobación en una ventana interactiva. Usa
+[`VERIFICACION_VISUAL_CHAT_PENDIENTE.md`](VERIFICACION_VISUAL_CHAT_PENDIENTE.md)
+como lista de aceptación y marca allí cada comprobación manual.

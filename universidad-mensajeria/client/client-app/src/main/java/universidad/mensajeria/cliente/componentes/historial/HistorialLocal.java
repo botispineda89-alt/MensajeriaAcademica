@@ -85,7 +85,7 @@ public final class HistorialLocal implements InterfazHistorialLocal {
             SELECT CASE WHEN tipo = 'MENSAJE_IMAGEN' THEN caption
                         WHEN tipo = 'MENSAJE_ARCHIVO' THEN caption
                         ELSE SUBSTR(contenido, 1, 160) END,
-                   tipo, fecha_envio, nombre_archivo
+                   tipo, fecha_envio, nombre_archivo, origen
             FROM historial_local
             WHERE (origen = ? AND destino = ?) OR (origen = ? AND destino = ?)
             ORDER BY fecha_envio DESC LIMIT 1""";
@@ -431,10 +431,10 @@ public final class HistorialLocal implements InterfazHistorialLocal {
         Preview preview = leerPreview(conn, yo, otro);
         int noLeidos = contarNoLeidos(conn, yo, otro);
         return new RecienteChat(otro, preview.contenido(), preview.tipo(),
-                preview.fecha(), noLeidos, false);
+                preview.fecha(), noLeidos, false, preview.propio());
     }
 
-    private record Preview(String contenido, String tipo, String fecha) { }
+    private record Preview(String contenido, String tipo, String fecha, boolean propio) { }
 
     private static Preview leerPreview(Connection conn, String yo, String otro) throws java.sql.SQLException {
         try (PreparedStatement u = conn.prepareStatement(ULTIMO_PREVIEW)) {
@@ -444,12 +444,16 @@ public final class HistorialLocal implements InterfazHistorialLocal {
             u.setString(4, yo);
             try (ResultSet rs = u.executeQuery()) {
                 if (!rs.next()) {
-                    return new Preview("", "", "");
+                    return new Preview("", "", "", false);
                 }
                 String contenido = rs.getString(1) != null ? rs.getString(1) : "";
                 String tipo = rs.getString(2) != null ? rs.getString(2) : "";
                 String fecha = rs.getString(3) != null ? rs.getString(3) : "";
                 String nombre = rs.getString(4);
+                // R1: columna 5, el `origen` real del último mensaje. Es lo que
+                // decide el prefijo "Tú: " del preview.
+                String origen = rs.getString(5) != null ? rs.getString(5) : "";
+                boolean propio = yo != null && yo.equals(origen);
                 if ("MENSAJE_IMAGEN".equals(tipo)) {
                     String base = nombre != null && !nombre.isEmpty() ? "[imagen] " + nombre : "[imagen]";
                     contenido = contenido.isEmpty() ? base : base + " — " + contenido;
@@ -457,7 +461,7 @@ public final class HistorialLocal implements InterfazHistorialLocal {
                     String base = nombre != null && !nombre.isEmpty() ? nombre : "[archivo]";
                     contenido = contenido.isEmpty() ? base : base + " — " + contenido;
                 }
-                return new Preview(contenido, tipo, fecha);
+                return new Preview(contenido, tipo, fecha, propio);
             }
         }
     }

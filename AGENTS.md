@@ -18,11 +18,11 @@ UTF-8** (`universidad-mensajeria/common-protocol/PROTOCOLO.md`, `TramaCodec`).
 ```
 <raíz>/
 ├── AGENTS.md, README.md, REQUERIMIENTOS.md (QUÉ, RF-*), PLAN.md (CÓMO), ESTADO_ROADMAP.md (qué falta)
-├── ANALISIS_TECNICO.md (auditoría histórica), PLAN_PATRONES_UI.md, PLAN_PARIDAD_CLIENTES.md
-├── PLAN_ARQUITECTURA_CLIENTE_JAVA.md, GUIA_ACEPTACION.md, DESPLIEGUE.md, INSTALACION.md
+├── ANALISIS_TECNICO.md (auditoría histórica) → `docs/archivo/ANALISIS_TECNICO-historico.md`, PLAN_PATRONES_UI.md, PLAN_PARIDAD_CLIENTES.md
+├── GUIA_ACEPTACION.md, DESPLIEGUE.md, INSTALACION.md
 ├── contrato/          ← fuente ÚNICA de lo compartido: tokens JSON + generadores y verificadores
 ├── DIAGRAMAS/         ← fuentes/renders canónicos (ver DIAGRAMAS/README.md); incluye legados migrados
-├── docs/archivo/      ← histórico, no normativo
+├── docs/archivo/      ← histórico, no normativo (diarios de lo ya ejecutado; ver su README.md)
 └── universidad-mensajeria/ ← EL MONOREPO (solo aquí se compila; java.version=21)
     ├── pom.xml (padre, Spring Boot 3.5.7, Flyway 11.14.1), Dockerfile, docker-compose.yml, empaquetar-todo.cmd
     ├── herramientas/preparar-entorno-servidor.ps1  (instala/verifica JDK 21 + Maven 3.9.16 + MySQL sin admin; -SoloVerificar, -IniciarMySql)
@@ -38,7 +38,12 @@ Reactor Maven: 3 agregadores (`common-protocol`, `server`, `client`) + 16 módul
 
 **Dato clave:** `int-*` y `comp-*` **no usan Spring**. El único módulo con Spring es `servidor-app`,
 que compila **solo contra los `int-*`** (los `comp-*` son `<scope>runtime</scope>`); los adaptadores
-se descubren con `ServiceLoader` vía `META-INF/services`. Los 5 `Proveedor*` parecen sin uso por eso.
+se descubren con `ServiceLoader` vía `META-INF/services`. Los 5 `Proveedor*` no aparecen en ningún
+llamador compilado porque se cargan reflectivamente: `Fabrica.montar()` (servidor-app,
+`inicio/Fabrica.java:112-122`) hace `ServiceLoader.load` de los 5 SPI al arrancar — verificado el
+2026-10-11 en el jar empaquetado (los 10 jars `int-*`+`comp-*` viven en `BOOT-INF/lib`) y en los
+logs (`u.m.protocolo.impl.ManejadorConexion` es la clase de `comp-protocolo-clienteservidor`
+procesando cada trama). `DiagramaFidelidadTest` fija que hay exactamente UN proveedor por SPI.
 
 ## 3. Los 4 procesos y cómo se hablan
 
@@ -47,7 +52,16 @@ se descubren con `ServiceLoader` vía `META-INF/services`. Los 5 `Proveedor*` pa
 | Servidor | `server/servidor-app/.../server/ServerApplication.java` | JLine + JavaFX 21.0.6 (admin) / MySQL 8.4 (Postgres 16 / Oracle opcionales) |
 | Cliente JavaFX | `client/client-app/.../cliente/ClienteMain.java` | JavaFX 22.0.2 + AtlantaFX 2.1.0 (FXML+CSS) / H2 por cuenta |
 | Cliente Python | `client-python/main.py` | PySide6 + PySide6-Fluent-Widgets / SQLite por cuenta |
-| Cliente WPF | `client-dotnet/App.xaml.cs` | WPF .NET 8 + WPF-UI / SQLite por cuenta |
+| Cliente WPF | `client-dotnet/App.xaml.cs` | WPF .NET 8 + WPF-UI + SkiaSharp (imágenes) / SQLite por cuenta |
+
+Decodificación de imágenes: **`imageio-webp` 3.12.0 (BSD-3)** en `server/utilerias` **y** en el cliente
+JavaFX, y **`SkiaSharp` 4.153.1 (MIT)** en WPF. JavaFX y WPF **no reconvierten al enviar**: mandan el
+`.webp` tal cual (el servidor lo acepta) y convierten **solo para pintar**. Python manda el `.webp`
+como archivo genérico; es la única vía sin cerrar (`ESTADO_ROADMAP.md` §5.6, `SEG-02`).
+
+Para lo que ni el JDK ni ese plugin abren (**AVIF, HEIC/HEIF, SVG**) el servidor llama a
+**ImageMagick 7 vía `im4java`** (`DecodificadorMagick`, dentro de `Imagenes.leer`) y convierte a PNG
+antes de la tubería. Es un requisito del **servidor**, no de los clientes: ver `INSTALACION.md` §1.1.
 
 ```
 JavaFX ─┐
@@ -105,12 +119,17 @@ Notas que se adivinan mal:
   relativo al directorio de trabajo (Python) o a la carpeta del ejecutable (.NET).
 - Tests WPF requieren **SDK 10** aunque la app sea `net8.0-windows`. No hay CI workflows en
   `.github/`; la verificación es local (`contrato/verificar.py`).
-- **No afirmes que las suites están en verde.** Último registro fechado (`ESTADO_ROADMAP.md`
-  "cierre de parciales 2026-10-08"): `servidor-app` 106 casos, **102 en verde y 4 fallos
-  preexistentes** (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`), ajenos a los
-  cambios. Python 222 aprobados / 5 omitidos; .NET 71/71. Los reportes Surefire viven en `target/`,
-  que está en `.gitignore`: en un clon o worktree recién hecho **no existen**, así que hay que
-  ejecutarlos o citar el roadmap fechado, no "los reportes presentes".
+- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-11):
+  JavaFX **280/280** (47 clases, ArchUnit incluida; framing data-driven §5.14), Python **281** (5 omitidas) y .NET **366/366**
+  en verde; build WPF Release 0/0; `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
+  **`contrato/verificar.py` pasó 9/9** y ya sirve como puerta de calidad: la deriva de Python de
+  §5.8 (faltaba `caption` en su `schema-local.sql`) está cerrada.
+- `servidor-app` **no se re-ejecutó** el 2026-10-10; su último registro fechado es el del 2026-10-08:
+  106 casos, **102 en verde y 4 fallos preexistentes** (2 umbrales temporales de `CargaMixtaTest` +
+  2 de `MensajesTest`), ajenos a los cambios de cliente.
+- Los reportes Surefire viven en `target/`, que está en `.gitignore`: en un clon o worktree recién
+  hecho **no existen**, así que hay que ejecutarlos o citar el roadmap fechado, no "los reportes
+  presentes".
 
 ### Distribuciones (lo que se instala en cada PC)
 
@@ -141,8 +160,12 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 | 10 | **BD local aislada por cuenta, sin FKs.** `historial_local.origen/destino` son `TEXT` con el código | El esquema local **no tiene claves foráneas** |
 | 11 | **Paleta generada, no editada.** 4 CSS + 2 `.xaml` + `ui/tema_tokens.py` salen de `contrato/generar_tokens.py` | Se edita `contrato/tokens-diseno.json` y se regenera (`--check` en CI local) |
 | 12 | **Estados en `contrato/estado-mensaje.json`; comprobar, no asumir.** `PENDIENTE→ENVIADO→ENTREGADO→LEIDO` + `ERROR` terminal, en 5 copias / 3 lenguajes / 2 motores | Corre `contrato/verificar_estado_mensaje.py` si tocas una copia |
-| 13 | **Puertos en `contrato/puertos.json`: 23, no 12.** 9 viven en `client-app`/`presentacion` | Añadir un método sin añadirlo al JSON rompe `contrato/verificar_puertos.py` |
-| 14 | **Los datos de contrato tienen UNA sola copia y los tests de los 3 la enlazan**: `schema-local.sql` (canónico en `common-protocol/dto/src/main/resources/`), `contrato/framing.json`, `common-protocol/test-fixtures/client-properties-fixture.properties` | Una copia a mano hace que el store de un cliente ejecute un esquema que el otro no, y nada falla hasta producción |
+| 13 | **Puertos en `contrato/puertos.json`: 23, no 12** (hoy 202 métodos). 9 viven en `client-app`/`presentacion` | Añadir un método sin añadirlo al JSON rompe `contrato/verificar_puertos.py` |
+| 14 | **Los datos de contrato tienen UNA sola copia y los tests de los 3 la enlazan**: `schema-local.sql` (canónico en `common-protocol/dto/src/main/resources/`), `contrato/framing.json`, `common-protocol/test-fixtures/client-properties-fixture.properties` | Una copia a mano hace que el store de un cliente ejecute un esquema que el otro no, y nada falla hasta producción. **Hoy Python viola esto**: su copia no tiene `caption` y su propio test lo detecta (`ESTADO_ROADMAP.md` §5.8) |
+| 15 | **`fecha_envio` es TEXT y se ordena COMO TEXTO.** Un cliente usa **un solo formato**, no dos | Python y .NET escriben **UTC con `Z`** y normalizan las filas viejas al arrancar (Python: `transversal/fechas.a_utc` + migración `store/database.py::_normalizar_fechas_utc`; .NET: `FormatoFecha.AUtc` + `LocalStore.NormalizarFechasAUtc`); JavaFX sigue con hora local ISO sin zona porque su H2 es por cliente y no comparte archivo. La mezcla Python-local/.NET-Z sacó lo propio recién enviado de la página 0 del historial (roadmap §5.10, 2026-10-11) |
+| 16 | **El pie de un adjunto viaja en el `contenido` de la MISMA trama** (`MENSAJE_IMAGEN` / `ARCHIVO_INICIO`) y se guarda en la columna `caption` | Un pie en un segundo mensaje es otra burbuja, y el texto se perdía al enviar una sola imagen sin montaje |
+| 17 | **Formatos de imagen: PNG/JPEG/GIF/BMP, WebP, AVIF, HEIC/HEIF y SVG.** WebP por su firma en el offset 8 (no cualquier `RIFF`), AVIF/HEIC por `ftyp` + marca (no cualquier `ftyp`), SVG por el primer elemento real del documento. AVIF/HEIC/SVG los decodifica ImageMagick, no el JDK. Los 3 clientes los clasifican como imagen y los mandan como `MENSAJE_IMAGEN`; **no reconvierten al enviar** y para pintar llevan el original a PNG (Python: Pillow + QtSvg; .NET: Magick.NET; Java: jsvg + ImageMagick opcional vía im4java) | Un `.wav`/`.avi` también empiezan por `RIFF` y un `.mp4` por `ftyp`; y renombrar el archivo al enviar hacía que quien lo recibiera recibiera otro |
+| 18 | **El icono por tipo de archivo es el MISMO dibujo en los 3 clientes** (`iconos/{pdf,xlsx,csv,json,docs}.png` en los recursos de JavaFX, `ui/iconos/` de Python y `Iconos/` de WPF; el catálogo extensión→icono vive en `IconoArchivo.java`, `transversal/iconos_archivo.py` y `Transversal/IconosArchivo.cs`) y el MISMO tamaño: 48 DIP en burbuja y bandeja, estilo tarjeta de archivo de Telegram Web. Cuando el tipo tiene icono propio, el `📎` genérico del texto **se quita** (doble icono); solo queda para extensiones sin catálogo | Cada distribuidor es independiente y ninguno lee los recursos del otro: cambiar un PNG o una extensión en un solo cliente deja el mismo PDF distinto según quién lo mire, y ninguna suite se entera. `contrato/verificar_iconos.py` compara las 3 copias byte a byte y los 3 catálogos. Trampa WPF: esos lados los consume el XAML con `x:Static` sobre `Width`/`Height`; declarados `int`, WPF no convierte y revienta con `InvalidCastException (Int32→Double)` en `MinMax..ctor` — van como `double` (IconosArchivo.cs) |
 
 ## 6. Trampas verificadas en el código
 
@@ -156,7 +179,7 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 
 ### 6.2 Lo que SÍ es código muerto
 
-Foto con conteo en `ANALISIS_TECNICO.md` §2 (38 items al 2026-10-05; parte ya borrada):
+Foto con conteo en `docs/archivo/ANALISIS_TECNICO-historico.md` §2 (38 items al 2026-10-05; parte ya borrada):
 `sesionesInfo()`, `solicitarHistorialServidor()`, columna `ipDestinatario` (siempre NULL),
 `_guardar_propio()`, pinceles `Telegram*Brush`. **Verifica que el símbolo aún exista** antes de
 actuar.
@@ -175,16 +198,36 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 `ChatWindow.xaml.cs`. Si tocas negocio, **replícala en los 3** o rompes la matriz de 6 direcciones
 (`GUIA_ACEPTACION.md`).
 
+**Donde hoy SÍ divergen (deuda conocida, no la reintroduzcas):**
+
+| Capacidad | JavaFX | Python | .NET |
+|---|---|---|---|
+| Varias imágenes en una burbuja (montaje) | ✅ `PlanEnvioAdjuntos` + `MontajeImagenes` | ⬜ | ✅ `PlanEnvioAdjuntos` + `MontajeImagenes` (Skia) |
+| Texto como pie del adjunto en la misma burbuja (`caption`) | ✅ | ⬜ ni columna en su `schema-local.sql` | ✅ |
+| Selección/arrastre **múltiple** y bandeja de adjuntos | ✅ (`showOpenMultipleDialog`, tope 5) | ⬜ un adjunto por operación | ✅ (tope 12 por lote + `adjuntos.lote-max-mb`) |
+| Progreso por bytes y **cancelar** el envío en curso | ⬜ | ⬜ | ✅ `ProgresoEnvio` + `Cancelar envío` |
+| Botón de guardar en imágenes | ✅ `MensajeCell` | ⬜ | ✅ `BotonGuardar` |
+| Aviso inline con cierre automático | ✅ `EstadoAvisoInline` | ⬜ | ✅ `EstadoAvisoInline` |
+| `.webp` como imagen | ✅ (se manda tal cual) | ⬜ como archivo | ✅ (se manda tal cual) |
+| `Shift+Enter` = salto de línea | ✅ `TecladoCompositor` | ✅ | ✅ |
+
 ### 6.5 Detalles que rompen suposiciones
 
 - Estados `PENDIENTE→ENVIADO→ENTREGADO→LEIDO` + `ERROR` como `CASE` SQL **idéntico** en los 3
   clientes; canónico en `DIAGRAMAS/estados/st-mensaje.mmd`.
 - Python y .NET resuelven la BD local con la **misma convención de nombre**
   (`mensajeria_cliente_<CUENTA>.db`, un archivo por cuenta desde un archivo legado), así que dos
-  instancias del mismo usuario en el mismo PC **comparten el SQLite**. .NET escribe fechas UTC con
-  `Z` (`ToString("O")`); Python normaliza aware→naive (`transversal/fechas._leer`, misma semántica
-  que `FormatoFecha.TryLeer`). Si añades fecha al historial, lee/escribe **ambos formatos** en los 3.
-  El servidor nunca envía zona (`LocalDateTime.now()`).
+  instancias del mismo usuario en el mismo PC **comparten el SQLite**. El servidor nunca envía zona
+  (`LocalDateTime.now()`), así que **cada cliente escribe un único formato** y lo normaliza al leer:
+  **Python y .NET guardan UTC con `Z`** (Python: `transversal/fechas.a_utc` y la migración de una
+  pasada `store/database.py::_normalizar_fechas_utc`; .NET: `FormatoFecha.AUtc` +
+  `LocalStore.NormalizarFechasAUtc`); **JavaFX usa hora local ISO sin zona** porque su H2 es por
+  cliente y no comparte archivo. Leer/escribir ambos formatos sí es obligatorio (invariante 15);
+  **escribir los dos a la vez, no**: con la SQLite compartida, la mezcla local/Z dejó fuera de la
+  página 0 los mensajes propios recién enviados (roadmap §5.10, 2026-10-11).
+- **El preview de la lista de contactos** lo decide `origen = yo`, no la columna `enviado`: el
+  sincronizador de `SYNC_LOGIN` deja filas con `enviado=1` que en realidad son ajenas, y eso pintaba
+  "Tú: " en mensajes recibidos. Vacío → "Sin mensajes aún" en los 3.
 - Tests E2E usan **semilla propia** (`src/test/resources/usuarios_iniciales.csv`) y **dejan
   `activo=0`** en esa BD; el arranque normal reactiva. Si el login dice "usuario no registrado",
   reactiva con `UPDATE usuarios SET activo=1`.
@@ -202,11 +245,12 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 | Trama TCP | `universidad-mensajeria/common-protocol/PROTOCOLO.md` + `commands/Comandos.java` | Nada de `comp-*` en `servidor-app` |
 | Un cliente | `DIAGRAMAS/clases/clases-client-{java,dotnet,python}.mmd` | §6.4: **replicar en los 3** |
 | UI | `DIAGRAMAS/textos-ui.md` + mockups | `PLAN_PATRONES_UI.md` antes de añadir |
-| Arquitectura JavaFX | `PLAN_ARQUITECTURA_CLIENTE_JAVA.md` (parcial; no declarar Clean completa) | `ESTADO_ROADMAP.md` §6 |
+| Arquitectura JavaFX | `docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` (fases 1–4 verificadas 2026-10-11; **archivado**; falta su smoke visual formal — no declarar Clean completa) | `ESTADO_ROADMAP.md` §6 |
 | Color/medida UI | `contrato/tokens-diseno.json` y regenerar | **Nunca editar CSS/`.xaml` generados** (`contrato/README.md`) |
-| Igualar clientes | `PLAN_PARIDAD_CLIENTES.md` | `contrato/verificar.py` (8 pasos) |
+| Igualar clientes | `PLAN_PARIDAD_CLIENTES.md` | `contrato/verificar.py` (9 pasos; verde el 2026-10-11 — la corrección de §5.8 ya está aplicada) |
 | Esquema servidor | `server/servidor-app/src/main/resources/db/migration/{mysql,postgres,oracle}/` (**los 3**) | `DIAGRAMAS/modelo-relacional/er-modelo-servidor.mmd` |
-| Filtro imagen | `server/utilerias/` + `TuberiaFactory` | Regla 6 de §5 |
+| Filtro imagen | `server/utilerias/` + `TuberiaFactory` | Regla 6 de §5; formatos en invariante 17 |
+| Saber **qué se decidió y por qué** | `docs/archivo/PLAN_CLIENTES-2026-10-historico.md` y `docs/archivo/PLAN_MEJORAS-historico.md` | Son diarios, no normativa: el estado vigente manda en el roadmap |
 | Documentar | `DIAGRAMAS/README.md` (regla de 3 pasos) | Un `.mmd` sin PNG **no cuenta** |
 
 ## 8. Convenciones e índice
@@ -224,6 +268,6 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 | Trama exacta / esquema local | `universidad-mensajeria/common-protocol/PROTOCOLO.md` / `universidad-mensajeria/common-protocol/HISTORIAL_LOCAL.md` |
 | Dónde está cada clase / textos UI | `DIAGRAMAS/` (`README.md` es el índice) / `DIAGRAMAS/textos-ui.md` |
 | Paridad / paleta / ¿siguen iguales? | `PLAN_PARIDAD_CLIENTES.md` / `contrato/tokens-diseno.json` / `contrato/verificar.py` |
-| Problemas ya encontrados | `ANALISIS_TECNICO.md` (histórico; el estado vigente manda en el roadmap) |
+| Problemas ya encontrados | `docs/archivo/ANALISIS_TECNICO-historico.md` (histórico; el estado vigente manda en el roadmap) |
 | Preparar PC / operar / comprobar | `INSTALACION.md` (+`AUTOMATIZACION_ENTORNO.md`) / `DESPLIEGUE.md` / `GUIA_ACEPTACION.md` |
 | Servidor / JavaFX / Python / WPF | `server/servidor-app/README.md` / `client/README.md` / `client-python/README.md` / `client-dotnet/README.md` |

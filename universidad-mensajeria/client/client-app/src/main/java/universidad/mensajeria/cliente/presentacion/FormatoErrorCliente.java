@@ -1,11 +1,17 @@
 package universidad.mensajeria.cliente.presentacion;
 
-/** Traduce fallos técnicos conocidos a mensajes breves para la interfaz. */
-final class FormatoErrorCliente {
+/**
+ * Traduce fallos técnicos conocidos a mensajes breves para la interfaz.
+ * <p>
+ * Público porque lo usan los subpaquetes de presentación (p. ej. el comando de
+ * envío): el texto de error vive en un solo sitio, que es justo su razón de ser.
+ * </p>
+ */
+public final class FormatoErrorCliente {
 
     private FormatoErrorCliente() { }
 
-    static String mensaje(Throwable error) {
+    public static String mensaje(Throwable error) {
         for (Throwable actual = error; actual != null; actual = actual.getCause()) {
             if (actual instanceof java.net.SocketTimeoutException) {
                 return "El servidor tardó demasiado en responder. Intenta de nuevo.";

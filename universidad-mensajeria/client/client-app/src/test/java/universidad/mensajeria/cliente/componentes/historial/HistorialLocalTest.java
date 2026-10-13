@@ -12,6 +12,7 @@ import java.util.Properties;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -147,6 +148,40 @@ class HistorialLocalTest {
         var texto = filas.stream().filter(r -> r.otro().equals("C")).findFirst().orElseThrow();
         assertTrue(texto.ultimoContenido().length() <= 160,
                 "preview de texto recortado, no el contenido completo");
+    }
+
+    @Test
+    void elPreviewSabeSiElUltimoMensajeLoEscribiYo() throws Exception {
+        // R1: el prefijo "Tú: " de la lista de contactos sale de aquí, del
+        // `origen` real del último mensaje de la conversación.
+        historial.guardar(new MensajeLocal("mio", "A", "B", "MENSAJE_TEXTO",
+                "hola", "h1", 4, 1, null, null, null,
+                "2026-01-01T10:00:00", true, true));
+        historial.guardar(new MensajeLocal("suyo", "B", "A", "MENSAJE_TEXTO",
+                "buenas", "h2", 6, 1, null, null, null,
+                "2026-01-01T11:00:00", false, true));
+
+        var fila = historial.recientes("A").stream()
+                .filter(r -> r.otro().equals("B")).findFirst().orElseThrow();
+
+        assertEquals("buenas", fila.ultimoContenido());
+        assertFalse(fila.ultimoPropio(), "el último lo escribió el otro");
+    }
+
+    @Test
+    void elPreviewMarcaPropioCuandoElUltimoLoEscribiYo() throws Exception {
+        historial.guardar(new MensajeLocal("suyo", "B", "A", "MENSAJE_TEXTO",
+                "buenas", "h2", 6, 1, null, null, null,
+                "2026-01-01T10:00:00", false, true));
+        historial.guardar(new MensajeLocal("mio", "A", "B", "MENSAJE_TEXTO",
+                "hola", "h1", 4, 1, null, null, null,
+                "2026-01-01T11:00:00", true, true));
+
+        var fila = historial.recientes("A").stream()
+                .filter(r -> r.otro().equals("B")).findFirst().orElseThrow();
+
+        assertEquals("hola", fila.ultimoContenido());
+        assertTrue(fila.ultimoPropio());
     }
 
     @Test

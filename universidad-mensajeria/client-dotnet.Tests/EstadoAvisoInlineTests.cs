@@ -1,75 +1,96 @@
 using Mensajeria.Transversal;
 using Xunit;
 
-namespace Mensajeria.Tests
+namespace Mensajeria.Tests;
+
+/// <summary>
+/// UIX-26: el banner inline se cierra solo cuando el aviso es transitorio.
+/// Un error que desaparece solo es un error que nadie llega a leer.
+/// </summary>
+public class EstadoAvisoInlineTests
 {
-    public sealed class EstadoAvisoInlineTests
+    [Fact]
+    public void TodosLosAvisosSeOcultanSolosCadaUnoConSuPlazo()
     {
-        [Fact]
-        public void IniciaOcultoYVacio()
+        var estado = new EstadoAvisoInline();
+
+        // Un aviso permanente acaba tapando la conversación. Todos se van, pero
+        // el error tiene bastante más margen para que se lea.
+        foreach (var tipo in new[]
+                 {
+                     TipoAvisoInline.Exito, TipoAvisoInline.Informacion,
+                     TipoAvisoInline.Advertencia, TipoAvisoInline.Error
+                 })
         {
-            var estado = new EstadoAvisoInline();
-
-            Assert.False(estado.Visible);
-            Assert.Equal("", estado.Mensaje);
-            Assert.Equal(TipoAvisoInline.Informacion, estado.Tipo);
+            estado.Mostrar("aviso", tipo, ahora: 1_000);
+            Assert.True(estado.DebeOcultarseAutomaticamente);
+            Assert.True(estado.DuracionMs > 0);
+            Assert.Equal(estado.DuracionMs, estado.MilisegundosRestantes(1_000));
         }
+    }
 
-        [Theory]
-        [InlineData(TipoAvisoInline.Error, "No se pudo enviar")]
-        [InlineData(TipoAvisoInline.Advertencia, "El archivo supera el límite")]
-        [InlineData(TipoAvisoInline.Informacion, "Sin red: guardado para reintentar")]
-        [InlineData(TipoAvisoInline.Exito, "Archivo guardado")]
-        public void MostrarPublicaMensajeYSeveridad(TipoAvisoInline tipo, string mensaje)
-        {
-            var estado = new EstadoAvisoInline();
+    [Fact]
+    public void ElErrorTieneMasMargenQueElExito()
+    {
+        var estado = new EstadoAvisoInline();
 
-            estado.Mostrar("  " + mensaje + "  ", tipo);
+        estado.Mostrar("Listo", TipoAvisoInline.Exito, ahora: 0);
+        int exito = estado.DuracionMs;
+        estado.Mostrar("No se pudo enviar: disco lleno", TipoAvisoInline.Error, ahora: 0);
 
-            Assert.True(estado.Visible);
-            Assert.Equal(mensaje, estado.Mensaje);
-            Assert.Equal(tipo, estado.Tipo);
-        }
+        Assert.True(estado.DuracionMs >= exito * 2,
+            "un error debe dar tiempo de leerse antes de desaparecer");
+        Assert.Equal(EstadoAvisoInline.DURACION_ERROR_MS, estado.DuracionMs);
+        estado.Mostrar("Ojo", TipoAvisoInline.Advertencia, ahora: 0);
+        Assert.Equal(EstadoAvisoInline.DURACION_ADVERTENCIA_MS, estado.DuracionMs);
+    }
 
-        [Fact]
-        public void MostrarAvisoNuevoReemplazaElAnterior()
-        {
-            var estado = new EstadoAvisoInline();
-            estado.Mostrar("Error anterior", TipoAvisoInline.Error);
+    [Fact]
+    public void TranscurridoSuPlazoQuedaCero()
+    {
+        var estado = new EstadoAvisoInline();
+        estado.Mostrar("Listo", TipoAvisoInline.Exito, ahora: 1_000);
 
-            estado.Mostrar("Descarga completa", TipoAvisoInline.Exito);
+        Assert.True(estado.MilisegundosRestantes(1_000 + EstadoAvisoInline.DURACION_EXITO_MS - 1) > 0);
+        Assert.Equal(0, estado.MilisegundosRestantes(1_000 + EstadoAvisoInline.DURACION_EXITO_MS));
+        Assert.Equal(0, estado.MilisegundosRestantes(1_000 + EstadoAvisoInline.DURACION_EXITO_MS + 1));
+    }
 
-            Assert.True(estado.Visible);
-            Assert.Equal("Descarga completa", estado.Mensaje);
-            Assert.Equal(TipoAvisoInline.Exito, estado.Tipo);
-        }
+    [Fact]
+    public void MostrarReiniciaElPlazo()
+    {
+        var estado = new EstadoAvisoInline();
+        estado.Mostrar("Primero", TipoAvisoInline.Exito, ahora: 1_000);
 
-        [Fact]
-        public void LimpiarOcultaYRestableceElAviso()
-        {
-            var estado = new EstadoAvisoInline();
-            estado.Mostrar("Fallo de red", TipoAvisoInline.Error);
+        // Llega otro aviso a los 3 s: el nuevo debe tener sus 4 s completos,
+        // no los que le quedaban al anterior.
+        estado.Mostrar("Segundo", TipoAvisoInline.Exito, ahora: 4_000);
 
-            estado.Limpiar();
+        Assert.Equal("Segundo", estado.Mensaje);
+        Assert.Equal(EstadoAvisoInline.DURACION_EXITO_MS, estado.MilisegundosRestantes(4_000));
+    }
 
-            Assert.False(estado.Visible);
-            Assert.Equal("", estado.Mensaje);
-            Assert.Equal(TipoAvisoInline.Informacion, estado.Tipo);
-        }
+    [Fact]
+    public void LimpiarDejaElEstadoEnBlancoYNoExpira()
+    {
+        var estado = new EstadoAvisoInline();
+        estado.Mostrar("Listo", TipoAvisoInline.Exito, ahora: 1_000);
 
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData("  ")]
-        public void MostrarTextoVacioLimpiaElAviso(string? mensaje)
-        {
-            var estado = new EstadoAvisoInline();
-            estado.Mostrar("Aviso existente", TipoAvisoInline.Error);
+        estado.Limpiar();
 
-            estado.Mostrar(mensaje, TipoAvisoInline.Advertencia);
+        Assert.False(estado.Visible);
+        Assert.Equal("", estado.Mensaje);
+        Assert.Equal(-1, estado.MilisegundosRestantes(9_999));
+    }
 
-            Assert.False(estado.Visible);
-            Assert.Equal("", estado.Mensaje);
-        }
+    [Fact]
+    public void MensajeVacioLimpiaEnLugarDeMostrarEnBlanco()
+    {
+        var estado = new EstadoAvisoInline();
+        estado.Mostrar("Algo", TipoAvisoInline.Exito, ahora: 1_000);
+
+        estado.Mostrar("   ", TipoAvisoInline.Exito, ahora: 2_000);
+
+        Assert.False(estado.Visible);
     }
 }

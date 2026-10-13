@@ -307,6 +307,70 @@ ON CONFLICT(id_mensaje) DO UPDATE SET
                 cmd.CommandText = "ALTER TABLE historial_local ADD COLUMN etapas_filtrado TEXT";
                 cmd.ExecuteNonQuery();
             }
+            // El DDL de esta copia trae ya la columna, pero una base creada por
+            // una version anterior del cliente .NET se quedo sin ella y sin
+            // migrarla el INSERT del pie fallaria en toda la sincronizacion.
+            if (!columnas.Contains("caption"))
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = "ALTER TABLE historial_local ADD COLUMN caption TEXT";
+                cmd.ExecuteNonQuery();
+            }
+            NormalizarFechasAUtc(conn, tx);
+        }
+
+        /// <summary>
+        /// UIX-26: deja <c>fecha_envio</c> siempre en UTC con "Z".
+        /// <para>
+        /// El servidor manda <c>LocalDateTime.now()</c> (hora local, sin zona) y
+        /// este cliente guarda UTC con "Z". Como la columna es TEXT y las
+        /// consultas ordenan por ella como texto, <b>todo lo que llegaba quedaba
+        /// siempre por detrás de lo que salía</b>: el preview de la lista marcaba
+        /// "Tú:" aunque el último mensaje fuera del otro, y el orden del historial
+        /// era el equivocado.
+        /// </para>
+        /// <para>
+        /// Corregir solo las capturas nuevas no arregla las conversaciones ya
+        /// existentes, así que esto es una migración de una pasada: lo que ya
+        /// tiene "Z" se deja como está (no se toca dos veces).
+        /// </para>
+        /// </summary>
+        private static void NormalizarFechasAUtc(SqliteConnection conn, SqliteTransaction? tx)
+        {
+            var pendientes = new List<(string Id, string Fecha)>();
+            using (var sel = conn.CreateCommand())
+            {
+                sel.Transaction = tx;
+                sel.CommandText = "SELECT id_mensaje, fecha_envio FROM historial_local "
+                    + "WHERE fecha_envio <> '' AND fecha_envio NOT LIKE '%Z'";
+                using var lector = sel.ExecuteReader();
+                while (lector.Read())
+                {
+                    if (!lector.IsDBNull(0) && !lector.IsDBNull(1))
+                        pendientes.Add((lector.GetString(0), lector.GetString(1)));
+                }
+            }
+            if (pendientes.Count == 0)
+            {
+                return;
+            }
+            using var upd = conn.CreateCommand();
+            upd.Transaction = tx;
+            upd.CommandText = "UPDATE historial_local SET fecha_envio = $f WHERE id_mensaje = $id";
+            var pId = upd.Parameters.Add("$id", SqliteType.Text);
+            var pFecha = upd.Parameters.Add("$f", SqliteType.Text);
+            foreach (var (id, fecha) in pendientes)
+            {
+                string normalizada = Transversal.FormatoFecha.AUtc(fecha);
+                if (normalizada == fecha)
+                {
+                    continue;
+                }
+                pId.Value = id;
+                pFecha.Value = normalizada;
+                upd.ExecuteNonQuery();
+            }
         }
 
         private void AplicarConcurrencia()

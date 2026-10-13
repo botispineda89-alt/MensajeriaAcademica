@@ -50,6 +50,37 @@ namespace Mensajeria.ViewModels
         public string NombreArchivo { get; init; } = "";
         public bool EsImagen { get; init; }
         public bool EsArchivo { get; init; }
+        /// <summary>
+        /// FORMATOS-02: icono del tipo del adjunto (PDF, hoja de cálculo,
+        /// CSV, JSON o documento). WPF no pintaba nada del archivo en la
+        /// burbuja —ni el nombre— así que el receptor no sabía qué le había
+        /// llegado hasta pulsar «Guardar archivo».
+        /// </summary>
+        public ImageSource? IconoArchivo => EsArchivo
+            ? IconosArchivoWpf.Imagen(NombreArchivo) : null;
+        /// <summary>La fila del adjunto solo sale si hay nombre que enseñar.</summary>
+        public Visibility MostrarArchivo => EsArchivo
+            && !string.IsNullOrWhiteSpace(NombreArchivo)
+                ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>Sin dibujo para esa extensión no se deja el hueco del icono.</summary>
+        public Visibility MostrarIconoArchivo => IconoArchivo is null
+            ? Visibility.Collapsed : Visibility.Visible;
+        /// <summary>
+        /// Texto que acompaña a un adjunto dentro de la MISMA burbuja
+        /// (columna <c>caption</c>). Vacío = sin pie.
+        /// </summary>
+        public string Pie { get; init; } = "";
+        /// <summary>
+        /// UIX-24: cita dentro del pie de un adjunto (respuesta a una imagen o
+        /// archivo). Se separa igual que en el texto; el resto va en <see cref="Pie"/>.
+        /// </summary>
+        public string PieCita { get; init; } = "";
+        public Visibility MostrarPieCita => (EsImagen || EsArchivo)
+            && !string.IsNullOrWhiteSpace(PieCita)
+                ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility MostrarPie => (EsImagen || EsArchivo)
+            && !string.IsNullOrWhiteSpace(Pie)
+                ? Visibility.Visible : Visibility.Collapsed;
         private string _patronResaltado = "";
         /// <summary>UIX-06: consulta activa para resaltar (vacía = sin marcas).</summary>
         public string PatronResaltado
@@ -57,7 +88,21 @@ namespace Mensajeria.ViewModels
             get => _patronResaltado;
             set { _patronResaltado = value; OnPropertyChanged(); }
         }
-        public Visibility MostrarDescarga => EsArchivo ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>
+        /// UIX-28: los botones de guardar. <b>Dos y no uno</b>, porque guardar
+        /// "algo" no dice si vas a obtener una foto o un PDF: el texto de cada uno
+        /// dice qué se va a guardar. Un mensaje es imagen o archivo, nunca las dos
+        /// cosas, así que nunca salen los dos a la vez. La regla vive en
+        /// <see cref="Transversal.BotonGuardar"/>, sin WPF, para que sea testeable.
+        /// <para>
+        /// El servidor entrega ambos por `archivoId`, y cuando no lo hay el base64
+        /// local sirve de respaldo.
+        /// </para>
+        /// </summary>
+        public Visibility MostrarDescargaImagen => EsImagen
+                ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility MostrarDescargaArchivo => EsArchivo
+                ? Visibility.Visible : Visibility.Collapsed;
         /// <summary>True si el remitente es la sesión activa: burbuja a la derecha.</summary>
         public bool EsPropio { get; init; }
         public bool EsLeido { get; init; }
@@ -90,7 +135,18 @@ namespace Mensajeria.ViewModels
         public string EstadoImagen { get => _estadoImagen; set { _estadoImagen = value; OnPropertyChanged(); } }
         public bool Cargando { get => _cargando; set { _cargando = value; OnPropertyChanged(); OnPropertyChanged(nameof(MostrarReintento)); OnPropertyChanged(nameof(MostrarCancelar)); } }
         public bool Solicitada { get => _solicitada; set { _solicitada = value; OnPropertyChanged(); OnPropertyChanged(nameof(MostrarReintento)); } }
-        public Visibility MostrarTexto => string.IsNullOrEmpty(Contenido) ? Visibility.Collapsed : Visibility.Visible;
+        /// <summary>
+        /// UIX-24: la respuesta se ve como en WhatsApp. El prefijo de cita
+        /// ("Respuesta a X: "..."") sigue viajando en el texto plano porque es
+        /// el contrato compartido con Java y Python; aqui solo se separa para
+        /// pintarlo como bloque.
+        /// </summary>
+        public string Cita { get; set; } = "";
+        public string Cuerpo { get; set; } = "";
+        public Visibility MostrarCita => string.IsNullOrEmpty(Cita)
+            ? Visibility.Collapsed : Visibility.Visible;
+
+        public Visibility MostrarTexto => string.IsNullOrEmpty(Cuerpo) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility MostrarImagen => EsImagen ? Visibility.Visible : Visibility.Collapsed;
         public Visibility MostrarReintento => EsImagen && !Cargando && Imagen == null && Solicitada
             ? Visibility.Visible : Visibility.Collapsed;

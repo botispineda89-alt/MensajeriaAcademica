@@ -1,12 +1,20 @@
 """Acciones de selección, envío y navegación de la conversación."""
 
-import datetime
-import uuid
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import Qt
 
+from transversal.fechas import ahora_utc
+from transversal import iconos_archivo
 from ui.enviar_mensaje_comando import EnviarMensajeComando
+from ui.plan_envio_adjuntos import Adjunto, PlanEnvioAdjuntos, Texto
+
+
+class FlujoConversacionChat:
+    # §7 paridad: cancelación del lote de adjuntos. La UI marca este Event y el
+    # comando lo consulta entre adjuntos y entre partes. Se crea en enviar().
+    _cancelacion_envio = None
 
 
 class FlujoConversacionChat:
@@ -49,6 +57,8 @@ class FlujoConversacionChat:
             return ""
         if mensaje.get("is_image"):
             referencia = f"[Imagen: {mensaje.get('filename') or 'imagen'}]"
+        elif mensaje.get("es_archivo"):
+            referencia = f"[Archivo: {mensaje.get('filename') or 'archivo'}]"
         else:
             referencia = '"%s"' % ((mensaje.get("text") or "mensaje")[:120])
         return f"Respuesta a {mensaje.get('sender')}: {referencia}"
@@ -65,72 +75,98 @@ class FlujoConversacionChat:
     def enviar(self):
         texto = self.entry_msg.texto().strip()
         usuario = self.usuario_seleccionado
-        ruta = self.imagen_pendiente
-        if not usuario or (not texto and not ruta):
+        rutas = self.bandeja_adjuntos.rutas
+        if not usuario or (not texto and not rutas):
             return
         cita = self._cita_actual()
         texto_envio = (cita + "\n\n" + texto) if cita and texto else (cita or texto)
+        plan = PlanEnvioAdjuntos.calcular(
+            texto_envio, rutas, self._EXTENSIONES_IMAGEN)
+        if not plan:
+            return
         self.btn_enviar.setEnabled(False)
-
-        ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        id_texto = str(uuid.uuid4()) if texto_envio else None
-        id_imagen = str(uuid.uuid4()) if ruta else None
-
-        # Reflejo optimista inmediato en la UI con estado PENDIENTE
-        if id_texto:
-            item_texto = {
-                "id": id_texto, "sender": "Tú", "date": ahora,
-                "text": texto_envio, "state": self._estado_visible("PENDIENTE"),
-                "raw_state": "PENDIENTE", "is_own": True,
-                "is_image": False, "archivo_id": None,
-                "filename": "", "path": "", "image_loaded": False,
-                "image_loading": False, "image_state": ""
-            }
-            self._historial_ids.add(id_texto)
-            self._agregar_fila(item_texto)
-
-        if id_imagen:
-            nombre_adj = Path(ruta).name
-            ext_adj = Path(ruta).suffix.casefold()
-            es_imagen_adj = ext_adj in self._EXTENSIONES_IMAGEN
-            tamano_kb = Path(ruta).stat().st_size / 1024
-            tamano_str = (f"{tamano_kb/1024:.1f} MB" if tamano_kb >= 1024
-                          else f"{tamano_kb:.1f} KB")
-            item_imagen = {
-                "id": id_imagen, "sender": "Tú", "date": ahora,
-                "text": "" if es_imagen_adj else f"📎 {nombre_adj}  ({tamano_str})",
-                "state": self._estado_visible("PENDIENTE"),
-                "raw_state": "PENDIENTE", "is_own": True,
-                "is_image": es_imagen_adj, "archivo_id": None,
-                "filename": nombre_adj, "path": ruta,
-                "image_loaded": False, "image_loading": False,
-                "image_state": nombre_adj if es_imagen_adj else ""
-            }
-            self._historial_ids.add(id_imagen)
-            self._agregar_fila(item_imagen)
-
-        self.lista_mensajes.scrollToBottom()
-
-        # Limpiar entrada, cita y adjunto inmediatamente
+        self._cancelacion_envio = threading.Event()
+        self._mostrar_envio_optimista(plan)
         self.entry_msg.clear()
         self._cancelar_respuesta()
         self._quitar_adjunto()
-
         comando = EnviarMensajeComando(
-            usuario=usuario,
-            texto=texto_envio,
-            id_texto=id_texto,
-            ruta_adjunto=ruta,
-            id_adjunto=id_imagen,
-            extensiones_imagen=frozenset(self._EXTENSIONES_IMAGEN),
-        )
-        self._ejecutar("envio", lambda: comando.ejecutar(self.fachada))
+            usuario, plan, self._EXTENSIONES_IMAGEN,
+            al_progreso=lambda dato: self._eventos.progreso.emit(dato),
+            cancelado=self._cancelacion_envio.is_set)
+        self._ejecutar(
+            "envio", lambda: comando.ejecutar(self.fachada))
+
+    def _mostrar_envio_optimista(self, plan):
+        ahora = ahora_utc()
+        for accion in plan:
+            item = {
+                "id": accion.id_mensaje, "sender": "Tú", "date": ahora,
+                "state": self._estado_visible("PENDIENTE"),
+                "raw_state": "PENDIENTE", "is_own": True,
+                "is_image": False, "es_archivo": False,
+                "archivo_id": None, "filename": "", "path": "",
+                "image_loaded": False, "image_loading": False,
+                "image_state": "", "caption": "",
+            }
+            if isinstance(accion, Texto):
+                item["text"] = accion.cuerpo
+            elif isinstance(accion, Adjunto):
+                ruta = Path(accion.ruta)
+                item.update(self._datos_adjunto_optimista(
+                    ruta, accion.caption))
+            self._historial_ids.add(accion.id_mensaje)
+            self._agregar_fila(item)
+        self.lista_mensajes.scrollToBottom()
+
+    def _datos_adjunto_optimista(self, ruta, caption):
+        es_imagen = ruta.suffix.casefold() in self._EXTENSIONES_IMAGEN
+        try:
+            tamano = ruta.stat().st_size
+            tamano_str = (f"{tamano / 1024 / 1024:.1f} MB"
+                          if tamano >= 1024 * 1024
+                          else f"{tamano / 1024:.1f} KB")
+        except OSError:
+            tamano_str = "Tamaño no disponible"
+        return {
+            "text": "" if es_imagen else (
+                f"{iconos_archivo.prefijo(ruta.name)}Enviado archivo: "
+                f"{ruta.name}  ({tamano_str})"),
+            "is_image": es_imagen, "es_archivo": not es_imagen,
+            "filename": ruta.name, "path": str(ruta),
+            "image_state": f"Enviada imagen: {ruta.name}" if es_imagen else "",
+            "image_loading": es_imagen,
+            "caption": caption or "",
+        }
 
     def _ir_a_nuevos(self):
         """UIX-16: baja al fondo y apaga el aviso."""
         self._nuevos_pendientes = 0
         self.btn_nuevos.setVisible(False)
         self.lista_mensajes.scrollToBottom()
+
+    def _cancelar_envio_lote(self):
+        """§7 paridad: la UI marca la cancelación; el comando la consulta."""
+        if self._cancelacion_envio is not None:
+            self._cancelacion_envio.set()
+        self.lbl_progreso.setText("Cancelando…")
+        self.btn_cancelar_envio.setEnabled(False)
+
+    def _procesar_progreso(self, dato):
+        """Recibe {hechos, total, bytes, bytes_total, nombre} del hilo de envío."""
+        total_bytes = dato.get("bytes_total") or 0
+        hecho_bytes = dato.get("bytes") or 0
+        mb_hecho, mb_total = hecho_bytes / 1048576, total_bytes / 1048576
+        self.lbl_progreso.setText(
+            f"Enviando {dato.get('hechos', 0)}/{dato.get('total', 0)} · "
+            f"{mb_hecho:.1f}/{mb_total:.1f} MB · {dato.get('nombre', '')}")
+        hay_mas = dato.get("hechos", 0) < dato.get("total", 0)
+        self.fila_progreso.setVisible(hay_mas)
+        self.btn_cancelar_envio.setEnabled(True)
+
+    def _ocultar_progreso_envio(self):
+        self.fila_progreso.setVisible(False)
+        self.btn_cancelar_envio.setEnabled(True)
 
     def _al_seleccionar_usuario(self, actual, anterior=None):
         if actual is None or getattr(self, "_seleccionando", False) \
@@ -184,5 +220,8 @@ class FlujoConversacionChat:
             self._ejecutar("marcar_leidos", lambda: self.fachada.marcar_leidos(codigo))
 
     def _actualizar_envio(self):
+        hay_adjuntos = bool(self.bandeja_adjuntos.rutas)
+        self.preview_container.setVisible(hay_adjuntos)
+        self.btn_quitar_adjunto.setVisible(hay_adjuntos)
         self.btn_enviar.setEnabled(bool(self.usuario_seleccionado)
-                                   and bool(self.entry_msg.texto().strip() or self.imagen_pendiente))
+                                   and bool(self.entry_msg.texto().strip() or hay_adjuntos))

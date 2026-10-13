@@ -54,12 +54,13 @@ namespace Mensajeria.Componentes
                 string tipo = NormalizarTipoMensaje(tipoCrudo);
                 string? nombre = Texto(fila, "nombreArchivo");
                 bool propio = string.Equals(origen, codigoSesion, StringComparison.Ordinal);
-                string? contenido = tipo switch
-                {
-                    TipoMensaje.MENSAJE_IMAGEN => "[Imagen]",
-                    TipoMensaje.MENSAJE_ARCHIVO => $"[Archivo: {nombre ?? "archivo"}]",
-                    _ => Texto(fila, "contenido")
-                };
+                // La pagina remota nunca trae bytes: en un adjunto el `contenido`
+                // del servidor es el pie/caption y los bytes van aparte. Se
+                // reetiqueta igual que en el cliente Java.
+                bool esAdjunto = tipo == TipoMensaje.MENSAJE_IMAGEN
+                    || tipo == TipoMensaje.MENSAJE_ARCHIVO;
+                string? pie = esAdjunto ? NormalizarPie(Texto(fila, "contenido")) : null;
+                string? contenido = esAdjunto ? null : Texto(fila, "contenido");
                 mensajes.Add(new MensajeLocal(
                     id, origen, destino, tipo, contenido,
                     Texto(fila, "hashSha256"), Entero(fila, "numCaracteres"),
@@ -67,13 +68,33 @@ namespace Mensajeria.Componentes
                     EnteroLargo(fila, "tamanoArchivo"),
                     Texto(fila, "fechaEnvio") ?? DateTime.UtcNow.ToString("O"),
                     propio, false, propio ? "ENVIADO" : "ENTREGADO",
-                    Texto(fila, "archivoId"), Texto(fila, "etapasFiltrado")));
+                    Texto(fila, "archivoId"), Texto(fila, "etapasFiltrado"), pie));
             }
             return mensajes;
         }
 
+        /// <summary>Pie en blanco se normaliza a null (espejo de normalizarPie Java).</summary>
+        private static string? NormalizarPie(string? pie) =>
+            string.IsNullOrWhiteSpace(pie) ? null : pie;
+
         public string NormalizarTipoMensaje(string tipo)
         {
+            // El SERVIDOR guarda los adjuntos y los textos con el nombre corto
+            // ("TEXTO", "IMAGEN", "ARCHIVO") porque es lo que espera el enum
+            // TipoContenido de la entidad JPA, mientras que el contrato del
+            // cliente usa el prefijo ("MENSAJE_TEXTO"...). Sin este diccionario
+            // la pagina de historial remoto revienta con ArgumentException y el
+            // chat se queda vacio con "No se pudo sincronizar el historial".
+            // Mismo diccionario que normalizarTipoMensaje del cliente Java.
+            switch (tipo)
+            {
+                case "TEXTO" or "MENSAJE_TEXTO": return TipoMensaje.MENSAJE_TEXTO;
+                case "IMAGEN" or "MENSAJE_IMAGEN": return TipoMensaje.MENSAJE_IMAGEN;
+                case "ARCHIVO" or "MENSAJE_ARCHIVO": return TipoMensaje.MENSAJE_ARCHIVO;
+            }
+            // Un tipo que no es del contrato se rechaza: nunca se "aproxima" a
+            // otro, porque un mensaje guardado como si fuera de otro tipo
+            // mostraría bytes donde va texto.
             if (Enum.TryParse(tipo, ignoreCase: false, out TipoMensajeCliente tipoEnum)
                 && string.Equals(Enum.GetName(tipoEnum), tipo, StringComparison.Ordinal))
                 return tipo;

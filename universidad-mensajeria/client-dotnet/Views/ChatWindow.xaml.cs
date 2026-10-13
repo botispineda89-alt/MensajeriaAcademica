@@ -11,10 +11,13 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using System.Windows.Media.Effects;
 using Microsoft.Win32;
 using Mensajeria.Fachada;
 using Mensajeria.Transversal;
+using Mensajeria.Transversal.Dtos;
 using Mensajeria.ViewModels;
 
 namespace Mensajeria.Views
@@ -29,11 +32,15 @@ namespace Mensajeria.Views
         private IReadOnlyDictionary<string, DateTimeOffset> _ultimosMensajes =
             new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
         private string? _usuarioDestino;
+        private readonly AdjuntosPanelVM _adjuntos = new();
+        private CancellationTokenSource? _ctsEnvio;
+        private bool _enviando;
+        private bool _cerrarTrasCancelar;
+        private bool _cerrarSesionTrasCancelar;
         private int _versionCargaHistorial;
+        private int _versionNavegacionCita;
         private bool _cargandoHistorial;
         private bool _errorCargaHistorial;
-        private string? _imagenPendiente;
-        private string? _archivoPendiente;
         private bool _cerrando;
         private int _offsetActual;
         // UIX-06/UIX-07: búsqueda en el historial con debounce.
@@ -47,6 +54,18 @@ namespace Mensajeria.Views
         private int _nuevosPendientes;
         private readonly System.Windows.Threading.DispatcherTimer _timerBuscar = new();
         private readonly System.Windows.Threading.DispatcherTimer _timerFiltro = new();
+        /// <summary>UIX-26: cierra solo los avisos transitorios del banner.</summary>
+        private readonly System.Windows.Threading.DispatcherTimer _timerAviso = new()
+        {
+            Interval = TimeSpan.FromMilliseconds(500)
+        };
+        /// <summary>UIX-26: agrupa los refrescos de la lista de contactos.</summary>
+        private const long INTERVALO_MINIMO_LISTA_MS = 400;
+        private long _ultimoRefrescoListaMs;
+        private bool _refrescoListaEnCurso;
+        private bool _refrescoListaPendiente;
+        /// <summary>UIX-26: alguien pidió refresco y todavía no se ha atendido.</summary>
+        private bool _refrescoListaPedido;
         private readonly Dictionary<string, int> _paginaRemota = new();
         private readonly Dictionary<string, int> _totalPaginasRemotas = new();
         private readonly SemaphoreSlim _limiteImagenes = new(3, 3);
@@ -62,6 +81,7 @@ namespace Mensajeria.Views
             txtSesion.Text = $"Sesión activa · {_fachada.UsuarioActual}";
             lstUsuarios.ItemsSource = _usuarios;
             lstMensajes.ItemsSource = _mensajes;
+            lstAdjuntos.ItemsSource = _adjuntos.Adjuntos;
             _fachada.OnMensajeRecibido += Fachada_OnMensajeRecibido;
             _fachada.OnCierre += Fachada_OnCierre;
             _fachada.OnPresencia += Fachada_OnPresencia;
@@ -78,6 +98,9 @@ namespace Mensajeria.Views
             _timerBuscar.Tick += (_, _) => { _timerBuscar.Stop(); EjecutarBusqueda(); };
             _timerFiltro.Interval = TimeSpan.FromMilliseconds(300);
             _timerFiltro.Tick += (_, _) => { _timerFiltro.Stop(); AplicarFiltro(_usuarioDestino); };
+            // UIX-26: el aviso de éxito/información se cierra solo; los de error
+            // y atención no (quedan hasta que el usuario los cierre).
+            _timerAviso.Tick += TimerAviso_Tick;
             // UIX-06: Ctrl+F abre la búsqueda; Esc la cierra si está abierta.
             PreviewKeyDown += (s, e) =>
             {
@@ -181,11 +204,34 @@ namespace Mensajeria.Views
             txtTituloAvisoInline.Foreground = new SolidColorBrush(texto);
             txtAvisoInline.Foreground = new SolidColorBrush(texto);
             bordeAvisoInline.Visibility = _estadoAvisoInline.Visible ? Visibility.Visible : Visibility.Collapsed;
+            // UIX-26: los avisos de éxito e información se cierran solos; los de
+            // error y atención no, porque dependen de que alguien los lea.
+            _timerAviso.Stop();
+            if (_estadoAvisoInline.DebeOcultarseAutomaticamente) _timerAviso.Start();
+        }
+
+        /// <summary>
+        /// Cierra el aviso cuando se agota su tiempo. Un <c>DispatcherTimer</c> en
+        /// lugar de un <c>Task.Delay</c>: vive en el hilo de la UI, se para con
+        /// la ventana y no puede intentar tocar un control ya liberado.
+        /// </summary>
+        private void TimerAviso_Tick(object? sender, EventArgs e)
+        {
+            if (!_estadoAvisoInline.DebeOcultarseAutomaticamente)
+            {
+                _timerAviso.Stop();
+                return;
+            }
+            if (_estadoAvisoInline.MilisegundosRestantes(Environment.TickCount64) <= 0)
+            {
+                LimpiarAvisoInline();
+            }
         }
 
         private void LimpiarAvisoInline()
         {
             _estadoAvisoInline.Limpiar();
+            _timerAviso.Stop();
             bordeAvisoInline.Visibility = Visibility.Collapsed;
         }
 
@@ -193,6 +239,15 @@ namespace Mensajeria.Views
 
         protected override void OnClosing(CancelEventArgs e)
         {
+            if (_enviando)
+            {
+                e.Cancel = true;
+                _ctsEnvio?.Cancel();
+                _cerrarTrasCancelar = true;
+                MostrarAvisoInline("Cancelando el envío antes de cerrar…",
+                    TipoAvisoInline.Informacion);
+                return;
+            }
             if (!_cerrando)
             {
                 if (MessageBox.Show("¿Deseas cerrar esta sesión y volver al inicio?", "Confirmar salida",
@@ -212,6 +267,7 @@ namespace Mensajeria.Views
             CancelarTodasLasCargas();
             _timerBuscar.Stop();
             _timerFiltro.Stop();
+            _timerAviso.Stop();
             _fachada.OnMensajeRecibido -= Fachada_OnMensajeRecibido;
             _fachada.OnCierre -= Fachada_OnCierre;
             _fachada.OnPresencia -= Fachada_OnPresencia;
@@ -261,7 +317,17 @@ namespace Mensajeria.Views
                 }).ToList();
             // UIX-02: insignia de no leídos (una sola query para todos).
             var noLeidos = _fachada.ContarNoLeidos();
-            foreach (var u in _directorio) u.NoLeidos = noLeidos.GetValueOrDefault(u.Codigo);
+            // UIX-24: preview del ultimo mensaje (una sola query, no una por chat).
+            var previews = await Task.Run(() => _fachada.UltimoMensajePorContacto());
+            foreach (var u in _directorio)
+            {
+                u.NoLeidos = noLeidos.GetValueOrDefault(u.Codigo);
+                if (previews.TryGetValue(u.Codigo, out var prev))
+                {
+                    u.Preview = prev.Texto;
+                    u.PropioPreview = prev.Propio;
+                }
+            }
             AplicarFiltro(seleccionado);
             RestaurarUltimoChatSiPendiente(seleccionado);
         }
@@ -304,6 +370,7 @@ namespace Mensajeria.Views
         private void MarcarConversacionReciente(string codigo)
         {
             if (string.IsNullOrWhiteSpace(codigo)) return;
+            ProgramarRefrescoLista();
             var fechas = new Dictionary<string, DateTimeOffset>(
                 _ultimosMensajes, StringComparer.OrdinalIgnoreCase)
             {
@@ -368,7 +435,11 @@ namespace Mensajeria.Views
                 });
                 return;
             }
+            // UIX-26: MENSAJE_ARCHIVO también repinta la lista. Estaba fuera de la lista
+            // y por eso un archivo que llegaba no ponía ni el preview ni la
+            // insignia hasta que se pulsaba "Actualizar".
             if (tipo != TipoMensaje.MENSAJE_TEXTO && tipo != TipoMensaje.MENSAJE_IMAGEN
+                && tipo != TipoMensaje.MENSAJE_ARCHIVO
                 && tipo != TipoMensaje.BROADCAST && tipo != TipoMensaje.SYNC_LOGIN) return;
             string remitente = GetString(msg, "remitente") ?? "desconocido";
             string destinatario = GetString(msg, "destinatario") ?? "";
@@ -437,7 +508,17 @@ namespace Mensajeria.Views
         {
             if (lstUsuarios.SelectedItem is not UsuarioVM usuario
                 || string.Equals(_usuarioDestino, usuario.Codigo, StringComparison.OrdinalIgnoreCase)) return;
+            if (_adjuntos.HayAdjuntos && !_enviando)
+            {
+                int cantidad = _adjuntos.Adjuntos.Count;
+                _adjuntos.Limpiar();
+                MostrarAvisoInline($"Se descartaron {cantidad} adjunto(s) al cambiar de conversación.",
+                    TipoAvisoInline.Informacion);
+            }
+            ActualizarPanelAdjuntos();
+            Interlocked.Increment(ref _versionNavegacionCita);
             _usuarioDestino = usuario.Codigo;
+            ActualizarEstadoEnvio();
             Transversal.PreferenciasChat.GuardarUltimoChat(
                 _fachada.UsuarioActual, usuario.Codigo);
             // UIX-02: la insignia se apaga al abrir (el marcado real viaja por
@@ -465,7 +546,31 @@ namespace Mensajeria.Views
             _ = Task.Run(() => _fachada.MarcarLeidosAsync(usuario.Codigo));
         }
 
-        private async void CargarHistorial(string codigo, int offset = 0, bool prepend = false)
+        /// <summary>
+        /// Envoltura de seguridad. Esta es una continuation async void: lo que
+        /// revienta dentro sube al Dispatcher y CIERRA la aplicacion. Un fallo
+        /// al pintar una fila no puede costar la sesion del usuario.
+        /// </summary>
+        private async void CargarHistorial(string codigo, int offset = 0, bool prepend = false,
+            Action? alTerminar = null)
+        {
+            try
+            {
+                await CargarHistorialInterno(codigo, offset, prepend, alTerminar);
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.TraceError(
+                    "No se pudo pintar el historial de {0}: {1}", codigo, error);
+                if (_usuarioDestino == codigo)
+                    barraProgreso.Visibility = Visibility.Collapsed;
+                MostrarAvisoInline("No se pudo mostrar esta conversacion. Intenta actualizar.",
+                    TipoAvisoInline.Error);
+            }
+        }
+
+        private async Task CargarHistorialInterno(string codigo, int offset, bool prepend,
+            Action? alTerminar)
         {
             int version = Interlocked.Increment(ref _versionCargaHistorial);
             List<Dictionary<string, object>> historial;
@@ -520,8 +625,12 @@ namespace Mensajeria.Views
             {
                 string tipo = Valor(row, "tipo");
                 string remitente = Valor(row, "origen");
-                bool esImagen = tipo == TipoMensaje.MENSAJE_IMAGEN;
-                bool esArchivo = tipo == TipoMensaje.MENSAJE_ARCHIVO;
+                // UIX-28: se normaliza el tipo antes de decidir. En la base hay
+                // filas viejas con "IMAGEN"/"ARCHIVO" sin el prefijo MENSAJE_, y
+                // con comparación en crudo quedaban sin botón de guardar y sin
+                // recogniseerse como imagen.
+                bool esImagen = Transversal.BotonGuardar.EsImagen(tipo);
+                bool esArchivo = Transversal.BotonGuardar.EsArchivo(tipo);
                 bool propio = remitente == _fachada.UsuarioActual;
                 string identidad = propio ? "Tú" : Identidad(remitente);
                 string estadoBruto = Valor(row, "estado");
@@ -536,6 +645,8 @@ namespace Mensajeria.Views
                 }
                 bool agrupado = Transversal.FilasChat.Agrupar(
                     fechaPrev, autorPrev, fechaCruda, remitente);
+                string caption = (esImagen || esArchivo) ? Valor(row, "caption") : "";
+                Transversal.FormatoCita.Separar(caption, out var pieCita, out var pieCuerpo);
                 lote.Add(new MensajeVM
                 {
                     Id = Valor(row, "id"),
@@ -553,8 +664,11 @@ namespace Mensajeria.Views
                     EsLeido = estadoBruto == "LEIDO",
                     ArchivoId = Valor(row, "archivoId"),
                     NombreArchivo = Valor(row, "nombreArchivo"),
-                    RutaArchivo = Valor(row, "rutaArchivo")
+                    RutaArchivo = Valor(row, "rutaArchivo"),
+                    Pie = pieCuerpo,
+                    PieCita = pieCita
                 });
+                SepararCita(lote[^1], esImagen ? "" : Valor(row, "contenido"));
                 fechaPrev = fechaCruda;
                 autorPrev = remitente;
             }
@@ -617,6 +731,95 @@ namespace Mensajeria.Views
             btnAnteriores.Visibility = offset + 50 < totalLocal
                 || _paginaRemota.GetValueOrDefault(codigo) + 1 < paginasRemotas
                 ? Visibility.Visible : Visibility.Collapsed;
+            alTerminar?.Invoke();
+        }
+
+        /// <summary>
+        /// UIX-26: un mensaje NO dispara una consulta. El trabajo se agrupa, como
+        /// el intervalo mínimo del cliente Java: veinte mensajes seguidos son un
+        /// refresco, no veinte.
+        /// <para>
+        /// Lo importante es que se <b>fusiona</b>, no que se descarta. Antes el
+        /// segundo mensaje de una ráfaga se perdía: el primero programaba el
+        /// refresco y el segundo, dentro de la ventana, no programaba nada. Como
+        /// la consulta del primero se resuelve en segundo plano, el preview del
+        /// segundo ya no estaba en la base y la lista se quedaba desfasada
+        /// hasta el siguiente mensaje o hasta que se pulsaba "Actualizar".
+        /// </para>
+        /// </summary>
+        private void ProgramarRefrescoLista()
+        {
+            _refrescoListaPedido = true;
+            long ahora = Environment.TickCount64;
+            if (ahora - _ultimoRefrescoListaMs < INTERVALO_MINIMO_LISTA_MS) return;
+            _ultimoRefrescoListaMs = ahora;
+            Dispatcher.BeginInvoke(new Action(RefrescarListaContactos));
+        }
+
+        /// <summary>
+        /// NO LEÍDOS + PREVIEW + ORDEN en una sola pasada. Antes el preview iba
+        /// por un lado y el contador de no leídos no iba: por eso la insignia
+        /// nunca subía sola. También quita la consulta completa por mensaje.
+        /// </summary>
+        private async void RefrescarListaContactos()
+        {
+            _refrescoListaPedido = false;
+            if (_refrescoListaEnCurso) { _refrescoListaPendiente = true; return; }
+            _refrescoListaEnCurso = true;
+            try
+            {
+                var noLeidos = await Task.Run(() => _fachada.ContarNoLeidos());
+                var previews = await Task.Run(() => _fachada.UltimoMensajePorContacto());
+                foreach (var u in _directorio)
+                {
+                    u.NoLeidos = noLeidos.GetValueOrDefault(u.Codigo);
+                    // Sin mensajes hay que VACIAR el preview, no dejarlo como
+                    // estaba: si no, un contacto que ya no aparece en la consulta
+                    // se queda con el preview del mensaje anterior para siempre.
+                    if (previews.TryGetValue(u.Codigo, out var prev))
+                    {
+                        u.Preview = prev.Texto;
+                        u.PropioPreview = prev.Propio;
+                    }
+                    else
+                    {
+                        u.Preview = "";
+                        u.PropioPreview = false;
+                    }
+                }
+                AplicarFiltro(_usuarioDestino);
+            }
+            catch (Exception error)
+            {
+                // Son cosméticos: si fallan, el chat sigue igual.
+                System.Diagnostics.Trace.TraceWarning(
+                    "No se pudo refrescar la lista de contactos: {0}", error.Message);
+            }
+            finally
+            {
+                _refrescoListaEnCurso = false;
+                // Trailing edge: si llegaron mensajes mientras se consultaba, hay
+                // que volver a consultar. Antes solo se miraba `_refrescoListaPendiente`
+                // (que solo se activaba por reentrada), y los que caían en la
+                // ventana de agrupado se perdían sin más.
+                if (_refrescoListaPendiente || _refrescoListaPedido)
+                {
+                    _refrescoListaPendiente = false;
+                    ProgramarRefrescoLista();
+                }
+            }
+        }
+
+        /// <summary>UIX-24: separa la cita del cuerpo para pintarla como bloque.</summary>
+        private static void SepararCita(MensajeVM vm, string? contenido)
+        {
+            // Paridad con Java (MensajeCell.extraerCita): la cita es lo anterior
+            // al PRIMER salto doble. El regex anterior paraba en el primer "\n",
+            // asi que un extracto con saltos se partia mal y el cuerpo quedaba
+            // pegado a la cita.
+            Transversal.FormatoCita.Separar(contenido, out var cita, out var cuerpo);
+            vm.Cita = cita;
+            vm.Cuerpo = cuerpo;
         }
 
         private async void CargarHistorialRemoto(string codigo, int pagina, bool olderPage = false)
@@ -664,6 +867,226 @@ namespace Mensajeria.Views
                 CargarHistorialRemoto(codigo, siguiente, true);
             }
         }
+
+        private async void Cita_MouseLeftButtonUp(object sender,
+            System.Windows.Input.MouseButtonEventArgs e)
+        {
+            e.Handled = true;
+            if (sender is not FrameworkElement { Tag: string cita }
+                || string.IsNullOrWhiteSpace(cita)) return;
+            await NavegarACitaAsync(cita);
+        }
+
+        private async Task NavegarACitaAsync(string cita)
+        {
+            string? codigo = _usuarioDestino;
+            if (codigo == null) return;
+            int version = Interlocked.Increment(ref _versionNavegacionCita);
+            var cargado = _mensajes.FirstOrDefault(m => !m.EsCabeceraDia
+                && string.Equals(CitaDeMensaje(m), cita, StringComparison.Ordinal));
+            if (cargado != null)
+            {
+                EnfocarMensaje(cargado);
+                return;
+            }
+
+            MostrarAvisoInline("Buscando mensaje citado en el historial…",
+                TipoAvisoInline.Informacion);
+            barraProgreso.Visibility = Visibility.Visible;
+            bool cargaDestinoIniciada = false;
+            var identidades = _directorio.ToDictionary(u => u.Codigo, u => u.Etiqueta,
+                StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                UbicacionCita? ubicacion = await BuscarCitaEnHistorialAsync(
+                    codigo, cita, version, identidades);
+                if (version != _versionNavegacionCita || codigo != _usuarioDestino) return;
+                if (ubicacion == null)
+                {
+                    MostrarAvisoInline("El mensaje citado no está disponible en este historial.",
+                        TipoAvisoInline.Informacion);
+                    return;
+                }
+
+                LimpiarAvisoInline();
+                int offset = (ubicacion.Rango / 50) * 50;
+                cargaDestinoIniciada = true;
+                CargarHistorial(codigo, offset, false, () =>
+                {
+                    if (version != _versionNavegacionCita || codigo != _usuarioDestino) return;
+                    MensajeVM? destino = _mensajes.FirstOrDefault(m =>
+                        !m.EsCabeceraDia && m.Id == ubicacion.Id);
+                    if (destino == null)
+                    {
+                        MostrarAvisoInline("No se pudo mostrar el mensaje citado.",
+                            TipoAvisoInline.Advertencia);
+                        return;
+                    }
+                    EnfocarMensaje(destino);
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceError(
+                    "No se pudo navegar al mensaje citado de {0}: {1}", codigo, ex);
+                if (version == _versionNavegacionCita && codigo == _usuarioDestino)
+                    MostrarAvisoInline(MensajesUsuario.Accion(ex, "buscar el mensaje citado"),
+                        TipoAvisoInline.Error);
+            }
+            finally
+            {
+                if (!cargaDestinoIniciada && version == _versionNavegacionCita)
+                    barraProgreso.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private async Task<UbicacionCita?> BuscarCitaEnHistorialAsync(
+            string codigo, string cita, int version,
+            IReadOnlyDictionary<string, string> identidades)
+        {
+            int totalLocal = await Task.Run(() => _fachada.ContarConversacion(codigo));
+            UbicacionCita? encontrada = await Task.Run(() =>
+                BuscarCitaEnRango(codigo, cita, 0, totalLocal, identidades, version));
+            if (version != _versionNavegacionCita) return null;
+            if (encontrada != null) return encontrada;
+
+            int pagina = Math.Max(0, _paginaRemota.GetValueOrDefault(codigo));
+            int totalPaginas = _totalPaginasRemotas.GetValueOrDefault(codigo);
+            do
+            {
+                if (version != _versionNavegacionCita || codigo != _usuarioDestino)
+                    return null;
+
+                int totalAnterior = totalLocal;
+                totalPaginas = await _fachada.TraerHistorialAsync(codigo, pagina);
+                _paginaRemota[codigo] = pagina;
+                _totalPaginasRemotas[codigo] = totalPaginas;
+                totalLocal = await Task.Run(() => _fachada.ContarConversacion(codigo));
+                int desde = pagina == 0 ? 0 : totalAnterior;
+                encontrada = await Task.Run(() =>
+                    BuscarCitaEnRango(codigo, cita, desde, totalLocal, identidades, version));
+                if (version != Volatile.Read(ref _versionNavegacionCita)) return null;
+                if (encontrada != null) return encontrada;
+                pagina++;
+            }
+            while (pagina < totalPaginas);
+
+            return null;
+        }
+
+        private UbicacionCita? BuscarCitaEnRango(string codigo, string cita,
+            int desde, int hasta, IReadOnlyDictionary<string, string> identidades, int version)
+        {
+            for (int offset = (Math.Max(0, desde) / 50) * 50; offset < hasta; offset += 50)
+            {
+                if (version != Volatile.Read(ref _versionNavegacionCita)) return null;
+                List<Dictionary<string, object>> pagina = _fachada.CargarHistorial(codigo, offset);
+                for (int indice = 0; indice < pagina.Count; indice++)
+                {
+                    int rango = offset + pagina.Count - 1 - indice;
+                    if (rango < desde || rango >= hasta) continue;
+                    var fila = pagina[indice];
+                    if (string.Equals(CitaDeFila(fila, identidades), cita,
+                        StringComparison.Ordinal))
+                        return new UbicacionCita(Valor(fila, "id"), rango);
+                }
+            }
+            return null;
+        }
+
+        private string CitaDeFila(Dictionary<string, object> fila,
+            IReadOnlyDictionary<string, string> identidades)
+        {
+            string remitente = Valor(fila, "origen");
+            string tipo = Valor(fila, "tipo");
+            bool esImagen = Transversal.BotonGuardar.EsImagen(tipo);
+            string autor = string.Equals(remitente, _fachada.UsuarioActual,
+                StringComparison.OrdinalIgnoreCase) ? "Tú"
+                : identidades.GetValueOrDefault(remitente, remitente);
+            return FormatoCita.Prefijo(autor,
+                esImagen ? "" : Valor(fila, "contenido"), esImagen,
+                Valor(fila, "nombreArchivo")).TrimEnd('\n');
+        }
+
+        private static string CitaDeMensaje(MensajeVM mensaje) =>
+            FormatoCita.Prefijo(mensaje.Autor, mensaje.EsImagen ? "" : mensaje.Contenido,
+                mensaje.EsImagen, mensaje.NombreArchivo).TrimEnd('\n');
+
+        private void EnfocarMensaje(MensajeVM mensaje)
+        {
+            lstMensajes.ScrollIntoView(mensaje);
+            lstMensajes.SelectedItem = mensaje;
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() =>
+                {
+                    if (!ReferenceEquals(mensaje, lstMensajes.SelectedItem)
+                        || ! _mensajes.Contains(mensaje)) return;
+                    lstMensajes.UpdateLayout();
+                    if (lstMensajes.ItemContainerGenerator.ContainerFromItem(mensaje)
+                        is not FrameworkElement contenedor) return;
+                    var scroll = EncontrarScroll(lstMensajes);
+                    if (scroll == null) return;
+                    try
+                    {
+                        double arriba = contenedor.TransformToAncestor(scroll)
+                            .Transform(new Point(0, 0)).Y;
+                        double centro = Math.Max(0, (scroll.ViewportHeight
+                            - contenedor.ActualHeight) / 2);
+                        double desplazamiento = Math.Clamp(scroll.VerticalOffset + arriba - centro,
+                            0, scroll.ScrollableHeight);
+                        scroll.ScrollToVerticalOffset(desplazamiento);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        lstMensajes.ScrollIntoView(mensaje);
+                    }
+                    Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
+                        new Action(() => ResaltarMensaje(mensaje)));
+                }));
+        }
+
+        private void ResaltarMensaje(MensajeVM mensaje)
+        {
+            if (lstMensajes.ItemContainerGenerator.ContainerFromItem(mensaje)
+                is not DependencyObject contenedor) return;
+            Border? burbuja = BuscarVisual<Border>(contenedor);
+            if (burbuja == null) return;
+            var efectoAnterior = burbuja.Effect;
+            var resplandor = new DropShadowEffect
+            {
+                Color = Color.FromRgb(255, 209, 102),
+                BlurRadius = 20,
+                ShadowDepth = 0,
+                Opacity = 0
+            };
+            burbuja.Effect = resplandor;
+            var animacion = new DoubleAnimation(0, 0.9, TimeSpan.FromMilliseconds(250))
+            {
+                AutoReverse = true,
+                RepeatBehavior = new RepeatBehavior(3)
+            };
+            animacion.Completed += (_, _) =>
+            {
+                if (!ReferenceEquals(burbuja.Effect, resplandor)) return;
+                resplandor.BeginAnimation(DropShadowEffect.OpacityProperty, null);
+                burbuja.Effect = efectoAnterior;
+            };
+            resplandor.BeginAnimation(DropShadowEffect.OpacityProperty, animacion);
+        }
+
+        private static T? BuscarVisual<T>(DependencyObject raiz) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(raiz); i++)
+            {
+                DependencyObject hijo = VisualTreeHelper.GetChild(raiz, i);
+                if (hijo is T encontrado) return encontrado;
+                T? descendiente = BuscarVisual<T>(hijo);
+                if (descendiente != null) return descendiente;
+            }
+            return null;
+        }
+
+        private sealed record UbicacionCita(string Id, int Rango);
 
         /// <summary>UIX-16: True si ya se está al fondo (margen 60 px).</summary>
         private bool EstaAbajo()
@@ -908,7 +1331,36 @@ namespace Mensajeria.Views
 
         private async void MessageImage_Loaded(object sender, RoutedEventArgs e)
         {
-            if (sender is Image { DataContext: MensajeVM vm }) await CargarImagenAsync(vm);
+            // La virtualizacion puede disparar Loaded dos veces para el mismo
+            // mensaje: la segunda no debe reprogramar una carga en vuelo.
+            if (sender is Image { DataContext: MensajeVM vm } && !vm.Cargando && !vm.Solicitada)
+                await CargarImagenAsync(vm);
+        }
+
+        /// <summary>
+        /// UIX-27: devuelve una ruta que WPF sabe abrir.
+        /// <para>
+        /// El <c>.webp</c> se guarda tal cual —es el archivo que envió el otro y
+        /// el que se descarga con "Guardar"— pero ni WPF ni JavaFX saben
+        /// pintarlo. Aquí se hace una <b>copia</b> al lado en PNG solo para pintar.
+        /// No se toca el original.
+        /// </para>
+        /// </summary>
+        private static string PrepararParaVer(string original)
+        {
+            if (!TranscodificadorImagen.NecesitaConversion(original)) return original;
+            string copia = Path.ChangeExtension(original, null) + "_vista.png";
+            if (File.Exists(copia)) return copia;
+            try
+            {
+                return TranscodificadorImagen.ConvertirAPng(original, copia);
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "No se pudo convertir para mostrar {0}: {1}", original, error.Message);
+                return original;
+            }
         }
 
         private async Task CargarImagenAsync(MensajeVM vm)
@@ -925,9 +1377,14 @@ namespace Mensajeria.Views
             CancellationToken token = cts.Token;
             vm.Cargando = true;
             vm.EstadoImagen = "Cargando imagen…";
+            // Si la espera se cancela ANTES de tomar el turno no se adquirio el
+            // semaforo: liberar en ese caso lo desborda (SemaphoreFullException)
+            // y, al ser un async void, se lleva por delante la aplicacion.
+            bool adquirido = false;
             try
             {
                 await _limiteImagenes.WaitAsync(token).ConfigureAwait(true);
+                adquirido = true;
                 token.ThrowIfCancellationRequested();
                     var bitmap = await Task.Run(async () =>
                     {
@@ -959,10 +1416,15 @@ namespace Mensajeria.Views
                             }
                         }
                     }
+                    // UIX-27: la conversión es SOLO para la vista. El archivo
+                    // que se descarga es el original y se queda en disco tal cual
+                    // (por eso "Guardar" entrega el .webp de verdad); lo que se
+                    // pinta es una copia al lado, porque WPF no abre WebP.
+                    string paraVer = PrepararParaVer(ruta);
                     var image = new BitmapImage();
                     image.BeginInit();
                     image.CacheOption = BitmapCacheOption.OnLoad;
-                    image.UriSource = new Uri(ruta, UriKind.Absolute);
+                    image.UriSource = new Uri(paraVer, UriKind.Absolute);
                     image.EndInit();
                     image.Freeze();
                     return (Image: image, Path: ruta);
@@ -984,7 +1446,8 @@ namespace Mensajeria.Views
             }
             finally
             {
-                _limiteImagenes.Release();
+                // Solo se devuelve el turno que se llego a tomar.
+                if (adquirido) _limiteImagenes.Release();
                 vm.Cargando = false;
                 _cargasImagen.Remove(vm.Id);
             }
@@ -1023,8 +1486,8 @@ namespace Mensajeria.Views
             _cargasImagen.Clear();
         }
 
-        private string _citaAutor = "";
-        private string _citaExtracto = "";
+        /// <summary>Prefijo completo de la respuesta en curso ("" si no hay).</summary>
+        private string _cita = "";
 
         private void BtnResponder_Click(object sender, RoutedEventArgs e)
         {
@@ -1061,12 +1524,11 @@ namespace Mensajeria.Views
         {
             string autor = string.IsNullOrWhiteSpace(vm.Autor)
                 ? vm.Encabezado.Split('·')[0].Trim() : vm.Autor;
-            string extracto = (vm.EsImagen || vm.EsArchivo) && !string.IsNullOrEmpty(vm.NombreArchivo)
-                ? vm.NombreArchivo : vm.Contenido;
-            if (extracto.Length > 120) extracto = extracto[..120] + "…";
-            _citaAutor = autor;
-            _citaExtracto = extracto;
-            txtRespuesta.Text = $"Respuesta a {autor}: \"{extracto}\"";
+            // Paridad con Java (FormatoRespuesta): el extracto se colapsa a una
+            // sola linea y el prefijo termina en "\n\n". Sin esto un original
+            // con saltos hacia que el cuerpo quedara pegado a la cita.
+            _cita = Transversal.FormatoCita.Prefijo(autor, vm.Contenido, vm.EsImagen, vm.NombreArchivo);
+            txtRespuesta.Text = _cita.TrimEnd('\n');
             bordeRespuesta.Visibility = Visibility.Visible;
             txtMensaje.Focus();
             ActualizarEstadoEnvio();
@@ -1076,8 +1538,7 @@ namespace Mensajeria.Views
 
         private void LimpiarCita()
         {
-            _citaAutor = "";
-            _citaExtracto = "";
+            _cita = "";
             txtRespuesta.Text = "";
             bordeRespuesta.Visibility = Visibility.Collapsed;
         }
@@ -1094,9 +1555,14 @@ namespace Mensajeria.Views
         {
             if (e.Key == System.Windows.Input.Key.Escape)
             {
-                LimpiarCita();
-                LimpiarAdjunto();
-                LimpiarAdjuntoArchivo();
+                if (_enviando)
+                    _ctsEnvio?.Cancel();
+                else
+                {
+                    LimpiarCita();
+                    _adjuntos.Limpiar();
+                    ActualizarPanelAdjuntos();
+                }
                 e.Handled = true;
                 return;
             }
@@ -1116,45 +1582,82 @@ namespace Mensajeria.Views
         /// </summary>
         private async void EnviarMensajeActual()
         {
-            if (string.IsNullOrEmpty(_usuarioDestino)) return;
+            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
             string texto = (txtMensaje.Text ?? "").Trim();
-            bool hayImagen = !string.IsNullOrEmpty(_imagenPendiente);
-            bool hayArchivo = !string.IsNullOrEmpty(_archivoPendiente);
-            if (texto.Length == 0 && !hayImagen && !hayArchivo) return;
+            IReadOnlyList<AdjuntoPendiente> adjuntos = _adjuntos.Snapshot();
+            if (texto.Length == 0 && adjuntos.Count == 0) return;
             LimpiarAvisoInline();
+            _enviando = true;
+            _ctsEnvio = new CancellationTokenSource();
             btnEnviar.IsEnabled = false;
+            panelAdjuntos.IsEnabled = false;
+            panelProgresoEnvio.Visibility = Visibility.Visible;
+            barraProgresoEnvio.Value = 0;
+            txtProgresoEnvio.Text = adjuntos.Count > 0
+                ? $"Preparando {adjuntos.Count} archivo(s)…" : "Enviando mensaje…";
+            ActualizarEstadoEnvio();
             try
             {
-                bool enRed = true;
                 string destino = _usuarioDestino;
-                string cita = !string.IsNullOrEmpty(_citaAutor)
-                    ? $"Respuesta a {_citaAutor}: \"{_citaExtracto}\"\n\n" : "";
-                if (texto.Length > 0)
+                string cita = _cita;
+                // PLAN_AMBOS FASE 5: el texto va pegado a los adjuntos SOLO si
+                // estos forman una única burbuja (uno suelto, o varias imágenes
+                // montadas). Si van en varias burbujas se manda antes suelto: un
+                // pie no puede repetirse en N. Mismo criterio que en Java.
+                string? pie = adjuntos.Count > 0 && PlanEnvioAdjuntos.TextoVaComoPie(adjuntos)
+                    ? cita + texto
+                    : null;
+                if (texto.Length > 0 && pie == null)
                 {
-                    enRed = await Task.Run(() => _fachada.EnviarTextoAsync(destino, cita + texto));
+                    bool textoEnRed = await Task.Run(() =>
+                        _fachada.EnviarTextoAsync(destino, cita + texto));
+                    txtMensaje.Clear();
+                    if (!textoEnRed)
+                        MostrarAvisoInline("Sin red: el texto quedó guardado para reintentar.",
+                            TipoAvisoInline.Informacion);
+                }
+
+                if (adjuntos.Count > 0)
+                {
+                    // Construir Progress<T> en el dispatcher captura el contexto de UI.
+                    var progreso = new Progress<ProgresoEnvio>(p =>
+                    {
+                        barraProgresoEnvio.Value = p.FraccionGlobal * 100d;
+                        txtProgresoEnvio.Text =
+                            $"Enviando {p.IndiceActual + 1} de {p.TotalArchivos} · {p.NombreActual} · "
+                            + $"{p.FraccionArchivo:P0} · {p.FraccionGlobal:P0} del lote";
+                        var vm = _adjuntos.BuscarIndice(p.IndiceActual);
+                        if (vm != null) vm.Progreso = p.FraccionArchivo;
+                    });
+                    ResultadoEnvioMultiple resultado = await Task.Run(() =>
+                        _fachada.EnviarAdjuntosAsync(destino, adjuntos, progreso,
+                            _ctsEnvio.Token, string.IsNullOrEmpty(pie) ? null : pie));
+                    AplicarResultadoAdjuntos(resultado);
+                    _adjuntos.Limpiar();
+                    ActualizarPanelAdjuntos();
+                    MostrarResultado(resultado);
+                    // Red de seguridad: el texto iba pegado al adjunto, así que si
+                    // NINGÚN adjunto salió (el archivo ya no está, disco lleno, se
+                    // perdió la red) el texto se habría perdido con él. Se manda
+                    // entonces como mensaje propio: peor una burbuja de más que
+                    // perder lo que el usuario escribió.
+                    if (pie != null && resultado.Enviados == 0)
+                    {
+                        await Task.Run(() => _fachada.EnviarTextoAsync(destino, pie));
+                    }
                     txtMensaje.Clear();
                 }
-                if (hayImagen)
+                LimpiarCita();
+                if (_usuarioDestino == destino)
                 {
-                    string ruta = _imagenPendiente!;
-                    enRed = await Task.Run(() => _fachada.EnviarImagenAsync(destino, ruta)) && enRed;
-                    LimpiarAdjunto();
+                    CargarHistorial(destino);
+                    MarcarConversacionReciente(destino);
                 }
-                if (hayArchivo)
-                {
-                    string ruta = _archivoPendiente!;
-                    var progreso = new Progress<double>(p =>
-                        txtArchivoAdjunto.Text = $"Enviando {Path.GetFileName(ruta)}… {p:P0}");
-                    enRed = await Task.Run(() => _fachada.EnviarArchivoAsync(destino, ruta, progreso)) && enRed;
-                    LimpiarAdjuntoArchivo();
-                }
-                txtRespuesta.Text = "";
-                bordeRespuesta.Visibility = Visibility.Collapsed;
-                _citaAutor = "";
-                _citaExtracto = "";
-                if (!enRed) MostrarAvisoInline("Sin red: guardado para reintentar.", TipoAvisoInline.Informacion);
-                CargarHistorial(_usuarioDestino);
-                MarcarConversacionReciente(_usuarioDestino);
+            }
+            catch (OperationCanceledException)
+            {
+                MostrarAvisoInline("Envío cancelado. Los archivos ya enviados no se pueden deshacer.",
+                    TipoAvisoInline.Informacion);
             }
             catch (NullReferenceException) { MostrarAvisoInline("Sesión no válida, vuelve a iniciar sesión.", TipoAvisoInline.Error); }
             catch (Exception ex)
@@ -1162,26 +1665,45 @@ namespace Mensajeria.Views
                 System.Diagnostics.Trace.TraceError("Falló el envío de un mensaje: {0}", ex);
                 MostrarAvisoInline(MensajesUsuario.Accion(ex, "enviar el mensaje"), TipoAvisoInline.Error);
             }
-            finally { ActualizarEstadoEnvio(); }
+            finally
+            {
+                _enviando = false;
+                _ctsEnvio?.Dispose();
+                _ctsEnvio = null;
+                panelProgresoEnvio.Visibility = Visibility.Collapsed;
+                panelAdjuntos.IsEnabled = true;
+                ActualizarEstadoEnvio();
+                if (_cerrarTrasCancelar)
+                {
+                    bool volverAlInicio = _cerrarSesionTrasCancelar;
+                    _cerrarTrasCancelar = false;
+                    _cerrarSesionTrasCancelar = false;
+                    if (volverAlInicio) VolverAlInicio();
+                    Close();
+                }
+            }
         }
 
         private void BtnEnviar_Click(object sender, RoutedEventArgs e) => EnviarMensajeActual();
 
+        /// <summary>
         private void TxtMensaje_TextChanged(object sender, TextChangedEventArgs e) => ActualizarEstadoEnvio();
 
         private void ActualizarEstadoEnvio() =>
-            btnEnviar.IsEnabled = _usuarioDestino != null
-                && (!string.IsNullOrWhiteSpace(txtMensaje.Text) || !string.IsNullOrEmpty(_imagenPendiente)
-                    || !string.IsNullOrEmpty(_archivoPendiente));
+            btnEnviar.IsEnabled = !_enviando && _usuarioDestino != null
+                && (!string.IsNullOrWhiteSpace(txtMensaje.Text) || _adjuntos.HayAdjuntos);
 
         private void BtnAdjuntar_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(_usuarioDestino)) return;
-            // Botón ＋ único tipo Java: abre siempre Todos *.* y decide por extensión.
-            var dlg = new OpenFileDialog { Filter = "Todos los archivos|*.*", Title = "Elegir archivo (imagen, PDF, documento...)" };
+            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
+            var dlg = new OpenFileDialog
+            {
+                Multiselect = true,
+                Filter = CatalogoAdjuntos.FiltroDialogo,
+                Title = "Elegir archivos (imágenes, PDF, documentos...)"
+            };
             if (dlg.ShowDialog() != true) return;
-            if (EsImagenSoportada(dlg.FileName)) FijarImagenPendiente(dlg.FileName);
-            else FijarArchivoPendiente(dlg.FileName);
+            IncorporarRutas(dlg.FileNames);
         }
 
         private void ZonaEnvio_DragOver(object sender, DragEventArgs e)
@@ -1192,90 +1714,104 @@ namespace Mensajeria.Views
 
         private void ZonaEnvio_Drop(object sender, DragEventArgs e)
         {
-            if (string.IsNullOrEmpty(_usuarioDestino)) return;
+            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
             var archivos = (string[]?)e.Data.GetData(DataFormats.FileDrop);
-            string? candidato = archivos?.FirstOrDefault(File.Exists);
-            if (candidato == null) return;
-            if (EsImagenSoportada(candidato)) FijarImagenPendiente(candidato);
-            else FijarArchivoPendiente(candidato);
+            if (archivos is not { Length: > 0 }) return;
+            IncorporarRutas(archivos);
         }
 
-        private static bool EsImagenSoportada(string ruta)
+        private void IncorporarRutas(IEnumerable<string> rutas)
         {
-            string ext = Path.GetExtension(ruta).ToLowerInvariant();
-            return ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp";
-        }
+            var (aceptados, duplicados, invalidos, grandes) = _adjuntos.Agregar(rutas);
+            ActualizarPanelAdjuntos();
+            if (_adjuntos.ImagenesSobreLimiteTrama > 0)
+                MostrarAvisoInline($"{_adjuntos.ImagenesSobreLimiteTrama} imagen(es) supera(n) el límite "
+                    + "de envío directo (12 MB) y no se adjuntaron.", TipoAvisoInline.Advertencia);
+            else if (grandes > 0)
+                MostrarAvisoInline($"{grandes} archivo(s) supera(n) los límites de tamaño y no se adjuntaron.",
+                    TipoAvisoInline.Advertencia);
+            else if (invalidos > 0)
+                MostrarAvisoInline($"{invalidos} archivo(s) no se pudieron leer.",
+                    TipoAvisoInline.Advertencia);
+            else if (duplicados > 0)
+                MostrarAvisoInline($"{duplicados} archivo(s) ya estaban en la lista.",
+                    TipoAvisoInline.Informacion);
 
-        private void FijarImagenPendiente(string ruta)
-        {
-            _imagenPendiente = ruta;
-            txtImagenAdjunta.Text = $"Adjunta: {Path.GetFileName(ruta)} (arrastra otra para reemplazar)";
-            panelPreview.Visibility = Visibility.Visible;
-            ActualizarEstadoEnvio();
-            // Decodificación fuera del dispatcher: el bitmap se congela antes de pintarse.
-            _ = Task.Run(() =>
-            {
-                try
-                {
-                    var bmp = new BitmapImage();
-                    bmp.BeginInit();
-                    bmp.CacheOption = BitmapCacheOption.OnLoad;
-                    bmp.UriSource = new Uri(ruta, UriKind.Absolute);
-                    bmp.EndInit();
-                    bmp.Freeze();
-                    return (BitmapImage?)bmp;
-                }
-                catch { return null; }
-            }).ContinueWith(t =>
-            {
-                if (t.Result != null) imgPreview.Source = t.Result;
-                else txtImagenAdjunta.Text = $"Adjunta: {Path.GetFileName(ruta)} (sin vista previa)";
-            }, TaskScheduler.FromCurrentSynchronizationContext());
-        }
-
-        private void BtnQuitarImagen_Click(object sender, RoutedEventArgs e) => LimpiarAdjunto();
-
-        private void LimpiarAdjunto()
-        {
-            _imagenPendiente = null;
-            txtImagenAdjunta.Text = "";
-            imgPreview.Source = null;
-            panelPreview.Visibility = Visibility.Collapsed;
+            if (aceptados > 0 && _adjuntos.TotalBytes > LoteMaximoBytes())
+                MostrarAvisoInline($"El lote suma {CatalogoAdjuntos.TamanoLegible(_adjuntos.TotalBytes)}. "
+                    + "El envío puede tardar varios minutos.", TipoAvisoInline.Advertencia);
             ActualizarEstadoEnvio();
         }
 
-        private void FijarArchivoPendiente(string ruta)
+        private long LoteMaximoBytes() =>
+            (long)Transversal.ClienteConfig.Entero("adjuntos.lote-max-mb", 200, 10, 1000)
+            * 1024 * 1024;
+
+        private void ActualizarPanelAdjuntos()
         {
-            try
+            panelAdjuntos.Visibility = _adjuntos.HayAdjuntos
+                ? Visibility.Visible : Visibility.Collapsed;
+            txtResumenAdjuntos.Text = _adjuntos.TextoResumen;
+            ActualizarEstadoEnvio();
+        }
+
+        private void BtnQuitarAdjunto_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { DataContext: AdjuntoVM vm })
+                _adjuntos.Quitar(vm);
+            ActualizarPanelAdjuntos();
+        }
+
+        private void BtnQuitarTodosAdjuntos_Click(object sender, RoutedEventArgs e)
+        {
+            if (_enviando) return;
+            _adjuntos.Limpiar();
+            ActualizarPanelAdjuntos();
+        }
+
+        private void BtnCancelarEnvio_Click(object sender, RoutedEventArgs e)
+        {
+            _ctsEnvio?.Cancel();
+            txtProgresoEnvio.Text = "Cancelando…";
+        }
+
+        private void AplicarResultadoAdjuntos(ResultadoEnvioMultiple resultado)
+        {
+            for (int indice = 0; indice < resultado.Adjuntos.Count; indice++)
             {
-                long tamano = new FileInfo(ruta).Length;
-                if (tamano > IFachadaCliente.MaxBytesArchivo)
-                {
-                    MostrarAvisoInline($"El archivo supera el máximo de 50 MB ({tamano} bytes).",
-                        TipoAvisoInline.Advertencia);
-                    return;
-                }
-                _archivoPendiente = ruta;
-                txtArchivoAdjunto.Text = $"Archivo: {Path.GetFileName(ruta)} ({tamano} bytes)";
-                panelArchivo.Visibility = Visibility.Visible;
-                ActualizarEstadoEnvio();
+                ResultadoEnvioAdjunto detalle = resultado.Adjuntos[indice];
+                AdjuntoVM? vm = _adjuntos.BuscarIndice(indice);
+                if (vm == null) continue;
+                vm.Estado = detalle.Estado;
+                vm.Error = detalle.Motivo;
+                if (detalle.Estado == EstadoEnvioAdjunto.Enviado) vm.Progreso = 1d;
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.TraceError("No se pudo leer el archivo adjunto: {0}", ex);
-                MostrarAvisoInline(MensajesUsuario.Archivo(ex), TipoAvisoInline.Error);
-            }
         }
 
-        private void BtnQuitarArchivo_Click(object sender, RoutedEventArgs e) => LimpiarAdjuntoArchivo();
-
-        private void LimpiarAdjuntoArchivo()
+        private void MostrarResultado(ResultadoEnvioMultiple resultado)
         {
-            _archivoPendiente = null;
-            txtArchivoAdjunto.Text = "";
-            panelArchivo.Visibility = Visibility.Collapsed;
-            ActualizarEstadoEnvio();
+            bool canceladoPorUsuario = resultado.Adjuntos.Any(a => a.Motivo == "cancelado");
+            if (resultado.Cancelado && resultado.NoIntentados > 0)
+            {
+                string prefijo = canceladoPorUsuario
+                    ? "Envío cancelado. Los archivos ya enviados no se pueden deshacer."
+                    : $"Se enviaron {resultado.Enviados} de {resultado.Total}.";
+                string cola = resultado.EnCola > 0
+                    ? $" {resultado.EnCola} archivo(s) quedaron en cola para reintentar."
+                    : "";
+                MostrarAvisoInline($"{prefijo}{cola} El resto no se intentó.",
+                    TipoAvisoInline.Advertencia);
+            }
+            else if (resultado.EnCola > 0)
+                MostrarAvisoInline($"{resultado.EnCola} archivo(s) quedaron en cola para reintentar.",
+                    TipoAvisoInline.Informacion);
+            else if (resultado.TodoEnviado)
+                MostrarAvisoInline($"Se enviaron {resultado.Enviados} archivo(s).",
+                    TipoAvisoInline.Exito);
+            if (resultado.Fallidos > 0)
+                MostrarAvisoInline($"{resultado.Fallidos} archivo(s) no se pudieron enviar.",
+                    TipoAvisoInline.Error);
         }
 
         private async void BtnDescargarArchivo_Click(object sender, RoutedEventArgs e)
@@ -1340,6 +1876,15 @@ namespace Mensajeria.Views
         {
             if (MessageBox.Show("¿Deseas salir y cerrar esta sesión?", "Confirmar salida",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (_enviando)
+            {
+                _cerrarTrasCancelar = true;
+                _cerrarSesionTrasCancelar = true;
+                _ctsEnvio?.Cancel();
+                MostrarAvisoInline("Cancelando el envío antes de cerrar…",
+                    TipoAvisoInline.Informacion);
+                return;
+            }
             VolverAlInicio();
             Close();
         }
@@ -1348,6 +1893,15 @@ namespace Mensajeria.Views
         {
             if (MessageBox.Show("¿Cerrar todas las sesiones de esta cuenta?", "Confirmar salida",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            if (_enviando)
+            {
+                _cerrarTrasCancelar = true;
+                _cerrarSesionTrasCancelar = true;
+                _ctsEnvio?.Cancel();
+                MostrarAvisoInline("Cancelando el envío antes de cerrar…",
+                    TipoAvisoInline.Informacion);
+                return;
+            }
             try
             {
                 await _fachada.ExpulsarOtrasSesionesAsync();

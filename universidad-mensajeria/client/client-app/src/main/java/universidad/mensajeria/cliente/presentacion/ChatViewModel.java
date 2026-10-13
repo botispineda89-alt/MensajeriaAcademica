@@ -49,9 +49,8 @@ public class ChatViewModel implements InterfazChatViewModel {
     private final Map<String, UsuarioLocal> directorio = new HashMap<>();
     private final ObservableList<RecienteChat> recientes = FXCollections.observableArrayList();
 
-    private byte[] adjuntoBytes;
-    private String adjuntoNombre;
-    private String adjuntoMime;
+    /** R3: los adjuntos pendientes, en el orden en que se enviarán. */
+    private final List<AdjuntoPendiente> adjuntos = new ArrayList<>();
     private int offsetActual;
 
     public ChatViewModel(InterfazChatCliente fachada, Executor tareasFondo) {
@@ -104,15 +103,15 @@ public class ChatViewModel implements InterfazChatViewModel {
     }
 
     public byte[] adjuntoBytes() {
-        return adjuntoBytes;
+        return adjuntos.isEmpty() ? null : adjuntos.get(0).bytes();
     }
 
     public String adjuntoNombre() {
-        return adjuntoNombre;
+        return adjuntos.isEmpty() ? null : adjuntos.get(0).nombre();
     }
 
     public String adjuntoMime() {
-        return adjuntoMime;
+        return adjuntos.isEmpty() ? null : adjuntos.get(0).mime();
     }
 
     public int offsetActual() {
@@ -124,14 +123,55 @@ public class ChatViewModel implements InterfazChatViewModel {
     }
 
     public void prepararAdjunto(byte[] bytes, String nombre, String mime) {
-        this.adjuntoBytes = bytes;
-        this.adjuntoNombre = nombre;
-        this.adjuntoMime = mime;
-        this.adjuntoDisponible.set(bytes != null && bytes.length > 0);
+        limpiarAdjuntos();
+        if (bytes != null && bytes.length > 0) {
+            adjuntos.add(new AdjuntoPendiente(nombre, mime, bytes));
+        }
+        adjuntoDisponible.set(!adjuntos.isEmpty());
     }
 
     public void limpiarAdjunto() {
-        prepararAdjunto(null, null, null);
+        limpiarAdjuntos();
+    }
+
+    /**
+     * R3: copia defensiva. El compositor la recorre para pintar miniaturas y el
+     * comando para construir el plan; ninguno debe poder mutar el estado.
+     */
+    public List<AdjuntoPendiente> adjuntos() {
+        return List.copyOf(adjuntos);
+    }
+
+    /**
+     * R3: añade un lote de adjuntos ya leídos. Si no cabe el lote entero se
+     * recorta al cupo en vez de perderlo todo, y el llamante avisa.
+     *
+     * @return cuántos se aceptaron
+     */
+    public int agregarAdjuntos(List<AdjuntoPendiente> nuevos) {
+        if (nuevos == null || nuevos.isEmpty()) {
+            return 0;
+        }
+        int libres = AdjuntoPendiente.MAXIMO_ARCHIVOS - adjuntos.size();
+        if (libres <= 0) {
+            return 0;
+        }
+        int acepta = Math.min(nuevos.size(), libres);
+        adjuntos.addAll(nuevos.subList(0, acepta));
+        adjuntoDisponible.set(!adjuntos.isEmpty());
+        return acepta;
+    }
+
+    public void quitarAdjunto(int indice) {
+        if (indice >= 0 && indice < adjuntos.size()) {
+            adjuntos.remove(indice);
+        }
+        adjuntoDisponible.set(!adjuntos.isEmpty());
+    }
+
+    public void limpiarAdjuntos() {
+        adjuntos.clear();
+        adjuntoDisponible.set(false);
     }
 
     public void seleccionarRespuesta(MensajeLocal mensaje) {
@@ -236,13 +276,16 @@ public class ChatViewModel implements InterfazChatViewModel {
     }
 
     public boolean enviarAdjunto(String destinatario, boolean esImagen) throws ExcepcionCliente, IOException {
-        if (destinatario == null || adjuntoBytes == null) {
+        // R3: con varios adjuntos el envío va por lotes (PlanEnvioAdjuntos); este
+        // método sigue sirviendo al primero para las llamadas de un solo archivo.
+        if (destinatario == null || adjuntos.isEmpty()) {
             return false;
         }
+        AdjuntoPendiente primero = adjuntos.get(0);
         if (esImagen) {
-            return fachada.enviarImagen(destinatario, adjuntoBytes, adjuntoNombre, adjuntoMime);
+            return fachada.enviarImagen(destinatario, primero.bytes(), primero.nombre(), primero.mime());
         } else {
-            return fachada.enviarArchivo(destinatario, adjuntoBytes, adjuntoNombre, adjuntoMime);
+            return fachada.enviarArchivo(destinatario, primero.bytes(), primero.nombre(), primero.mime());
         }
     }
 

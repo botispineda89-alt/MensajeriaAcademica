@@ -135,5 +135,19 @@ class TestProtocolo(unittest.TestCase):
             self.assertEqual(r['usuariosConectados'], ['A001', 'B002'])
 
 
+class TestTopeDeTrama(unittest.TestCase):
+    """Invariante 2: ninguna trama que salga puede superar los 16 MiB."""
+
+    def test_empaquetar_rechaza_payload_mayor_al_tope(self):
+        from transversal.protocolo import TOPE_TRAMA, empaquetar
+
+        with self.assertRaises(ValueError):
+            empaquetar({"tipo": "MENSAJE_TEXTO",
+                        "contenido": "x" * (TOPE_TRAMA + 10)})
+        # Justo por debajo del tope sí sale.
+        trama = empaquetar({"tipo": "MENSAJE_TEXTO", "contenido": "x" * 1024})
+        self.assertLessEqual(len(trama), TOPE_TRAMA + 4)
+
+
 if __name__ == '__main__':
     unittest.main()

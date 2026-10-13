@@ -1,6 +1,7 @@
 package universidad.mensajeria.cliente.transversal.utilerias;
 
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Texto del dominio del chat (conteo, extensiones, MIME, citas).
@@ -13,6 +14,23 @@ public final class TextoCliente {
 
     /** Ancho del corte de cita de respuesta (150 + "…"). */
     public static final int CORTE_CITA = 150;
+
+    /** R1: prefijo del preview cuando el último mensaje lo escribió la sesión activa. */
+    public static final String PREFIYO_PROPIO = "Tú: ";
+
+    /** Ancho máximo del preview de la fila de recientes (54 con el "…"). */
+    public static final int CORTE_PREVIEW = 54;
+
+    /**
+     * R3: la MISMA lista de extensiones que el filtro "Imágenes" del selector de
+     * archivos, y la MISMA que el servidor acepta en su tubería
+     * (Imagenes.esImagenValida): PNG/JPEG/GIF/BMP, WebP, AVIF, HEIC/HEIF y SVG
+     * (FORMATOS-01). Antes cada sitio tenía la suya y el comando de envío solo
+     * aceptaba cuatro: un .bmp o un .webp acababa como archivo, no como imagen.
+     */
+    private static final Set<String> EXT_IMAGEN = Set.of(
+            "png", "jpg", "jpeg", "gif", "bmp", "webp",
+            "avif", "heic", "heif", "svg");
 
     private TextoCliente() {
     }
@@ -36,6 +54,10 @@ public final class TextoCliente {
             case "gif" -> "image/gif";
             case "bmp" -> "image/bmp";
             case "webp" -> "image/webp";
+            case "avif" -> "image/avif";
+            case "heic" -> "image/heic";
+            case "heif" -> "image/heif";
+            case "svg" -> "image/svg+xml";
             case "pdf" -> "application/pdf";
             case "txt" -> "text/plain";
             case "zip" -> "application/zip";
@@ -54,5 +76,41 @@ public final class TextoCliente {
         return recorte.length() > CORTE_CITA
                 ? recorte.substring(0, CORTE_CITA - 3) + "…"
                 : recorte;
+    }
+
+    /**
+     * R3: true si el nombre corresponde a una imagen (misma lista que el filtro
+     * "Imágenes" del selector). Única fuente: el compositor, el planificador y el
+     * comando de envío deben decidir igual.
+     */
+    public static boolean esImagenNombre(String nombre) {
+        return EXT_IMAGEN.contains(extension(nombre));
+    }
+
+    /**
+     * R1: texto del preview de la fila de recientes.
+     * <p>
+     * Puro a propósito: {@code UsuarioCell} es JavaFX y no se puede testear sin
+     * levantar el toolkit; esta función sí. El prefijo va DESPUÉS de truncar,
+     * igual que en el cliente .NET ({@code UsuarioVM.TextoPreview}), para que
+     * ambos clientes recorten el mensaje en el mismo punto.
+     * </p>
+     *
+     * @param contenido último mensaje de la conversación (puede venir vacío)
+     * @param propio    {@code true} si lo escribió la sesión activa
+     */
+    public static String previoConversacion(String contenido, boolean propio) {
+        // Sin mensaje no hay autor: nunca "Tú: Sin mensajes aún".
+        if (contenido == null || contenido.isBlank()) {
+            return "Sin mensajes aún";
+        }
+        String base = contenido.replaceAll("\\s+", " ").trim();
+        if (base.isEmpty()) {
+            return "Sin mensajes aún";
+        }
+        if (base.length() > CORTE_PREVIEW) {
+            base = base.substring(0, CORTE_PREVIEW - 1) + "…";
+        }
+        return propio ? PREFIYO_PROPIO + base : base;
     }
 }

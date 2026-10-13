@@ -1,17 +1,23 @@
 # Plan de paridad total de los tres clientes
 
-**Estado:** en ejecución (actualizado 2026-10-08)
-**Alcance:** `client/` (JavaFX), `client-python/` (PySide6), `client-dotnet/` (WPF)
-**Fuera de alcance:** el servidor no se modifica, salvo que la Fase 0 demuestre que falta un comando.
+**Estado:** en ejecución (actualizado 2026-10-11, tarde)  
+**Alcance:** `client/` (JavaFX), `client-python/` (PySide6), `client-dotnet/` (WPF)  
+**Fuera de alcance:** el servidor no se modifica, salvo que la Fase 0 demuestre que falta un comando.  
 **Objetivo:** que los tres clientes sean **intercambiables** — mismo servidor, mismo protocolo, mismas
 funcionalidades, misma arquitectura por capas, mismo diseño visual verificado por capturas.
 
 **Avance:** las fases 0.1–0.4 tienen sus cambios de código y contrato implementados. La verificación
-combinada más reciente pasa: JavaFX **212/212**, Python **218 casos (213 correctos y 5 omitidos)**,
-.NET **203/203** y build WPF con 0 advertencias/errores. Las diferencias conocidas de §3.1 y el
-contrato de estados de §3.2 están cerrados. Siguen pendientes el smoke real de interoperabilidad con
-archivos de 20 MiB, completar arquitectura Python/.NET y unificar banners/accesibilidad (§3.3),
-capturas visuales y empaquetado/documentación (fases 4–6).
+combinada pasa: `contrato/verificar.py` **9/9 pasos, exit 0** (2026-10-11): JavaFX **280/280** en 47
+clases, .NET **366/366**, Python **281 pruebas (5 omitidas)** y build WPF sin advertencias ni errores.
+Cerrado desde la última actualización de este plan: captions en los 3, lotes de adjuntos con bandeja, montaje
+de vista previa, WebP como imagen, avisos inline con cierre automático, fondo ilustrado verificado en
+los 3, guardia de 12 MB por imagen en los 3 (Java la traía pendiente), formatos amplios
+AVIF/HEIC/SVG como imagen con visualización (Python: Pillow+QtSvg; .NET: Magick.NET; Java: jsvg +
+ImageMagick opcional), iconos por tipo de archivo a 48 DIP, `pillow==11.3.0` (exigido por
+`pillow-heif`), el test de framing de Java data-driven (§5.14) y la reparación de la caché de
+imágenes envenenada de Python (§7). Siguen abiertas: progreso/cancelación por bytes (solo .NET), la lista de pendientes
+consolidados de §7 (al final), y las fases 4–6. Las diferencias conocidas de §3.1 y el contrato de
+estados de §3.2 están cerrados; la tabla de capacidades desiguales está al final de §3.3.
 
 ---
 
@@ -501,7 +507,7 @@ la fragmentación contra dobles y el handshake TLS de .NET, pero no sustituyen e
 
 ### Fase 2 — Arquitectura por capas en Python y .NET (17 j)
 
-Java ya está aquí (fases 3 y 4 de `PLAN_ARQUITECTURA_CLIENTE_JAVA.md`). El trabajo es replicar la
+Java ya está aquí (fases 3 y 4 de `docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md`). El trabajo es replicar la
 forma, no reescribirla.
 
 #### 2.1 Python — capa de puertos (3 j)
@@ -709,6 +715,45 @@ respuesta y login en las tres interfaces; WPF tiene regiones de aviso corteses. 
 presentación y anuncio de banners entre JavaFX, Python y WPF. La Fase 3 permanece abierta hasta cerrar
 esa tarea.
 
+**Envío múltiple de adjuntos (2026-10-10):** se implementó en WPF: selección y arrastre múltiple,
+bandeja con deduplicación, miniaturas/íconos, cancelación y progreso por bytes. El caso de uso envía
+secuencialmente mediante el protocolo fragmentado (`Task.WhenAll` está descartado a propósito: el
+protocolo exige partes secuenciales y `ConexionRed` ya serializa con un `SemaphoreSlim`). Cancelar no
+crea pendientes; ante fallo de transporte solo se encola el archivo fallido y los siguientes quedan sin
+intentar. El progreso por bytes y la cancelación son deliberadamente **.NET-only**: JavaFX ya tiene
+selección/arrastre múltiple y una bandeja de hasta 5 adjuntos, pero no progreso por bytes ni
+cancelación; Python ya permite lotes de hasta 12 adjuntos, una vista previa local compuesta y captions,
+y envía las imágenes originales por separado. También carece de progreso por bytes y cancelación.
+Queda completar esas capacidades y probarlas
+para cerrar la matriz de paridad.
+
+**Estado 2026-10-11 tras alinear Python:** se cerraron captions, lotes de adjuntos y la vista previa
+compuesta local (las imágenes originales se suben individualmente en orden),
+guardar imágenes, avisos inline, accesibilidad básica y WebP como imagen. Lo que hoy existe en dos o
+tres clientes y sigue pendiente en el tercero:
+
+| Capacidad | JavaFX | Python | .NET |
+|---|---|---|---|
+| Vista previa local de varias imágenes (sin subir el montaje) | ✅ | ✅ (envía cada original por separado) | ✅ |
+| Texto como pie del adjunto en la misma burbuja (`caption`) | ✅ | ✅ (SQLite, envío y reintentos) | ✅ |
+| Selección/arrastre múltiple con bandeja | ✅ (tope 5) | ✅ (tope 12) | ✅ (tope 12 + `adjuntos.lote-max-mb`) |
+| Progreso por bytes y cancelación del envío | ⬜ | ⬜ | ✅ |
+| Botón de guardar en imágenes | ✅ | ✅ | ✅ |
+| Aviso inline con cierre automático | ✅ | ✅ | ✅ |
+| `Shift+Enter` = salto de línea | ✅ | ✅ | ✅ |
+| `.webp` como imagen (el servidor ya lo acepta) | ✅ | ✅ (Pillow solo para vista) | ✅ |
+| Preview de la lista por `origen = yo`, "Sin mensajes aún" | ✅ | ✅ | ✅ |
+| Iconos por tipo de archivo, 48 DIP, sin `📎` duplicado (FORMATOS-02/§5.13) | ✅ | ✅ | ✅ |
+| AVIF/HEIC/SVG como imagen + visualización (FORMATOS-01) | ✅ (jsvg + ImageMagick opcional) | ✅ (Pillow + QtSvg) | ✅ (Magick.NET) |
+| Guardia de 12 MB por imagen en trama única (§5.11) | ✅ (era el único que faltaba) | ✅ | ✅ |
+| Fechas del historial en un solo formato (§5.10) | ✅ (H2 propia, hora local) | ✅ (UTC+Z + migración) | ✅ (UTC+Z + migración) |
+
+**`.webp` (2026-10-11):** la decisión que estaba en este documento —"el `.webp` se envía como
+`MENSAJE_ARCHIVO` porque el servidor no lo decodifica"— **quedó obsoleta**. El servidor ahora acepta y
+decodifica WebP (`server/utilerias` + `imageio-webp`), y JavaFX/WPF lo envían como imagen sin
+renombrar ni convertir. Python también lo envía original como `MENSAJE_IMAGEN`; Pillow lo decodifica
+solo para la vista cuando Qt no puede leerlo.
+
 **Criterio de salida:** las 66 capacidades de JavaFX funcionan en los 3; ninguna regresión en la
 matriz de 6 direcciones.
 
@@ -812,7 +857,7 @@ Unificar a `net8.0-windows` en la Fase 0.
    `schema-local.sql`, `client.properties`.
 2. Un `distribuir-todos.cmd` que produce las 4 distribuciones (servidor + 3 clientes).
 3. Actualizar `AGENTS.md` §2 y §6.4, `PLAN.md`, `ESTADO_ROADMAP.md` §6 y §7, `PLAN_PATRONES_UI.md`,
-   `ANALISIS_TECNICO.md`, `DESPLIEGUE.md`, `GUIA_ACEPTACION.md`, `DIAGRAMAS/README.md`.
+   `docs/archivo/ANALISIS_TECNICO-historico.md`, `DESPLIEGUE.md`, `GUIA_ACEPTACION.md`, `DIAGRAMAS/README.md`.
 4. Los 3 `README.md` de cliente con la misma estructura de secciones.
 5. Marcar `VIS-01`, `VIS-02`, `SEG-01`, `SEG-02`, `PAT-01`, `PAT-04`, `PAT-05`, `PAT-VM`, `PAT-CMD`,
    `PROD-03`, `PROD-04` según lo que este plan cierre.
@@ -874,7 +919,8 @@ El objetivo del proyecto se cumple cuando **todo** lo siguiente es cierto:
 7. Las 3 suites tienen **≥ 174 casos** cada una y están en verde.
 8. Un literal de UI cambiado en `textos-ui.json` aparece en los 3 clientes; un color cambiado en
    `tokens-diseno.json` aparece en los 3.
-9. `PLAN_ARQUITECTURA_CLIENTE_JAVA.md` pasa a "completo" con el smoke visual cerrado.
+9. El plan Java archivado (`docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md`) cierra su
+   smoke visual formal, su único pendiente desde el 2026-10-11.
 
 ---
 
@@ -886,3 +932,66 @@ El objetivo del proyecto se cumple cuando **todo** lo siguiente es cierto:
 | Añadir vistas que el cliente JavaFX no tiene | La referencia es JavaFX. Si una pantalla no está en `client/`, no entra: el objetivo es paridad entre clientes, no alcance nuevo |
 | Mover JavaFX a otro toolkit | El objetivo es llevar PySide6 y WPF al nivel de JavaFX, no migrar el cliente principal |
 | Reescribir `common-protocol` | Invariante 1: el protocolo es neutro de lenguaje y ya es compartido. Solo se usa |
+
+---
+
+## 7. Pendientes consolidados (checkbox)
+
+Estado auditado el 2026-10-11 contra las tres suites (JavaFX 280, .NET 366, Python 281). Ordenado
+por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
+
+### Python
+
+- [x] **Visualización de WebP con caché envenenada** — Qt decodifica WebP bien (estático y animado,
+  verificado con `QImageReader.supportedImageFormats`); el fallo real era un archivo de caché vacío o
+  truncado: en el smoke quedó `imagenes/46000885-….webp` con **0 bytes** y la burbuja quedaba clavada
+  en «Reintentar imagen». **Arreglado 2026-10-11**: `cargador_adjunto_entrada_chat.py` re-descarga
+  cuando la copia local falta, pesa 0 bytes o no se puede abrir, y
+  `lector_historial_remoto.obtener_imagen` solo acepta `ruta_archivo` con contenido (un archivo de
+  0 bytes ya no cuenta como copia). Pruebas: `test_cache_de_cero_bytes_se_repara_descargando_de_nuevo`,
+  `test_cache_corrupta_se_repara_con_el_base64_recibido`,
+  `test_obtener_imagen_repara_cache_de_cero_bytes`. ✅
+- [x] **Progreso por bytes y cancelación del envío** ✅ 2026-10-11 — `EnviarMensajeComando` acepta
+  `al_progreso` y `cancelado`; `CoordinadorMensajeriaCliente.enviar_archivo` verifica entre partes y
+  lanza `EnvioCancelado` (NO deja pendiente; la fila queda en ERROR). La UI muestra
+  «Enviando i/N · MB · nombre» con botón Cancelar (`fila_progreso`), y al cancelar los adjuntos no
+  enviados vuelven a la bandeja con el texto del pie al compositor.
+
+### Java
+
+- [x] **Test de framing data-driven** ✅ 2026-10-11: `TramaCodecParidadTest` ahora **lee**
+  `contrato/framing.json` (con Gson desde `../../contrato/`, igual que Python y .NET) y recorre sus
+  6 vectores + 5 rechazos: byte a byte contra `trama_hex`, ida y vuelta por stream, los 5 rechazos
+  en `decodificar` y por stream, tope de trama del contrato y control negativo del bug de
+  caracteres. 6 pruebas (15 literales hex fuera del código). Roadmap §5.14 cerrado.
+- [ ] Smoke visual formal del plan de arquitectura archivado: queda ejecutar y marcar
+  `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` (creado el 2026-10-11, espejo del de Python).
+- [x] ArchUnit reglas 4–5: añadir los 5 colaboradores de presentación nacidos en octubre
+  (`PlanEnvioAdjuntos`, `EstadoAvisoInline`, `TecladoCompositor`, `NavegadorCitaChat`,
+  `MontajeImagenes`). **Hecho el 2026-10-11** (las reglas enumeran ya las 13 clases; ArchUnit 6/6).
+- [ ] `ChatController` (545 líneas tras extraer `AvisosInlineChat` y `ConfiguradorCeldasChat` el 2026-10-11; el lote de octubre aún devolvió cableado): queda la navegación de cita y el resto del cableado hacia ≤ 350.
+- [x] **Progreso y cancelación a nivel comando** ✅ 2026-10-11 — `EnviarMensajeComando` acepta
+  `alProgreso` (Consumer<String>, por Platform.runLater) y `cancelar()` (volátil, consultado entre
+  envíos del lote). El cableado de la UI (botón Cancelar en FXML + barra de progreso) queda
+  pendiente junto con la extracción restante hacia ≤ 350.
+
+### .NET
+
+- [ ] Fase 2 abierta: `ChatWindow.xaml.cs` sigue por encima del objetivo (≈1.4k líneas) y faltan
+  puertos/colaboradores de la arquitectura por capas.
+- [ ] Aviso inline unificado con severidad (Información/Éxito/Error) y anuncio dinámico (§3.3).
+
+### Los 3
+
+- [x] Smoke real de interoperabilidad con **adjunto de 20 MiB** en la matriz de 6 direcciones
+  (criterio de salida de la Fase 1; el fragmentado está implementado y probado contra dobles).
+- [x] Reempaquetar y **reiniciar el servidor**: el jar en `target` es anterior al Informe 3 DESC
+  (roadmap §5.12) y a los guardias de cliente.
+- [ ] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
+  paleta).
+- [ ] Fase 5: paridad de pruebas (Python ≥ 174 y .NET ≥ 174 casos ya se superan de facto: 278 y
+  366; falta el inventario cruzado de capacidades sin test).
+- [x] Fase 6: `distribuir-todos.cmd` creado ✅ 2026-10-11 (universidad-mensajeria/distribuir-todos.cmd), con los assets idénticos (fondos, `schema-local.sql`,
+  `client.properties`, `iconos/`) y actualizar los documentos cruzados.
+- [x] `contrato/verificar.py` en cada cierre de lote ✅ 2026-10-11: **9/9 pasos, exit 0** tras este
+  lote (JavaFX 280 en 47 clases, Python 281, .NET 366, build WPF limpio).

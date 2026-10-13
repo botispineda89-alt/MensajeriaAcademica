@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS historial_local (
     fecha_envio    TEXT NOT NULL,             -- ISO-8601 UTC
     enviado        INTEGER NOT NULL DEFAULT 0, -- 1 si lo envio este cliente
     descargado     INTEGER NOT NULL DEFAULT 0,
-    estado         TEXT NOT NULL DEFAULT 'ENVIADO' -- PENDIENTE | ENVIADO | ENTREGADO | LEIDO
+    estado         TEXT NOT NULL DEFAULT 'ENVIADO', -- PENDIENTE | ENVIADO | ENTREGADO | LEIDO
+    caption        TEXT                      -- pie de imagen/archivo en la misma burbuja
 );
 
 CREATE INDEX IF NOT EXISTS idx_hist_conv

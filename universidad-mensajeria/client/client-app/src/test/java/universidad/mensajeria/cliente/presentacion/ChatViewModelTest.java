@@ -102,6 +102,49 @@ class ChatViewModelTest {
     }
 
     @Test
+    void r3LosAdjuntosSeAcumulanYSeQuitanUnoAUno() {
+        List<AdjuntoPendiente> lista = List.of(
+                new AdjuntoPendiente("a.png", null, new byte[]{1}),
+                new AdjuntoPendiente("b.pdf", null, new byte[]{2}));
+
+        assertEquals(2, viewModel.agregarAdjuntos(lista));
+        assertEquals(2, viewModel.adjuntos().size());
+        assertTrue(viewModel.adjuntoDisponibleProperty().get());
+
+        viewModel.quitarAdjunto(0);
+        assertEquals(1, viewModel.adjuntos().size());
+        assertEquals("b.pdf", viewModel.adjuntos().get(0).nombre());
+
+        viewModel.limpiarAdjuntos();
+        assertTrue(viewModel.adjuntos().isEmpty());
+        assertFalse(viewModel.adjuntoDisponibleProperty().get());
+    }
+
+    @Test
+    void r3SeRecortaAlCupoSinPerderLoQueCabe() {
+        List<AdjuntoPendiente> lote = new ArrayList<>();
+        for (int i = 0; i < AdjuntoPendiente.MAXIMO_ARCHIVOS + 3; i++) {
+            lote.add(new AdjuntoPendiente("f" + i + ".png", null, new byte[]{1}));
+        }
+
+        int aceptados = viewModel.agregarAdjuntos(lote);
+
+        assertEquals(AdjuntoPendiente.MAXIMO_ARCHIVOS, aceptados);
+        assertEquals(AdjuntoPendiente.MAXIMO_ARCHIVOS, viewModel.adjuntos().size());
+        assertEquals(0, viewModel.agregarAdjuntos(lote), "ya está lleno: no entra ni uno más");
+    }
+
+    @Test
+    void r3LaListaDevuelveCopiaDefensiva() {
+        viewModel.agregarAdjuntos(List.of(new AdjuntoPendiente("a.png", null, new byte[]{1})));
+
+        java.util.List<AdjuntoPendiente> copia = viewModel.adjuntos();
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class,
+                () -> copia.add(new AdjuntoPendiente("b.png", null, new byte[]{2})),
+                "el compositor no debe poder mutar el estado del ViewModel");
+    }
+
+    @Test
     void seleccionDeRespuestaYCancelacion() {
         MensajeLocal msg = new MensajeLocal("m1", "160004716", "160004726", "MENSAJE_TEXTO",
                 "hola alex", null, 9, 2, null, null, null,
@@ -129,8 +172,8 @@ class ChatViewModelTest {
         viewModel.directorio().put("B02", new UsuarioLocal("B02", "Joan", "Garcia", "Sistemas", false, null, null));
 
         List<RecienteChat> lista = List.of(
-                new RecienteChat("A01", "hola", "MENSAJE_TEXTO", "2026-01-01T10:00:00", 0, true),
-                new RecienteChat("B02", "buenas", "MENSAJE_TEXTO", "2026-01-01T10:05:00", 2, false)
+                new RecienteChat("A01", "hola", "MENSAJE_TEXTO", "2026-01-01T10:00:00", 0, true, false),
+                new RecienteChat("B02", "buenas", "MENSAJE_TEXTO", "2026-01-01T10:05:00", 2, false, true)
         );
 
         // Búsqueda por nombre

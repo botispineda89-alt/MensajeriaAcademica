@@ -373,7 +373,19 @@ absoluta: solo `host`/`puerto` con la IP LAN del servidor.
 
    En destino, MySQL 8 puede ser Docker o instalado directo. El host expone
    `3307` en desarrollo (`3306` dentro del contenedor).
-4. Dentro de `MensajeriaServidor\`, arranca:
+4. Instala ImageMagick en el servidor. Es lo que permite aceptar **AVIF, HEIC y SVG**, formatos
+   que el JDK no decodifica:
+
+   ```powershell
+   winget install --id ImageMagick.ImageMagick --source winget --exact
+   # Cierra y reabre la terminal, o el PATH de la máquina aun no estara cargado:
+   magick -list format | Select-String "AVIF|HEIC|WEBP|SVG"
+   ```
+
+   Si el servicio arranca con un `PATH` recortado, dale la ruta exacta con la variable de
+   entorno `MAGICK_EXECUTABLE` o con `-Dmensajeria.imagen.magick=`. Sin ImageMagick el servidor
+   funciona igual: sólo se rechazan esos tres formatos.
+5. Dentro de `MensajeriaServidor\`, arranca:
 
    ```powershell
    .\start-server.cmd

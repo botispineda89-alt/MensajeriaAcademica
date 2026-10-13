@@ -672,7 +672,7 @@ Evidencia con `archivo:línea` en [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md); 
 
 | Artefacto | Qué es |
 |---|---|
-| `ANALISIS_TECNICO.md` (nuevo) | Auditoría: 1 hallazgo de seguridad, 38 items de código muerto, 6 bugs de UI P0, 13 P1, 13 P2, 6 patrones faltantes, deriva de literales y paleta |
+| `docs/archivo/ANALISIS_TECNICO-historico.md` (nuevo) | Auditoría: 1 hallazgo de seguridad, 38 items de código muerto, 6 bugs de UI P0, 13 P1, 13 P2, 6 patrones faltantes, deriva de literales y paleta |
 | `PLAN_PATRONES_UI.md` (nuevo) | 7 fases de refactor de clientes con criterios medibles |
 | `DIAGRAMAS/{casos,secuencia,flujos,estados,despliegue}/` + 2 `.mmd` de clases (nuevo) | 16 diagramas que faltaban, como fuente `.mmd` |
 | `DIAGRAMAS/README.md` (reescrito) | Catálogo completo + plan de consolidación de `DIAGRAMAS_ENTREGA` / `DIAGRAMAS_FINALES` |

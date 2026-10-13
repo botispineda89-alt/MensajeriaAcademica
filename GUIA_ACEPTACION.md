@@ -28,6 +28,14 @@ dotnet build client-dotnet/Mensajeria.csproj -c Release
 
 La aceptación automatizada no sustituye la prueba manual entre procesos y computadores.
 
+**Estado de las suites (corte 2026-10-11):** JavaFX **280/280** (47 clases, ArchUnit incluida),
+Python **278** (5 omitidas) y .NET **366/366** en verde; build WPF Release 0/0.
+`contrato/verificar.py` pasa **9/9** (tokens, estados, puertos, contrato, iconos y las 3 suites +
+build WPF) y **ya sirve como puerta de calidad**: la deriva del esquema distribuible de Python quedó
+cerrada (`ESTADO_ROADMAP.md` §5.8). `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
+`servidor-app` no se re-ejecutó; su último registro fechado es del 2026-10-08: 106 casos, 102 en
+verde, 4 fallos preexistentes (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`).
+
 ## Preparación del smoke
 
 1. Ejecuta el servidor y cada cliente en computadores separados, o valida primero en LAN con
@@ -113,6 +121,38 @@ pertinente de cliente y servidor y revisa el mismo ID y tipo de trama en ambos e
 
 ---
 
+## Smoke del lote de clientes 2026-10-10/11 (JavaFX y WPF)
+
+Lo que las suites no cubren: el orden del historial, el pie en la misma burbuja y la lista de
+conversaciones se comportan distinto en pantalla que en la base. El detalle de qué se corrigió está en
+[`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md).
+
+- **Pie en la misma burbuja:** con una sola imagen + texto, el mensaje debe llegar como **una sola
+  burbuja** con el texto debajo, no como dos mensajes. Repite con un archivo (no imagen) + texto.
+- **Montaje:** 2, 3, 4 y 5 imágenes en un envío → **una sola burbuja** con la rejilla
+  (2×1 / 3×1 / 2×2 / 3×2) y el texto como pie. Más de 10 imágenes se rechaza.
+- **Orden del historial y "Tú:"** (el fallo era de fecha, no del prefijo): con el chat de A abierto,
+  que B escriba **después** de tu último envío. El mensaje de B debe verse **debajo** y su preview en
+  la lista **sin** `Tú: `. Repite en el cliente .NET con una base ya existente (arranca para que
+  normalice las fechas antiguas).
+- **Guardar imagen:** el botón de guardar aparece en imágenes y en archivos, y entrega el **original**
+  (mismo nombre y tamaño que el que se envió), no la copia de visualización.
+- **Visor:** una imagen grande se abre nítida; "Tamaño original" es 1:1 real y el zoom no interpola
+  por encima de la resolución.
+- **WebP:** envía un `.webp` desde JavaFX y desde WPF → llega con **el mismo nombre**, con las etapas
+  del filtro, y se puede ampliar. Con el servidor viejo el `.webp` sería rechazado; si el log dice
+  `Error procesando MENSAJE_IMAGEN`, revisa que `server/utilerias` lleve `imageio-webp`.
+- **Avisos:** un "Listo" desaparece solo en ~4 s y un error a los ~12 s; ninguno tapa el chat de forma
+  permanente, y el ✕ sigue cerrándolos antes.
+- **Lista de contactos:** llega un mensaje de un contacto **distinto** al abierto → sube su insignia y
+  cambia su preview sin abrir su conversación; con el filtro "Con no leídos" activo aparece solo.
+- **Envío múltiple (solo WPF):** 10 archivos (mezclando imágenes y PDF) en un envío → bandeja,
+  progreso por bytes, cancelación a mitad sin dejar pendientes, y "Se enviaron N de M" si algo falla.
+  JavaFX admite multiselección/arrastre y una bandeja de hasta 5 adjuntos, pero aún no tiene
+  progreso por bytes ni cancelación; Python acepta un adjunto por operación.
+
+---
+
 ## Comprobaciones de seguridad (nuevas, 2026-10-05)
 
 ### `SEC-05` — tramas sin autenticación
@@ -174,8 +214,9 @@ tiempos medidos.
 
 ## Capturas lado a lado (`SMOKE-07` y `SMOKE-08`)
 
-Este registro se completa cuando se implemente `VIS-01`; mientras siga pendiente, las capturas
-documentan la línea base, no una paridad ya alcanzada.
+`VIS-01` ya está implementado (2026-10-07: la paleta única se genera desde
+`contrato/tokens-diseno.json`); este registro de capturas sigue pendiente como comprobación manual
+contra esa paleta.
 
 1. Con la **misma conversación** en los 3 clientes, captura el mismo intervalo en tema **oscuro**
    y en tema **claro**.
@@ -223,8 +264,10 @@ verifica el recorrido de usuario y la paridad con datos comunes.
 4. Verifica las tres confirmaciones que se conservan: cerrar LoginWindow, salir del chat y cerrar
    todas las sesiones.
 5. La cobertura xUnit de `EstadoAvisoInline` está en
-   `universidad-mensajeria/client-dotnet.Tests/EstadoAvisoInlineTests.cs`; el último resultado
-   registrado fue 71/71, pero esta guía no afirma una ejecución nueva en esta revisión.
+   `universidad-mensajeria/client-dotnet.Tests/EstadoAvisoInlineTests.cs`. Desde el 2026-10-10 **todos**
+   los avisos se retiran solos (4 s éxito, 6 s información, 8 s advertencia, 12 s error): comprueba que
+   el error desaparece solo y que el ✕ sigue cerrándolo antes. La última ejecución registrada de la
+   suite completa es **366/366** (2026-10-11).
 
 ## Consola administrativa del servidor (Sesión B 2026-10-07; cierre 2026-10-08)
 

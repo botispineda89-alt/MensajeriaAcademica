@@ -1,7 +1,10 @@
 package universidad.mensajeria.cliente.componentes.conexion;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
 import universidad.mensajeria.common.codec.CodecException;
 import universidad.mensajeria.common.codec.TramaCodec;
 import universidad.mensajeria.common.tipos.Mensaje;
@@ -10,174 +13,187 @@ import universidad.mensajeria.common.tipos.TipoMensaje;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Paridad de framing entre los 3 clientes (Fase 1.6, vectores de {@code contrato/framing.json}).
+ * Paridad de framing entre los 3 clientes, DATA-DRIVEN: los vectores y los
+ * rechazos se LEEN de {@code contrato/framing.json} — igual que el test de
+ * Python (por ruta) y el de .NET (enlazado en su csproj) — y no copiados a
+ * mano. Un cambio del contrato se propaga solo a esta suite.
  *
- * <p>Ejercita el {@link TramaCodec} de {@code common-protocol}, que es el que el cliente
- * usa de verdad: no hay un codec propio que probar.
+ * <p>Se compara contra {@code trama_hex} byte a byte, no solo que haya ida y
+ * vuelta: una ida y vuelta con el mismo bug se cancela y no detecta nada. El
+ * vector {@code multibyte_acentos} es el que mata (53 caracteres, 56 bytes):
+ * medir la cabecera en caracteres deja 3 bytes cortos y se pierde todo lo que
+ * venga después en el stream.</p>
  *
- * <p>Por qué compara contra {@code trama_hex} y no solo ida y vuelta: una ida y vuelta con
- * el mismo bug se cancela y no detecta nada. El caso crítico es {@code multibyte_acentos}:
- * 53 caracteres pero 56 bytes en UTF-8. Con {@code String.length()} en vez de
- * {@code byte[].length} la cabecera queda 3 bytes corta, el lector se descuadra y se pierden
- * todas las tramas siguientes. En Java {@code payload.length} ya son bytes porque
- * {@code getBytes(UTF_8)} devuelve bytes; este test lo fija como invariante.
+ * <p>Cada vector declara su payload como CADENA EXACTA (Gson emite los records
+ * en orden de declaración; el contrato se escribió para coincidir), así que la
+ * comparación no depende del orden de claves de nadie.</p>
  */
 class TramaCodecParidadTest {
 
     private static final HexFormat HEX = HexFormat.of();
-    private static final String MULTIBYTE = "Señor café año";
 
-    @Test
-    @DisplayName("ack_minimo: 0000000e7b227469706f223a2241434b227d")
-    void ackMinimo() {
-        byte[] trama = TramaCodec.codificar(Mensaje.de(TipoMensaje.ACK));
-        assertArrayEquals(HEX.parseHex("0000000e7b227469706f223a2241434b227d"), trama);
+    /** Maven ejecuta los tests con basedir en el módulo: el contrato vive en la
+     * raíz del repo, tres niveles arriba (client-app → client → monorepo → raíz). */
+    private static final Path CONTRATO =
+            Path.of("..", "..", "..", "contrato", "framing.json");
+    private static final Gson GSON = new Gson();
+
+    /** Mensaje de prueba de cada vector, por nombre (los campos del payload). */
+    private static final Map<String, Mensaje> MENSAJES_DE_PRUEBA = Map.of(
+            "ack_minimo", Mensaje.de(TipoMensaje.ACK),
+            "logout_minimo", Mensaje.de(TipoMensaje.LOGOUT),
+            "error_minimo", Mensaje.de(TipoMensaje.ERROR),
+            "login_real", Mensaje.builder().tipo(TipoMensaje.LOGIN).id("v-1")
+                    .codigo("A001").contrasena("Secreta123").build(),
+            "mensaje_texto", Mensaje.builder().tipo(TipoMensaje.MENSAJE_TEXTO).id("m-1")
+                    .remitente("A001").destinatario("B002").contenido("Hola").build(),
+            "multibyte_acentos", Mensaje.builder().tipo(TipoMensaje.MENSAJE_TEXTO)
+                    .contenido("Señor café año").build());
+
+    private static JsonObject contrato() {
+        try {
+            return GSON.fromJson(Files.readString(CONTRATO, StandardCharsets.UTF_8),
+                    JsonObject.class);
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo leer el contrato de framing: "
+                    + CONTRATO.toAbsolutePath(), e);
+        }
     }
 
     @Test
-    @DisplayName("logout_minimo: 000000117b227469706f223a224c4f474f5554227d")
-    void logoutMinimo() {
-        byte[] trama = TramaCodec.codificar(Mensaje.de(TipoMensaje.LOGOUT));
-        assertArrayEquals(HEX.parseHex("000000117b227469706f223a224c4f474f5554227d"), trama);
+    @DisplayName("el contrato declara 6 vectores y 5 rechazos, y este test conoce todos")
+    void elContratoCoincideConLosMensajesDePrueba() {
+        JsonObject contrato = contrato();
+        var nombres = contrato.getAsJsonArray("vectores");
+        assertEquals(6, nombres.size(), "vectores declarados");
+        assertEquals(5, contrato.getAsJsonArray("rechazos").size(), "rechazos declarados");
+        for (var vector : nombres) {
+            String nombre = vector.getAsJsonObject().get("nombre").getAsString();
+            assertNotNull(MENSAJES_DE_PRUEBA.get(nombre),
+                    "vector '" + nombre + "' sin mensaje de prueba en este test");
+        }
+        assertEquals(MENSAJES_DE_PRUEBA.keySet(), nombresDelContrato(contrato),
+                "el mapa de prueba y el contrato deben nombrar lo mismo");
     }
 
     @Test
-    @DisplayName("error_minimo: 000000107b227469706f223a224552524f52227d")
-    void errorMinimo() {
-        byte[] trama = TramaCodec.codificar(Mensaje.de(TipoMensaje.ERROR));
-        assertArrayEquals(HEX.parseHex("000000107b227469706f223a224552524f52227d"), trama);
+    @DisplayName("cada vector se codifica byte a byte contra trama_hex")
+    void todoVectorSeCodificaByteAByte() {
+        for (var elemento : contrato().getAsJsonArray("vectores")) {
+            JsonObject vector = elemento.getAsJsonObject();
+            String nombre = vector.get("nombre").getAsString();
+            Mensaje mensaje = MENSAJES_DE_PRUEBA.get(nombre);
+            byte[] trama = TramaCodec.codificar(mensaje);
+            assertAll(nombre,
+                    () -> assertEquals(vector.get("trama_hex").getAsString(),
+                            HEX.formatHex(trama), "trama byte a byte"),
+                    () -> assertEquals(vector.get("longitud").getAsInt(),
+                            longitudAnunciada(trama), "cabecera = bytes UTF-8"),
+                    () -> assertEquals(4 + vector.get("longitud").getAsInt(), trama.length));
+        }
     }
 
     @Test
-    @DisplayName("login_real: 69 bytes, con clave y contraseña de ejemplo")
-    void loginReal() {
-        Mensaje login = Mensaje.builder().tipo(TipoMensaje.LOGIN).id("v-1")
-                .codigo("A001").contrasena("Secreta123").build();
+    @DisplayName("cada vector se codifica igual por el stream y se lee igual")
+    void idaYVueltaPorElStream() throws IOException {
+        for (var elemento : contrato().getAsJsonArray("vectores")) {
+            JsonObject vector = elemento.getAsJsonObject();
+            Mensaje mensaje = MENSAJES_DE_PRUEBA.get(vector.get("nombre").getAsString());
+            ByteArrayOutputStream salida = new ByteArrayOutputStream();
+            TramaCodec.escribir(salida, mensaje);
 
-        byte[] trama = TramaCodec.codificar(login);
-
-        assertEquals(69, longitudAnunciada(trama));
-        assertArrayEquals(HEX.parseHex(
-                "000000457b227469706f223a224c4f47494e222c226964223a22762d31222c"
-                        + "22636f6469676f223a2241303031222c22636f6e74726173656e61223a"
-                        + "2253656372657461313233227d"), trama);
+            assertAll(vector.get("nombre").getAsString(),
+                    () -> assertEquals(vector.get("trama_hex").getAsString(),
+                            HEX.formatHex(salida.toByteArray())),
+                    () -> {
+                        Mensaje leido = TramaCodec.leer(
+                                new ByteArrayInputStream(salida.toByteArray()));
+                        assertEquals(mensaje, leido, "ida y vuelta fiel");
+                    });
+        }
     }
 
     @Test
-    @DisplayName("mensaje_texto: 95 bytes, los 5 campos que el servidor exige")
-    void mensajeTexto() {
-        Mensaje texto = Mensaje.builder().tipo(TipoMensaje.MENSAJE_TEXTO).id("m-1")
-                .remitente("A001").destinatario("B002").contenido("Hola").build();
+    @DisplayName("multibyte_acentos: 53 caracteres, 56 bytes; el bug de len(cadena) se canta")
+    void elBugDeCaracteresProduciriaUnaCabeceraCorta() {
+        JsonObject multibyte = vector("multibyte_acentos");
+        String payload = multibyte.get("payload").getAsString();
+        assertEquals(multibyte.get("caracteres").getAsInt(), payload.length());
+        assertEquals(multibyte.get("longitud").getAsInt(),
+                payload.getBytes(StandardCharsets.UTF_8).length);
 
-        byte[] trama = TramaCodec.codificar(texto);
-
-        assertEquals(95, longitudAnunciada(trama));
-        assertArrayEquals(HEX.parseHex(
-                "0000005f7b227469706f223a224d454e53414a455f544558544f222c226964223a226d2d31"
-                        + "222c2272656d6974656e7465223a2241303031222c2264657374696e6174617269"
-                        + "6f223a2242303032222c22636f6e74656e69646f223a22486f6c61227d"), trama);
+        // Control negativo explicito: la trama con la cabecera del bug (por
+        // caracteres) NO es la del contrato, aunque el payload sí coincide.
+        byte[] conBug = java.nio.ByteBuffer
+                .allocate(4 + payload.getBytes(StandardCharsets.UTF_8).length)
+                .putInt(payload.length())
+                .put(payload.getBytes(StandardCharsets.UTF_8))
+                .array();
+        assertNotEquals(multibyte.get("trama_hex").getAsString(), HEX.formatHex(conBug));
+        assertEquals(multibyte.get("trama_hex").getAsString().substring(8),
+                HEX.formatHex(conBug).substring(8), "solo cambia la cabecera");
     }
 
     @Test
-    @DisplayName("multibyte_acentos: 53 caracteres, 56 BYTES. El caso que mata.")
-    void multibyteAcentos() {
-        String payload = "{\"tipo\":\"MENSAJE_TEXTO\",\"contenido\":\"" + MULTIBYTE + "\"}";
-
-        assertEquals(53, payload.length(), "el vector declara 53 caracteres");
-        byte[] esperado = HEX.parseHex(
-                "000000387b227469706f223a224d454e53414a455f544558544f222c22636f6e74656e"
-                        + "69646f223a225365c3b16f7220636166c3a92061c3b16f227d");
-        assertEquals(56, payload.getBytes(StandardCharsets.UTF_8).length,
-                "en UTF-8 son 56 bytes aunque elijamos por error payload.length()");
-
-        byte[] trama = TramaCodec.codificar(Mensaje.builder().tipo(TipoMensaje.MENSAJE_TEXTO)
-                .contenido(MULTIBYTE).build());
-
-        assertArrayEquals(esperado, trama,
-                "la cabecera debe anunciar BYTES UTF-8, no caracteres");
-        assertEquals(56, longitudAnunciada(trama));
+    @DisplayName("los 5 rechazos del contrato lanzan CodecException")
+    void todoRechazoDelContratoSeRechaza() throws IOException {
+        for (var elemento : contrato().getAsJsonArray("rechazos")) {
+            JsonObject caso = elemento.getAsJsonObject();
+            assertTrue(caso.get("debe_fallar").getAsBoolean());
+            byte[] trama = HEX.parseHex(caso.get("trama_hex").getAsString());
+            String motivo = caso.get("motivo").getAsString();
+            assertThrows(CodecException.class, () -> TramaCodec.decodificar(trama), motivo);
+            // Por el stream el rechazo puede llegar como codec o como corte del
+            // stream (una trama incompleta es un EOF antes de que el parser
+            // opine): el contrato pide que se rechace, no el tipo exacto.
+            try {
+                TramaCodec.leer(new ByteArrayInputStream(trama));
+                fail("debe fallar por el stream: " + motivo);
+            } catch (CodecException | IOException esperada) {
+                // rechazo esperado
+            }
+        }
     }
 
     @Test
-    @DisplayName("multibyte_acentos también sobre el stream: escribir y leer")
-    void multibyteAcentosSobreElStream() throws IOException {
-        ByteArrayOutputStream salida = new ByteArrayOutputStream();
-        TramaCodec.escribir(salida, Mensaje.builder().tipo(TipoMensaje.MENSAJE_TEXTO)
-                .contenido(MULTIBYTE).build());
-
-        byte[] escrito = salida.toByteArray();
-        assertArrayEquals(HEX.parseHex(
-                "000000387b227469706f223a224d454e53414a455f544558544f222c22636f6e74656e"
-                        + "69646f223a225365c3b16f7220636166c3a92061c3b16f227d"), escrito);
-
-        Mensaje leido = TramaCodec.leer(new ByteArrayInputStream(escrito));
-        assertEquals(TipoMensaje.MENSAJE_TEXTO, leido.tipo());
-        assertEquals(MULTIBYTE, leido.contenido());
+    @DisplayName("el tope de trama es el que declara el contrato")
+    void elTopeDeTramaEsElDelContrato() {
+        assertEquals(contrato().getAsJsonObject("reglas").get("tope_trama").getAsInt(),
+                TramaCodec.TAMANO_MAXIMO_TRAMA);
     }
 
-    @Test
-    @DisplayName("trama_incompleta: anuncia 255 bytes pero solo hay 2")
-    void rechazaTramaIncompleta() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.decodificar(HEX.parseHex("000000ff4142")));
+    private static JsonObject vector(String nombre) {
+        for (var elemento : contrato().getAsJsonArray("vectores")) {
+            JsonObject vector = elemento.getAsJsonObject();
+            if (nombre.equals(vector.get("nombre").getAsString())) {
+                return vector;
+            }
+        }
+        throw new IllegalStateException("vector no encontrado: " + nombre);
     }
 
-    @Test
-    @DisplayName("json_roto: payload truncado")
-    void rechazaJsonRoto() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.decodificar(HEX.parseHex("000000057b226e")));
-    }
-
-    @Test
-    @DisplayName("sin_tipo: el JSON no tiene la clave obligatoria")
-    void rechazaJsonSinTipo() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.decodificar(HEX.parseHex("000000117b22746578746f223a22786f736861227d")));
-    }
-
-    @Test
-    @DisplayName("longitud_cero: 0 no es una trama válida")
-    void rechazaLongitudCero() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.decodificar(HEX.parseHex("00000000")));
-    }
-
-    @Test
-    @DisplayName("longitud_cero también se rechaza al leer del stream")
-    void rechazaLongitudCeroEnElStream() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.leer(new ByteArrayInputStream(HEX.parseHex("00000000"))));
-    }
-
-    @Test
-    @DisplayName("longitud_sobre_el_tope: 32 MiB no debe reservar memoria")
-    void rechazaLongitudSobreElTope() {
-        assertThrows(CodecException.class,
-                () -> TramaCodec.decodificar(HEX.parseHex("02000000")));
-        assertThrows(CodecException.class,
-                () -> TramaCodec.leer(new ByteArrayInputStream(HEX.parseHex("02000000"))));
-    }
-
-    @Test
-    @DisplayName("trama_incompleta también se rechaza al leer del stream")
-    void rechazaTramaIncompletaEnElStream() {
-        assertThrows(IOException.class,
-                () -> TramaCodec.leer(new ByteArrayInputStream(HEX.parseHex("000000ff4142"))));
-    }
-
-    @Test
-    @DisplayName("el tope de trama es el del contrato: 16 MiB")
-    void topeDeTramaDelContrato() {
-        assertEquals(16777216, TramaCodec.TAMANO_MAXIMO_TRAMA);
+    private static Set<String> nombresDelContrato(JsonObject contrato) {
+        var nombres = new java.util.HashSet<String>();
+        contrato.getAsJsonArray("vectores").forEach(
+                v -> nombres.add(v.getAsJsonObject().get("nombre").getAsString()));
+        return nombres;
     }
 
     /** Longitud que anuncian los 4 primeros bytes, en big-endian. */

@@ -41,12 +41,45 @@ class MensajeListModel(QAbstractListModel):
         fila = self._filas[index.row()]
         if rol == ROL_ITEM:
             return fila
+        if isinstance(fila, dict) and not fila.get("es_separador"):
+            if rol == Qt.ItemDataRole.AccessibleTextRole:
+                return self._texto_accesible(fila)
+            if rol == Qt.ItemDataRole.AccessibleDescriptionRole:
+                return self._descripcion_accesible(fila)
         if rol == Qt.ItemDataRole.ToolTipRole and isinstance(fila, dict) \
                 and fila.get("id") and fila.get("date"):
             dia = etiqueta_dia(fila.get("date", ""))
             if dia:
                 return f"{dia} {hora_corta(fila.get('date', ''))}"
         return None
+
+    @staticmethod
+    def _texto_accesible(fila):
+        partes = [fila.get("sender") or "Mensaje"]
+        if fila.get("is_image"):
+            partes.append(f"Imagen {fila.get('filename') or ''}".strip())
+        elif fila.get("es_archivo"):
+            partes.append(f"Archivo {fila.get('filename') or ''}".strip())
+        elif fila.get("text"):
+            partes.append(fila["text"])
+        if fila.get("caption"):
+            partes.append(f"Descripción: {fila['caption']}")
+        if fila.get("date"):
+            partes.append(hora_corta(fila["date"]))
+        if fila.get("state"):
+            partes.append(str(fila["state"]))
+        return ". ".join(partes)
+
+    @staticmethod
+    def _descripcion_accesible(fila):
+        acciones = []
+        if fila.get("is_image"):
+            acciones.append("Haz clic en la imagen para ampliarla")
+            acciones.append("Usa el botón Guardar imagen para descargarla")
+        elif fila.get("es_archivo"):
+            acciones.append("Usa el botón Guardar archivo para descargarlo")
+        acciones.append("Haz doble clic para responder")
+        return ". ".join(acciones)
 
     def flags(self, index):
         base = super().flags(index)

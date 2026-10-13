@@ -91,6 +91,68 @@ namespace Mensajeria.Tests
             }
         }
 
+        [Fact]
+        public async Task EnvioImagenConPieEsUnSoloMensajeYElPieVaEnElContenido()
+        {
+            var historial = new HistorialCaptura(new List<string>());
+            var red = new RedCaptura(new List<string>(), new Dictionary<string, object?>
+            {
+                ["tipo"] = "IMAGE_FILTERED_RESULT",
+                ["exito"] = true
+            });
+            string ruta = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllBytesAsync(ruta, new byte[] { 1, 2, 3 });
+                var coordinador = new CoordinadorMensajeriaCliente(() => historial);
+
+                Assert.True(await coordinador.EnviarImagenAsync(red, "A001", "B002", ruta,
+                    "mira el atardecer"));
+
+                // UNA sola trama: el texto viaja como pie en el `contenido` del
+                // MENSAJE_IMAGEN, no como un segundo mensaje.
+                var enviada = Assert.Single(red.Enviadas);
+                Assert.Equal("MENSAJE_IMAGEN", enviada["tipo"]);
+                Assert.Equal("mira el atardecer", enviada["contenido"]);
+                Assert.NotNull(enviada["contenidoImagen"]);
+
+                // Y en local el adjunto queda sin cuerpo, con su pie.
+                var mensaje = Assert.Single(historial.Mensajes);
+                Assert.Equal("ENVIADO", mensaje.Estado);
+                Assert.Equal("mira el atardecer", mensaje.Caption);
+            }
+            finally
+            {
+                File.Delete(ruta);
+            }
+        }
+
+        [Fact]
+        public async Task EnvioImagenSinPieNoMandaContenidoVacio()
+        {
+            var historial = new HistorialCaptura(new List<string>());
+            var red = new RedCaptura(new List<string>(), new Dictionary<string, object?>
+            {
+                ["tipo"] = "IMAGE_FILTERED_RESULT",
+                ["exito"] = true
+            });
+            string ruta = Path.GetTempFileName();
+            try
+            {
+                await File.WriteAllBytesAsync(ruta, new byte[] { 1 });
+                var coordinador = new CoordinadorMensajeriaCliente(() => historial);
+
+                Assert.True(await coordinador.EnviarImagenAsync(red, "A001", "B002", ruta, "   "));
+
+                Assert.Null(Assert.Single(red.Enviadas)["contenido"]);
+                Assert.Null(Assert.Single(historial.Mensajes).Caption);
+            }
+            finally
+            {
+                File.Delete(ruta);
+            }
+        }
+
         private sealed class HistorialCaptura : IHistorialLocal
         {
             private readonly List<string> _orden;
@@ -104,10 +166,10 @@ namespace Mensajeria.Tests
                 string? nombreArchivo, string? rutaArchivo, long? tamanoArchivo,
                 string fechaEnvio, int enviado, int descargado,
                 string estado = "ENVIADO", string? archivoId = null,
-                string? etapasFiltrado = null)
+                string? etapasFiltrado = null, string? caption = null)
             {
                 _orden.Add($"guardar:{estado}");
-                var fila = new FilaMensaje(id, estado, hash, archivoId, etapasFiltrado);
+                var fila = new FilaMensaje(id, estado, hash, archivoId, etapasFiltrado, caption);
                 int existente = Mensajes.FindIndex(mensaje => mensaje.Id == id);
                 if (existente >= 0) Mensajes[existente] = fila;
                 else Mensajes.Add(fila);
@@ -120,6 +182,8 @@ namespace Mensajeria.Tests
                 Pendientes.Add(new Pendiente(id, contenido, payload));
             }
 
+            public IReadOnlyDictionary<string, PreviewUltimoMensaje> UltimoMensajePorContacto(string yo) =>
+                new Dictionary<string, PreviewUltimoMensaje>();
             public List<Dictionary<string, object>> PaginaConversacion(string origen, string destino,
                 int limit, int offset) => throw new NotSupportedException();
             public IReadOnlyDictionary<string, string> UltimosMensajesPorContacto(string yo) =>
@@ -140,7 +204,7 @@ namespace Mensajeria.Tests
             public void EliminarPendiente(string id) { }
 
             public sealed record FilaMensaje(string Id, string Estado, string? Hash,
-                string? ArchivoId, string? EtapasFiltrado);
+                string? ArchivoId, string? EtapasFiltrado, string? Caption = null);
             public sealed record Pendiente(string Id, string? Contenido, byte[]? Payload);
         }
 
@@ -150,6 +214,8 @@ namespace Mensajeria.Tests
             private readonly Dictionary<string, object?>? _respuesta;
             private readonly Exception? _error;
             public List<Dictionary<string, object?>> Peticiones { get; } = new();
+            /// <summary>Tramas que salieron por la red, para comprobar el pie.</summary>
+            public List<Dictionary<string, object?>> Enviadas { get; } = new();
 
             public RedCaptura(List<string> orden, Dictionary<string, object?>? respuesta = null,
                 Exception? error = null)
@@ -168,8 +234,11 @@ namespace Mensajeria.Tests
             public Task ConectarAsync(string host, int puerto) => Task.CompletedTask;
             public void Desconectar() { }
             public void Enviar(Dictionary<string, object?> msg) => throw new NotSupportedException();
-            public Task<Dictionary<string, JsonElement>> Pedir(Dictionary<string, object?> msg) =>
-                Pedir(msg, TimeSpan.FromSeconds(1));
+            public Task<Dictionary<string, JsonElement>> Pedir(Dictionary<string, object?> msg)
+            {
+                Enviadas.Add(new Dictionary<string, object?>(msg));
+                return Pedir(msg, TimeSpan.FromSeconds(1));
+            }
 
             public Task<Dictionary<string, JsonElement>> Pedir(Dictionary<string, object?> msg,
                 TimeSpan timeout)

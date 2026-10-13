@@ -9,6 +9,7 @@ import os
 import sqlite3
 from contextlib import contextmanager
 
+from transversal.fechas import a_utc
 from transversal.tipo_mensaje import TipoMensaje
 
 # common-protocol/dto/src/main/resources/schema-local.sql, relativo a este archivo.
@@ -112,6 +113,8 @@ def migrar_legado_a_cuenta(ruta_legada, ruta_cuenta, cuenta, esquema_path=None):
             conn_cta.execute("ALTER TABLE historial_local ADD COLUMN archivo_id TEXT")
         if "etapas_filtrado" not in columnas:
             conn_cta.execute("ALTER TABLE historial_local ADD COLUMN etapas_filtrado TEXT")
+        if "caption" not in columnas:
+            conn_cta.execute("ALTER TABLE historial_local ADD COLUMN caption TEXT")
 
         # Migrar historial de forma idempotente recalculando enviado para esta cuenta
         for f in filas_historial:
@@ -123,12 +126,13 @@ def migrar_legado_a_cuenta(ruta_legada, ruta_cuenta, cuenta, esquema_path=None):
                     id_mensaje, origen, destino, tipo, contenido, hash_sha256,
                     num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
                     tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
-                    etapas_filtrado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    etapas_filtrado, caption
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id_mensaje) DO UPDATE SET
                     descargado = MAX(excluded.descargado, historial_local.descargado),
                     archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
                     etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
+                    caption = COALESCE(excluded.caption, historial_local.caption),
                     ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
                     estado = CASE
                         WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
@@ -142,7 +146,8 @@ def migrar_legado_a_cuenta(ruta_legada, ruta_cuenta, cuenta, esquema_path=None):
                 f["fecha_envio"], enviado, f["descargado"] or 0,
                 f["estado"] if "estado" in f.keys() and f["estado"] else "ENVIADO",
                 f["archivo_id"] if "archivo_id" in f.keys() else None,
-                f["etapas_filtrado"] if "etapas_filtrado" in f.keys() else None
+                f["etapas_filtrado"] if "etapas_filtrado" in f.keys() else None,
+                f["caption"] if "caption" in f.keys() else None,
             ))
 
         # Migrar pendientes_envio solo originados por esta cuenta
@@ -243,6 +248,32 @@ class Database:
         with self.conexion() as conn:
             conn.executescript(esquema)
         self._migrar_historial()
+        self._normalizar_fechas_utc()
+
+    def _normalizar_fechas_utc(self):
+        """Una pasada: deja `fecha_envio` siempre en UTC con 'Z' (UIX-26).
+
+        La base por cuenta la comparten Python y .NET (AGENTS §6.5): .NET
+        escribe UTC con Z y este cliente escribía hora local sin zona. La
+        columna es TEXT y las consultas ordenan por ella como texto, así que
+        lo propio recién enviado quedaba detrás de filas .NET más viejas y
+        desaparecía de la página 0 del historial (fue lo visto en el smoke:
+        `obtener_conversacion` devolvía solo filas con Z). Igual que
+        `LocalStore.NormalizarFechasAUtc` de .NET: lo que ya tiene Z no se
+        toca, para no normalizar dos veces.
+        """
+        with self.conexion() as conn:
+            filas = conn.execute(
+                "SELECT id_mensaje, fecha_envio FROM historial_local "
+                "WHERE fecha_envio IS NOT NULL AND fecha_envio <> '' "
+                "AND fecha_envio NOT LIKE '%Z'").fetchall()
+            for fila in filas:
+                normalizada = a_utc(fila["fecha_envio"])
+                if normalizada and normalizada != fila["fecha_envio"]:
+                    conn.execute(
+                        "UPDATE historial_local SET fecha_envio = ? "
+                        "WHERE id_mensaje = ?",
+                        (normalizada, fila["id_mensaje"]))
 
     def _migrar_historial(self):
         with self.conexion() as conn:
@@ -256,3 +287,5 @@ class Database:
                 conn.execute("ALTER TABLE historial_local ADD COLUMN archivo_id TEXT")
             if "etapas_filtrado" not in columnas:
                 conn.execute("ALTER TABLE historial_local ADD COLUMN etapas_filtrado TEXT")
+            if "caption" not in columnas:
+                conn.execute("ALTER TABLE historial_local ADD COLUMN caption TEXT")

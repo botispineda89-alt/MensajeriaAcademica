@@ -30,6 +30,10 @@ def _leer(fecha_envio):
         return None
     texto = str(fecha_envio).strip()
     # fromisoformat acepta 'T' o espacio, microsegundos y zona horaria.
+    # El reemplazo de la 'Z' final es seguro en Python moderno y necesario
+    # en 3.9/3.10, donde fromisoformat no entendía el sufijo UTC.
+    if texto.endswith("Z"):
+        texto = texto[:-1] + "+00:00"
     try:
         return _sin_zona(datetime.datetime.fromisoformat(texto))
     except ValueError:
@@ -40,6 +44,48 @@ def _leer(fecha_envio):
         except ValueError:
             continue
     return None
+
+
+def a_utc(fecha_envio):
+    """Normaliza una fecha a ISO-8601 UTC con sufijo ``Z`` (UIX-26).
+
+    Réplica de ``FormatoFecha.AUtc`` del cliente .NET. ``fecha_envio`` es
+    TEXT y las consultas ordenan por ella COMO TEXTO: el servidor manda hora
+    local sin zona y .NET guarda UTC con ``Z``, así que escribir aquí hora
+    local hacía que, en la base compartida por cuenta, los mensajes propios
+    recientes quedaran ordenados DETRÁS de filas .NET más viejas y
+    desaparecieran de la primera página del historial. Sin zona se interpreta
+    hora local (el servidor y el cliente están en la misma máquina en este
+    despliegue). Lo ilegible se devuelve tal cual para no perder la fila.
+    """
+    if fecha_envio is None:
+        return ""
+    if isinstance(fecha_envio, datetime.datetime):
+        leida = fecha_envio
+    else:
+        texto = str(fecha_envio).strip()
+        if not texto:
+            return ""
+        if texto.endswith("Z"):
+            # Ya está en UTC con Z (filas de .NET): no se cicla por datetime
+            # otra vez — Python solo guarda 6 decimales y mutilaría el
+            # séptimo que el formato "O" de .NET sí lleva.
+            return texto
+        leida = _leer(texto)
+        if leida is None:
+            return texto
+    if leida.tzinfo is None:
+        leida = leida.astimezone()
+    utc = leida.astimezone(datetime.timezone.utc)
+    # El "O" de .NET: 7 decimales + Z (`DateTime.ToString("O")`), el mismo
+    # formato byte a byte de las filas que ya escribe el cliente .NET.
+    return (utc.strftime("%Y-%m-%dT%H:%M:%S")
+            + f".{utc.microsecond:07d}Z")
+
+
+def ahora_utc():
+    """Fecha de envío de las filas que este cliente guarda: UTC con ``Z``."""
+    return a_utc(datetime.datetime.now())
 
 
 def hora_corta(fecha_envio):

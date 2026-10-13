@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QBuffer, QCoreApplication, QEvent, QEventLoop, QIODevice, QSettings, QTimer, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
 from ui.chat_window import ChatWindow
 from ui.lista_virtual import ROL_ITEM
@@ -88,6 +88,7 @@ class PruebasUI(unittest.TestCase):
     def tearDown(self):
         self.chat._cerrando = True
         self.chat.close()
+        self.login._cerrando = True
         self.login.close()
         self.chat.deleteLater()
         self.login.deleteLater()
@@ -107,6 +108,36 @@ class PruebasUI(unittest.TestCase):
         while not codigos and time.time() < limite:
             self._wait(50)
         self.assertEqual(["A001"], codigos)
+
+    def test_login_pide_confirmacion_y_cancelar_conserva_ventana(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        self.login.show()
+        with patch("ui.login_window.QMessageBox.question",
+                   return_value=QMessageBox.StandardButton.No):
+            self.login.close()
+        self.assertTrue(self.login.isVisible())
+
+        with patch("ui.login_window.QMessageBox.question",
+                   return_value=QMessageBox.StandardButton.Yes):
+            self.login.close()
+        self.assertFalse(self.login.isVisible())
+
+    def test_fondo_se_aplica_en_ventana_chat_completa_ambos_temas(self):
+        from ui.tema import MODO_CLARO, MODO_OSCURO
+
+        self.chat.resize(900, 600)
+        self.chat.show()
+        for modo in (MODO_CLARO, MODO_OSCURO):
+            with self.subTest(modo=modo):
+                self.chat.aplicar_tema(modo)
+                self._wait(30)
+                # El fondo lo pinta el paintEvent de la lista (a cover):
+                # basta con que la imagen del tema esté cargada y la escala viva.
+                lista = self.chat.lista_mensajes
+                self.assertFalse(lista._imagen_fondo.isNull())
+                pixmap = lista._pixmap_a_cover(lista.viewport().size())
+                self.assertEqual(lista.viewport().size(), pixmap.size())
 
     def test_chat_envia_a_usuario_seleccionado(self):
         self.chat.lista_usuarios.setCurrentRow(0)
@@ -132,7 +163,7 @@ class PruebasUI(unittest.TestCase):
             self.chat.btn_buscar_ant: "Anterior coincidencia",
             self.chat.btn_buscar_sig: "Siguiente coincidencia",
             self.chat.btn_buscar_cerrar: "Cerrar búsqueda",
-            self.chat.btn_quitar_adjunto: "Quitar imagen adjunta",
+            self.chat.btn_quitar_adjunto: "Quitar todos los adjuntos",
             self.chat.btn_imagen: "Adjuntar imagen",
         }
         for control, nombre in controles_chat.items():
@@ -237,6 +268,41 @@ class PruebasUI(unittest.TestCase):
                       for i in range(modelo.rowCount())]
         self.assertTrue(any("recibido" in texto for texto in contenidos))
 
+    def test_eco_de_otra_sesion_actualiza_burbuja_propia(self):
+        self.chat.lista_usuarios.setCurrentRow(0)
+        mid = "eco-misma-cuenta"
+        optimista = {
+            "id": mid, "sender": "Tú", "text": "desde otro equipo",
+            "is_own": True, "raw_state": "PENDIENTE",
+            "state": "⏳ Pendiente", "is_image": False,
+        }
+        self.chat._historial_ids.add(mid)
+        self.chat._agregar_fila(optimista)
+        self.chat._procesar_mensaje({
+            "tipo": "MENSAJE_TEXTO", "id": mid, "remitente": "A001",
+            "destinatario": "B002", "contenido": "desde otro equipo",
+            "fechaHora": "2026-10-01T10:00:00",
+        })
+        actual = self.chat._mensaje_por_id(mid)
+
+        self.assertIsNotNone(actual)
+        self.assertTrue(actual["is_own"])
+        self.assertEqual("ENVIADO", actual["raw_state"])
+        self.assertEqual("B002", self.chat.usuario_seleccionado)
+
+    def test_etiquetas_legibles_para_imagen_y_archivo_en_historial(self):
+        self.chat.lista_usuarios.setCurrentRow(0)
+        self.chat._pintar_historial([
+            {"id_mensaje": "img-own", "origen": "A001", "destino": "B002",
+             "tipo": "MENSAJE_IMAGEN", "nombre_archivo": "foto.png"},
+            {"id_mensaje": "file-own", "origen": "A001", "destino": "B002",
+             "tipo": "MENSAJE_ARCHIVO", "nombre_archivo": "informe.pdf"},
+        ])
+        imagen = self.chat._mensaje_por_id("img-own")
+        archivo = self.chat._mensaje_por_id("file-own")
+        self.assertIn("Enviada imagen", imagen["image_state"])
+        self.assertIn("Enviado archivo", archivo["text"])
+
     def test_mensaje_imagen_inserta_preview_en_historial(self):
         imagen = QImage(2, 2, QImage.Format.Format_ARGB32)
         imagen.fill(Qt.GlobalColor.darkGreen)
@@ -290,6 +356,36 @@ class PruebasUI(unittest.TestCase):
                   "fecha_envio": "2026-10-01T10:00:00", "estado": "ENTREGADO"}]
         self.chat._procesar_tarea("historial", ("B002", filas, 0, 1, gen_viejo), None)
         self.assertEqual(0, self.chat._modelo_mensajes.rowCount())
+
+    def test_cambio_b_a_b_descarta_respuestas_de_generaciones_anteriores(self):
+        gen_b_inicial = self.chat._gen_historial
+        self.chat.usuario_seleccionado = "C003"
+        self.chat._gen_historial += 1
+        gen_c = self.chat._gen_historial
+        self.chat.usuario_seleccionado = "B002"
+        self.chat._gen_historial += 1
+        gen_b_actual = self.chat._gen_historial
+        filas_b = [{
+            "id_mensaje": "b-actual", "origen": "B002", "destino": "A001",
+            "tipo": "MENSAJE_TEXTO", "contenido": "conversación B",
+            "fecha_envio": "2026-10-01T10:00:00", "estado": "ENVIADO",
+        }]
+        filas_obsoletas = [{
+            "id_mensaje": "obsoleto", "origen": "C003", "destino": "A001",
+            "tipo": "MENSAJE_TEXTO", "contenido": "otra conversación",
+            "fecha_envio": "2026-10-01T10:00:00", "estado": "ENVIADO",
+        }]
+
+        self.chat._procesar_tarea(
+            "historial", ("B002", filas_obsoletas, 0, 1, gen_b_inicial), None)
+        self.chat._procesar_tarea(
+            "historial", ("C003", filas_obsoletas, 0, 1, gen_c), None)
+        self.chat._procesar_tarea(
+            "historial", ("B002", filas_b, 0, 1, gen_b_actual), None)
+
+        self.assertEqual("B002", self.chat.usuario_seleccionado)
+        self.assertIsNotNone(self.chat._mensaje_por_id("b-actual"))
+        self.assertIsNone(self.chat._mensaje_por_id("obsoleto"))
 
     def _layout_de(self, mensaje_id):
         """Layout que pintaría el delegado para ese mensaje (UIX-01)."""
@@ -385,6 +481,23 @@ class PruebasUI(unittest.TestCase):
         from ui.tema import MODO_OSCURO as _OSCURO
         self.assertEqual("#5EB1FF", tokens(_OSCURO)["visto_leido"])
 
+    def test_acuse_leido_actualiza_la_burbuja_por_id(self):
+        self.chat.lista_usuarios.setCurrentRow(0)
+        self.chat._agregar_fila({
+            "id": "acuse-ui", "sender": "Tú", "is_own": True,
+            "text": "pendiente de lectura", "state": "✓ Enviado",
+            "raw_state": "ENVIADO", "is_image": False,
+            "date": "2026-10-01T10:00:00",
+        })
+
+        self.chat._procesar_mensaje({
+            "tipo": "MENSAJE_LEIDO", "contenido": "acuse-ui",
+        })
+
+        actualizado = self.chat._mensaje_por_id("acuse-ui")
+        self.assertEqual("LEIDO", actualizado["raw_state"])
+        self.assertEqual("✓✓ Leído", actualizado["state"])
+
     def test_adjunto_preview_y_quitar(self):
         self.chat.show()
         self.chat.lista_usuarios.setCurrentRow(0)
@@ -396,32 +509,36 @@ class PruebasUI(unittest.TestCase):
         imagen.save(tmp.name, "PNG")
 
         self.chat._fijar_imagen_adjunta(tmp.name)
-        self.assertEqual(self.chat.imagen_pendiente, str(Path(tmp.name).resolve()))
+        self.assertEqual(self.chat.bandeja_adjuntos.rutas,
+                         (str(Path(tmp.name).resolve()),))
         self.assertFalse(self.chat.preview_container.isHidden())
-        self.assertFalse(self.chat.lbl_preview_thumb.pixmap().isNull())
-        self.assertIn(Path(tmp.name).name, self.chat.lbl_adjunto.text())
+        fila = self.chat.bandeja_adjuntos._layout.itemAt(0).widget()
+        etiquetas = fila.findChildren(QLabel)
+        self.assertTrue(any(Path(tmp.name).name in (label.toolTip() or label.text())
+                            for label in etiquetas))
+        self.assertTrue(any(
+            label.pixmap() is not None and not label.pixmap().isNull()
+            for label in etiquetas))
 
         # Quitar adjunto
         self.chat._quitar_adjunto()
-        self.assertIsNone(self.chat.imagen_pendiente)
+        self.assertEqual((), self.chat.bandeja_adjuntos.rutas)
         self.assertTrue(self.chat.preview_container.isHidden())
 
-    def test_webp_viaja_como_archivo_paridad_servidor(self):
-        # SEG-02: la tuberia del servidor (ImageIO) solo decodifica
-        # PNG/JPEG/GIF/BMP; .webp se ofrece en el dialogo pero viaja como
-        # MENSAJE_ARCHIVO, igual que en Java (.NET). Ver
-        # ImagenMagicaTest.rechazaWebpSinSoporteEnTuberia.
+    def test_webp_se_admite_como_imagen_transcodificable(self):
         from ui.chat_window import ChatWindow
         self.assertEqual(
-            ChatWindow._EXTENSIONES_IMAGEN, {".png", ".jpg", ".jpeg", ".gif", ".bmp"})
+            ChatWindow._EXTENSIONES_IMAGEN,
+            {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp",
+             ".avif", ".heic", ".heif", ".svg"})
         self.chat.lista_usuarios.setCurrentRow(0)
         tmp = tempfile.NamedTemporaryFile(suffix=".webp", delete=False)
         tmp.write(b"RIFF....WEBP-falso")
         tmp.close()
         self.addCleanup(os.unlink, tmp.name)
         self.chat._fijar_imagen_adjunta(tmp.name)
-        # Icono generico de archivo, sin preview de imagen.
-        self.assertTrue(self.chat.lbl_preview_thumb.pixmap().isNull())
+        self.assertEqual((str(Path(tmp.name).resolve()),),
+                         self.chat.bandeja_adjuntos.rutas)
         self.chat._quitar_adjunto()
 
     def test_envio_optimista_inmediato(self):

@@ -2,6 +2,9 @@ using System.Collections.Generic;
 
 namespace Mensajeria.Componentes
 {
+    /// <summary>Preview del ultimo mensaje de una conversacion (UIX-24).</summary>
+    public readonly record struct PreviewUltimoMensaje(string Texto, bool Propio);
+
     /// <summary>Contrato de historial local (queries HISTORIAL_LOCAL.md).</summary>
     public interface IHistorialLocal
     {
@@ -10,7 +13,7 @@ namespace Mensajeria.Componentes
             string? nombreArchivo, string? rutaArchivo, long? tamanoArchivo,
             string fechaEnvio, int enviado, int descargado,
             string estado = "ENVIADO", string? archivoId = null,
-            string? etapasFiltrado = null);
+            string? etapasFiltrado = null, string? caption = null);
         List<Dictionary<string, object>> PaginaConversacion(string origen, string destino,
             int limit, int offset);
         /// <summary>Última fecha local por interlocutor, para ordenar conversaciones recientes.</summary>
@@ -21,6 +24,8 @@ namespace Mensajeria.Componentes
         /// </summary>
         List<string> BuscarEnConversacion(string origen, string destino, string patron,
             int limite);
+        /// <summary>UIX-24: ultimo mensaje de cada contacto (texto y si es propio).</summary>
+        IReadOnlyDictionary<string, PreviewUltimoMensaje> UltimoMensajePorContacto(string yo);
         string? ContenidoPorId(string idMensaje);
         int ContarConversacion(string origen, string destino);
         void MarcarDescargado(string idMensaje, string rutaArchivo);

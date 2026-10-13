@@ -9,10 +9,11 @@ Ejecuta, en orden:
 2. `verificar_estado_mensaje.py` — la precedencia PENDIENTE→LEIDO es la misma en los 3
 3. `verificar_puertos.py` — el codigo Java cumple el contrato de puertos
 4. suite de `contrato/` — el contrato se autocomprueba
-5. `mvn -pl client/client-app -am test` — suite JavaFX (incluye las 6 reglas de ArchUnit)
-6. `python -m unittest discover -s tests` — suite Python
-7. `dotnet build client-dotnet` — el XAML generado es valido
-8. `dotnet test client-dotnet.Tests` — suite .NET
+5. `verificar_iconos.py` — los iconos por tipo de archivo son los mismos en los 3
+6. `mvn -pl client/client-app -am test` — suite JavaFX (incluye las 6 reglas de ArchUnit)
+7. `python -m unittest discover -s tests` — suite Python
+8. `dotnet build client-dotnet` — el XAML generado es valido
+9. `dotnet test client-dotnet.Tests` — suite .NET
 
 Por que un solo script: en la fase de paridad se acordo que el diseno se genera.
 Si el generador queda desfasado, el fallo tiene que verse aqui y no tres commits
@@ -49,6 +50,8 @@ PASOS: list[tuple[str, list[str], Path]] = [
      [str(_python()), "-m", "unittest",
       "test_estado_mensaje", "test_puertos"],
      RAIZ / "contrato"),
+    ("Iconos por tipo de archivo iguales en los 3 clientes",
+     [str(_python()), str(RAIZ / "contrato/verificar_iconos.py")], RAIZ),
     ("Suite JavaFX (incluye ArchUnit)",
      _maven() + ["-q", "-pl", "client/client-app", "-am", "test"], MONOREPOS),
     ("Suite Python",

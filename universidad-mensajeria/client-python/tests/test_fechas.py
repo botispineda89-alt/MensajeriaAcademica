@@ -2,7 +2,7 @@
 import datetime
 import unittest
 
-from transversal.fechas import agrupar, clave_dia, etiqueta_dia, hora_corta
+from transversal.fechas import agrupar, a_utc, ahora_utc, clave_dia, etiqueta_dia, hora_corta
 
 
 class TestFechas(unittest.TestCase):
@@ -80,6 +80,56 @@ class TestFechas(unittest.TestCase):
         actual = {"origen": "A001", "fecha_envio": zoned}
         self.assertTrue(agrupar(anterior, actual))
         self.assertTrue(agrupar(actual, anterior))
+
+
+class TestAUtc(unittest.TestCase):
+    """Réplica del contrato de `FormatoFecha.AUtc` (.NET, UIX-26)."""
+
+    def test_hora_local_sin_zona_se_guarda_en_utc_con_z(self):
+        # El servidor manda LocalDateTime.now() (local sin zona) y la fila
+        # debe quedar en el formato "O" de .NET: 7 decimales + Z.
+        local = datetime.datetime(2026, 10, 11, 1, 37, 11, 697890)
+        esperado = local.astimezone().astimezone(datetime.timezone.utc)
+        texto = a_utc(local.strftime("%Y-%m-%dT%H:%M:%S.%f"))
+
+        self.assertTrue(texto.endswith("Z"))
+        self.assertEqual(7, len(texto.split(".")[-1]) - 1)  # 7 decimales
+        self.assertEqual(
+            esperado.strftime("%Y-%m-%dT%H:%M:%S")
+            + f".{esperado.microsecond:07d}Z",
+            texto)
+
+    def test_fecha_ya_en_utc_queda_identica_byte_a_byte(self):
+        cruda = "2026-10-11T04:52:26.1862985Z"
+        self.assertEqual(cruda, a_utc(cruda))
+        # Ni las variantes con menos decimales se retocan: lo que ya trae Z
+        # se guarda tal cual (la migración tampoco las debe tocar dos veces).
+        self.assertEqual("2026-10-11T04:52:26.186298Z",
+                         a_utc("2026-10-11T04:52:26.186298Z"))
+
+    def test_ilegible_se_devuelve_tal_cual_y_vacia_da_vacia(self):
+        self.assertEqual("", a_utc(None))
+        self.assertEqual("", a_utc(""))
+        self.assertEqual("ayer a las tres", a_utc("ayer a las tres"))
+
+    def test_ahora_utc_usa_el_mismo_formato(self):
+        texto = ahora_utc()
+        self.assertRegex(
+            texto, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{7}Z$")
+
+    def test_orden_de_texto_respeta_el_orden_real_tras_normalizar(self):
+        # LA REGRESIÓN DEL SMOKE: la base por cuenta la comparten Python y
+        # .NET. .NET guardó a las 23:52 locales ("...23:52...Z" en UTC) y
+        # Python a la 01:37 locales del día siguiente; ordenado como TEXTO,
+        # la fila de Python quedaba DETRÁS y salía de la página 0.
+        dotnet = "2026-10-11T04:52:26.1862985Z"          # 23:52 local del 10-10
+        python_local = "2026-10-11T01:37:11.697890"      # 01:37 local del 11-10
+        normalizada = a_utc(python_local)
+
+        self.assertGreater(normalizada, dotnet,
+                           "el mensaje propio nuevo debe quedar primero")
+        self.assertEqual(normalizada,
+                         sorted([dotnet, normalizada], reverse=True)[0])
 
 
 if __name__ == "__main__":

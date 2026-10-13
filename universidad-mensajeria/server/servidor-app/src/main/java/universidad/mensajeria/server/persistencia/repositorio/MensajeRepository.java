@@ -60,7 +60,9 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
     Page<Mensaje> mensajesPendientesPorCodigo(@Param("codigo") String codigo,
                                               Pageable paginacion);
 
-    /** FASE 9 — informe 3: histórico global por rango de fechas y/o código. */
+    /** FASE 9 — informe 3: histórico global por rango de fechas y/o código,
+     * del más reciente al más viejo (lo primero que ve el administrador es lo
+     * último que pasó). */
     @Query("""
             SELECT m FROM Mensaje m
             LEFT JOIN FETCH m.remitente
@@ -69,7 +71,7 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
             WHERE m.fechaEnvio >= :desde AND m.fechaEnvio <= :hasta
               AND (:codigo = '' OR m.remitente.codigo = :codigo
                               OR m.destinatario.codigo = :codigo)
-            ORDER BY m.fechaEnvio ASC, m.id ASC""")
+            ORDER BY m.fechaEnvio DESC, m.id DESC""")
     List<Mensaje> historico(@Param("desde") LocalDateTime desde,
                             @Param("hasta") LocalDateTime hasta,
                             @Param("codigo") String codigo);

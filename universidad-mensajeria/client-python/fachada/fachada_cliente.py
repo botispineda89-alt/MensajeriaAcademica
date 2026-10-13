@@ -167,12 +167,14 @@ class FachadaCliente:
     def enviar_texto(self, destinatario, texto, id_msg=None):
         return self._coordinador_mensajeria.enviar_texto(destinatario, texto, id_msg)
 
-    def enviar_imagen(self, destinatario, ruta_archivo, id_msg=None):
-        return self._coordinador_mensajeria.enviar_imagen(destinatario, ruta_archivo, id_msg)
+    def enviar_imagen(self, destinatario, ruta_archivo, id_msg=None, caption=None):
+        return self._coordinador_mensajeria.enviar_imagen(
+            destinatario, ruta_archivo, id_msg, caption)
 
-    def enviar_archivo(self, destinatario, ruta_archivo, id_msg=None, on_progreso=None):
+    def enviar_archivo(self, destinatario, ruta_archivo, id_msg=None,
+                       on_progreso=None, caption=None):
         return self._coordinador_mensajeria.enviar_archivo(
-            destinatario, ruta_archivo, id_msg, on_progreso)
+            destinatario, ruta_archivo, id_msg, on_progreso, caption)
 
     def difundir(self, texto):
         return self._coordinador_mensajeria.difundir(texto)

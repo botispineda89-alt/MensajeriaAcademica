@@ -13,6 +13,8 @@ from qfluentwidgets import (
 from ui.componentes_chat import CampoMensaje as _ComposerEdit
 from ui.celdas.contacto_delegate import ContactoDelegate
 from ui.celdas.mensaje_delegate import MensajeDelegate
+from ui.bandeja_adjuntos_chat import BandejaAdjuntosChat
+from ui.estado_aviso_inline import EstadoAvisoInline
 from ui.lista_virtual import MensajeListModel
 from ui.lista_mensajes_chat import ListaMensajesChat
 
@@ -92,8 +94,10 @@ class ConstructorVistaChat:
         self.btn_kick.setToolTip("Cerrar las otras sesiones de esta cuenta")
         self.btn_kick.clicked.connect(self.expulsar_otras)
         self.btn_salir = PushButton("Salir")
+        self.btn_salir.setAccessibleName("Salir de la sesión")
         self.btn_salir.clicked.connect(self.close)
         self.btn_salir_todos = PushButton("Salir en todos")
+        self.btn_salir_todos.setAccessibleName("Salir de todas las sesiones")
         self.btn_salir_todos.clicked.connect(self.salir_en_todos)
         fila_acciones.addWidget(self.btn_kick)
         fila_acciones.addWidget(self.btn_salir)
@@ -194,34 +198,16 @@ class ConstructorVistaChat:
 
         self.preview_container = QFrame()
         self.preview_container.setObjectName("previewContainer")
-        self.preview_container.setStyleSheet("""
-            QFrame#previewContainer {
-                background: #243447;
-                border: 1px solid #2A3B4D;
-                border-radius: 6px;
-            }
-        """)
-        preview_layout = QHBoxLayout(self.preview_container)
-        preview_layout.setContentsMargins(8, 4, 8, 4)
-        preview_layout.setSpacing(10)
-
-        self.lbl_preview_thumb = QLabel()
-        self.lbl_preview_thumb.setFixedSize(48, 48)
-        self.lbl_preview_thumb.setStyleSheet("border-radius: 4px; border: 1px solid #2A3B4D; background: #0E1621;")
-        self.lbl_preview_thumb.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.lbl_adjunto = QLabel("")
-        self.lbl_adjunto.setStyleSheet("color: #E8EEF2; font-size: 12px; font-weight: 500;")
-        self.lbl_adjunto.setWordWrap(True)
-
-        self.btn_quitar_adjunto = PushButton("✕ Quitar")
-        self.btn_quitar_adjunto.setAccessibleName("Quitar imagen adjunta")
-        self.btn_quitar_adjunto.setFixedSize(75, 26)
+        preview_layout = QVBoxLayout(self.preview_container)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setSpacing(4)
+        self.bandeja_adjuntos = BandejaAdjuntosChat()
+        self.bandeja_adjuntos.rutas_cambiadas.connect(self._actualizar_envio)
+        self.btn_quitar_adjunto = PushButton("Quitar todos")
+        self.btn_quitar_adjunto.setAccessibleName("Quitar todos los adjuntos")
         self.btn_quitar_adjunto.clicked.connect(self._quitar_adjunto)
-
-        preview_layout.addWidget(self.lbl_preview_thumb)
-        preview_layout.addWidget(self.lbl_adjunto, 1)
-        preview_layout.addWidget(self.btn_quitar_adjunto)
+        preview_layout.addWidget(self.bandeja_adjuntos)
+        preview_layout.addWidget(self.btn_quitar_adjunto, 0, Qt.AlignmentFlag.AlignRight)
         self.preview_container.setVisible(False)
 
         fila_envio = QHBoxLayout()
@@ -245,6 +231,7 @@ class ConstructorVistaChat:
         self.btn_imagen.setToolTip("Adjuntar archivo (Todos *.*)")
         self.btn_imagen.clicked.connect(self.adjuntar_imagen)
         self.btn_enviar = PrimaryPushButton("Enviar")
+        self.btn_enviar.setAccessibleName("Enviar mensaje")
         self.btn_enviar.clicked.connect(self.enviar)
         # Composer como Java: ＋ a la izquierda, Enviar a la derecha (UI-10).
         fila_envio.addWidget(self.btn_imagen)
@@ -293,6 +280,22 @@ class ConstructorVistaChat:
         self.barra_buscar.setVisible(False)
         right.addWidget(self.barra_buscar)
         right.addWidget(self.lista_mensajes, 1)
+        self.aviso_inline = EstadoAvisoInline()
+        right.addWidget(self.aviso_inline)
+        # §7 paridad: fila de progreso del lote (hechos/total + bytes) con
+        # Cancelar. Oculta salvo durante un envío multi-adjunto.
+        self.fila_progreso = QWidget()
+        fila_progreso_layout = QHBoxLayout(self.fila_progreso)
+        fila_progreso_layout.setContentsMargins(14, 2, 14, 2)
+        self.lbl_progreso = QLabel("")
+        self.lbl_progreso.setStyleSheet("color: #A8B8C1; font-size: 11px;")
+        self.btn_cancelar_envio = PushButton("Cancelar envío")
+        self.btn_cancelar_envio.setAccessibleName("Cancelar envío de adjuntos")
+        self.btn_cancelar_envio.clicked.connect(self._cancelar_envio_lote)
+        fila_progreso_layout.addWidget(self.lbl_progreso, 1)
+        fila_progreso_layout.addWidget(self.btn_cancelar_envio)
+        self.fila_progreso.setVisible(False)
+        right.addWidget(self.fila_progreso)
         # UIX-13: conversación vacía en vez de rectángulo negro sin explicación.
         # UIX-14 usa el mismo sitio para "Cargando historial…".
         self.lbl_vacio_chat = QLabel("Elige un contacto para empezar a conversar.")

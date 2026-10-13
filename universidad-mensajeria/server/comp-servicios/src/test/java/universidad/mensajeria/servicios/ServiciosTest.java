@@ -104,13 +104,15 @@ class ServiciosTest {
         InformeDTO informe = servicios.armarInformeMensajes(List.of(texto, imagen),
                 InformeFiltroDTO.sinFiltro());
         assertEquals(2, informe.filas().size());
-        List<String> filaTexto = informe.filas().get(0);
+        // Del más reciente al más viejo: la imagen (11:00) queda arriba.
+        assertEquals("2", informe.filas().get(0).get(0));
+        assertEquals("foto.png → 01_grises.png (12 ms), 05_reduccion.png (8 ms)",
+                informe.filas().get(0).get(5), "rutas + ms por etapa del JSON");
+        List<String> filaTexto = informe.filas().get(1);
+        assertEquals("1", filaTexto.get(0));
         assertEquals("Ana Arias [A001]", filaTexto.get(2));
         assertEquals("Luis Rojas [B002]", filaTexto.get(3));
         assertEquals("10 car. · 2 pal.", filaTexto.get(5), "detalle de TEXTO");
-        List<String> filaImagen = informe.filas().get(1);
-        assertEquals("foto.png → 01_grises.png (12 ms), 05_reduccion.png (8 ms)",
-                filaImagen.get(5), "rutas + ms por etapa del JSON");
 
         InformeDTO soloA = servicios.armarInformeMensajes(List.of(texto, imagen),
                 new InformeFiltroDTO(null, null, "A001"));

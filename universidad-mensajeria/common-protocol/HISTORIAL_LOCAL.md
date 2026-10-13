@@ -8,11 +8,20 @@
 Convenciones:
 - `?` representa un valor ligado; cada adaptador puede usar parámetros nombrados.
 - Fechas en ISO-8601 **texto** (`TEXT`), nunca tipos temporales nativos.
+- **Un cliente, un solo formato de `fecha_envio`.** El servidor manda `LocalDateTime.now()` (hora
+  local **sin zona**) y las consultas ordenan por `fecha_envio DESC` **como texto**, así que mezclar
+  "con `Z`" y "sin zona" en la misma tabla rompe el orden en silencio. Hoy: JavaFX y Python escriben
+  hora local sin zona; **.NET guarda UTC con `Z`** (`FormatoFecha.AUtc`) y **normaliza las filas ya
+  guardadas al arrancar** (`LocalStore.NormalizarFechasAUtc`). Leer ambos formatos sí es obligatorio
+  en los 3; escribir los dos, no.
 - Booleans como `INTEGER` 0/1.
 - `upsert`: cada adaptador conserva la misma semántica; H2 usa DELETE + INSERT y SQLite puede
   usar `ON CONFLICT DO UPDATE`.
-- `caption` (pie de imagen/archivo, `TEXT` nullable): misma burbuja que el adjunto.
-  Los adaptadores que aún no la lean la ignoran; nunca rompe las queries viejas.
+- `caption` (pie de imagen/archivo, `TEXT` nullable): misma burbuja que el adjunto. Viaja en el
+  `contenido` de la **misma** trama `MENSAJE_IMAGEN` / `ARCHIVO_INICIO`. Los adaptadores que aún no
+  la lean la ignoran; nunca rompe las queries viejas. **Estado 2026-10-10:** la tienen JavaFX y .NET;
+  la copia distribuible de Python **no**, y por eso su test de equivalencia falla
+  (`ESTADO_ROADMAP.md` §5.8).
 
 ## Aislamiento por cuenta
 
@@ -39,15 +48,16 @@ INSERT INTO historial_local (
     id_mensaje, origen, destino, tipo, contenido, hash_sha256,
     num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
     tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
-    etapas_filtrado
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    etapas_filtrado, caption
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 ```
 
 Parámetros: `id_mensaje, origen, destino, tipo, contenido, hash_sha256,
 num_caracteres, num_palabras, nombre_archivo, ruta_archivo, tamano_archivo,
-fecha_envio, enviado(0|1), descargado(0|1), estado, archivo_id`. El estado es
+fecha_envio, enviado(0|1), descargado(0|1), estado, archivo_id, etapas_filtrado, caption`. El estado es
 monotónico (`PENDIENTE → ENVIADO → ENTREGADO → LEIDO`); `archivo_id` permite
-recuperar imágenes remotas tras reiniciar.
+recuperar imágenes remotas tras reiniciar. En un adjunto, `contenido` es el **pie**, no el texto de
+un segundo mensaje: `NULL` = sin pie.
 
 El ejemplo usa `DELETE + INSERT`; SQLite también puede usar `ON CONFLICT DO UPDATE`
 si conserva los metadatos existentes y nunca hace retroceder el estado.
@@ -59,7 +69,8 @@ SELECT id_mensaje, origen, destino, tipo,
        CASE WHEN tipo = 'MENSAJE_IMAGEN' THEN NULL ELSE contenido END AS contenido,
        hash_sha256,
        num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
-       tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id
+       tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
+       etapas_filtrado, caption
 FROM historial_local
 WHERE (origen = ? AND destino = ?)    -- conversacion A->B
    OR (origen = ? AND destino = ?)    -- y B->A

@@ -38,7 +38,6 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self.codigo = codigo
         self.on_logout = on_logout
         self.usuario_seleccionado = None
-        self.imagen_pendiente = None
         self._respuesta_mensaje = None
         self._cerrando = False
         self._offset = 0
@@ -87,6 +86,7 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._eventos.disconnected.connect(self._procesar_desconexion)
         self._eventos.state.connect(self._procesar_estado_conexion)
         self._eventos.task.connect(self._procesar_tarea)
+        self._eventos.progreso.connect(self._procesar_progreso)
         self._pool = QThreadPool(self)
         self._pool.setMaxThreadCount(4)
         self._directorio_imagenes = Path(__file__).resolve().parents[1] / "imagenes"
@@ -173,11 +173,8 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self.lbl_respuesta.setStyleSheet(
             f"color: {t['cita_texto']}; font-size: 11px; border: none; background: transparent;")
         self.preview_container.setStyleSheet(estilo_preview(t))
-        self.lbl_preview_thumb.setStyleSheet(
-            f"border-radius: 4px; border: 1px solid {t['preview_borde']};"
-            f" background: {t['preview_thumb_fondo']};")
-        self.lbl_adjunto.setStyleSheet(
-            f"color: {t['texto']}; font-size: 12px; font-weight: 500;")
+        self.bandeja_adjuntos.actualizar_tema(self.modo)
+        self.aviso_inline.actualizar_tema(self.modo)
         self.lbl_vacio_chat.setStyleSheet(
             f"color: {t['texto_suave']}; font-size: 12px; padding: 16px;")
         self.lbl_vacio_usuarios.setStyleSheet(
@@ -261,8 +258,7 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
 
     def _aviso_red(self, texto):
         """Banner inline para errores de red/descarga (no abre ventanas)."""
-        self.lbl_estado_red.setText(texto)
-        self.lbl_estado_red.setStyleSheet("color: #B91C1C; font-size: 11px; font-weight: 700;")
+        self.aviso_inline.mostrar(texto)
 
 
 

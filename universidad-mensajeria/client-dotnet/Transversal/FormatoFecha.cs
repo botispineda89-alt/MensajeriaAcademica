@@ -44,12 +44,51 @@ namespace Mensajeria.Transversal
             return TryLeer(crudo, out var fecha) ? fecha.ToString("yyyy-MM-dd") : "";
         }
 
+        /// <summary>
+        /// Normaliza una fecha a UTC ISO-8601 con "Z", que es como el cliente
+        /// guarda las suyas.
+        /// <para>
+        /// <b>Por qué hace falta:</b> el servidor manda <c>LocalDateTime.now()</c>,
+        /// o sea <b>hora local sin zona</b> ("2026-10-10T22:14:51"), mientras que
+        /// lo que envía este cliente es <b>UTC con Z</b> ("2026-10-11T03:14:19Z"
+        /// para las 22:14:51 locales). Como <c>fecha_envio</c> es TEXT y las
+        /// consultas ordenan por <c>fecha_envio DESC</c> —comparación de texto—,
+        /// un mensaje que llega SIEMPRE queda ordered antes que uno que sale, por
+        /// muy posterior que sea. El efecto visible era que el preview de la lista
+        /// marcaba siempre "Tú:".
+        /// </para>
+        /// <para>
+        /// Una fecha sin zona se interpreta como hora local del servidor y se
+        /// convierte a UTC, que es la lectura correcta porque el servidor y el
+        /// cliente están en la misma máquina en este despliegue. Si no se puede
+        /// leer, se devuelve el texto tal cual para no perder el mensaje.
+        /// </para>
+        /// </summary>
+        public static string AUtc(string? crudo)
+        {
+            if (string.IsNullOrWhiteSpace(crudo)) return "";
+            if (DateTimeOffset.TryParse(crudo, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeLocal, out var instante))
+            {
+                // `UtcDateTime` y no `ToUniversalTime()`: el "O" de un
+                // DateTimeOffset escribe "+00:00" y el de un DateTime en UTC
+                // escribe "Z", que es justo lo que leen las filas ya guardadas.
+                return instante.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+            }
+            return crudo.Trim();
+        }
+
         private static bool TryLeer(string? crudo, out DateTime fecha)
         {
             fecha = default;
             if (string.IsNullOrWhiteSpace(crudo)) return false;
-            // DateTimeOffset acepta T, espacio, microsegundos y zona.
-            if (DateTimeOffset.TryParse(crudo, out var instante))
+            // Cultura INVARIANTE a proposito: la fecha del protocolo es ISO
+            // (`LocalDateTime.now()` en el servidor) y no debe depender de la
+            // configuracion regional del PC. Con la cultura del equipo, una
+            // fecha ambigua se podia leer con dia/mes invertidos.
+            // Acepta "T", espacio (SQLite), microsegundos, zona y solo-fecha.
+            if (DateTimeOffset.TryParse(crudo, CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var instante))
             {
                 fecha = instante.ToLocalTime().DateTime;
                 return true;

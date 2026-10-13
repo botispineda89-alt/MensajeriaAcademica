@@ -99,9 +99,12 @@ public final class Servicios implements InterfazServiciosDisponibles {
                                            InformeFiltroDTO filtro) {
         List<List<String>> filas = mensajes.stream()
                 .filter(m -> coincide(m.remitente(), filtro) || coincide(m.destinatario(), filtro))
+                // Del más reciente al más viejo: lo primero que lee el
+                // administrador es lo último que pasó (misma vista que la
+                // pestaña "Mensajes" del escritorio).
                 .sorted(Comparator.comparing(MensajeResumenDTO::fechaEnvio,
-                        Comparator.nullsLast(Comparator.naturalOrder()))
-                        .thenComparingLong(MensajeResumenDTO::id))
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(MensajeResumenDTO::id, Comparator.reverseOrder()))
                 .map(m -> List.of(String.valueOf(m.id()), txt(m.fechaEnvio()),
                         persona(m.remitenteNombres(), m.remitenteApellidos(), m.remitente()),
                         persona(m.destinatarioNombres(), m.destinatarioApellidos(), m.destinatario()),
@@ -109,7 +112,7 @@ public final class Servicios implements InterfazServiciosDisponibles {
                         detalleDe(m), txt(m.hashSha256())))
                 .map(List::copyOf)
                 .toList();
-        return new InformeDTO("Informe 3 — Historico cronologico de mensajes",
+        return new InformeDTO("Informe 3 — Historico de mensajes (del mas reciente al mas viejo)",
                 List.of("Id", "Fecha", "Remitente [código]", "Destinatario [código]", "Tipo",
                         "Detalle", "Hash SHA-256"),
                 filas);

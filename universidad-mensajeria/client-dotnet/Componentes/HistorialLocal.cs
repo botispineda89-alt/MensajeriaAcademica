@@ -24,7 +24,7 @@ namespace Mensajeria.Componentes
             string? nombreArchivo, string? rutaArchivo, long? tamanoArchivo,
             string fechaEnvio, int enviado, int descargado,
             string estado = "ENVIADO", string? archivoId = null,
-            string? etapasFiltrado = null)
+            string? etapasFiltrado = null, string? caption = null)
         {
             lock (_store.SyncRoot)
             {
@@ -33,8 +33,8 @@ namespace Mensajeria.Componentes
     INSERT INTO historial_local (
         id_mensaje, origen, destino, tipo, contenido, hash_sha256,
         num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
-        tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id, etapas_filtrado
-    ) VALUES (@id, @ori, @des, @tip, @con, @has, @nca, @npa, @nar, @rar, @tar, @fen, @env, @desca, @est, @aid, @etapas)
+        tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id, etapas_filtrado, caption
+    ) VALUES (@id, @ori, @des, @tip, @con, @has, @nca, @npa, @nar, @rar, @tar, @fen, @env, @desca, @est, @aid, @etapas, @caption)
     ON CONFLICT(id_mensaje) DO UPDATE SET
         contenido = excluded.contenido,
         hash_sha256 = COALESCE(excluded.hash_sha256, historial_local.hash_sha256),
@@ -45,6 +45,7 @@ namespace Mensajeria.Componentes
         tamano_archivo = COALESCE(excluded.tamano_archivo, historial_local.tamano_archivo),
         archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
         etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
+        caption = COALESCE(excluded.caption, historial_local.caption),
         descargado = MAX(excluded.descargado, historial_local.descargado),
         estado = CASE
             WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
@@ -68,6 +69,7 @@ namespace Mensajeria.Componentes
                 cmd.Parameters.AddWithValue("@est", estado);
                 cmd.Parameters.AddWithValue("@aid", (object?)archivoId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@etapas", (object?)etapasFiltrado ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@caption", (object?)caption ?? DBNull.Value);
                 cmd.ExecuteNonQuery();
             }
         }
@@ -84,7 +86,7 @@ namespace Mensajeria.Componentes
            hash_sha256,
            num_caracteres, num_palabras, nombre_archivo, ruta_archivo,
            tamano_archivo, fecha_envio, enviado, descargado, estado, archivo_id,
-           etapas_filtrado
+           etapas_filtrado, caption
     FROM historial_local
     WHERE (origen = @o1 AND destino = @d1) OR (origen = @o2 AND destino = @d2)
     ORDER BY fecha_envio DESC
@@ -99,17 +101,22 @@ namespace Mensajeria.Componentes
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
+                    // Una fila sin id no se puede direccionar, deduplicar ni
+                    // responder: no es un mensaje, se descarta. Antes el
+                    // GetString(0) reventaba aqui y tumbaba la conversion
+                    // entera con "The data is NULL at ordinal 0".
+                    if (reader.IsDBNull(0)) continue;
                     var row = new Dictionary<string, object>
                     {
                         { "id", reader.GetString(0) },
-                        { "origen", reader.GetString(1) },
-                        { "destino", reader.GetString(2) },
-                        { "tipo", reader.GetString(3) },
-                        { "fechaEnvio", reader.GetString(11) },
-                        { "enviado", reader.GetInt64(12) },
-                        { "descargado", reader.GetInt64(13) }
+                        { "origen", reader.IsDBNull(1) ? "" : reader.GetString(1) },
+                        { "destino", reader.IsDBNull(2) ? "" : reader.GetString(2) },
+                        { "tipo", reader.IsDBNull(3) ? "" : reader.GetString(3) },
+                        { "fechaEnvio", reader.IsDBNull(11) ? "" : reader.GetString(11) },
+                        { "enviado", reader.IsDBNull(12) ? 0L : reader.GetInt64(12) },
+                        { "descargado", reader.IsDBNull(13) ? 0L : reader.GetInt64(13) }
                     };
-                    row["estado"] = reader.GetString(14);
+                    row["estado"] = reader.IsDBNull(14) ? "ENVIADO" : reader.GetString(14);
                     if (!reader.IsDBNull(16)) row["etapasFiltrado"] = reader.GetString(16);
                     if (!reader.IsDBNull(4)) row["contenido"] = reader.GetString(4);
                     if (!reader.IsDBNull(5)) row["hash"] = reader.GetString(5);
@@ -119,6 +126,7 @@ namespace Mensajeria.Componentes
                     if (!reader.IsDBNull(9)) row["rutaArchivo"] = reader.GetString(9);
                     if (!reader.IsDBNull(10)) row["tamanoArchivo"] = reader.GetInt64(10);
                     if (!reader.IsDBNull(15)) row["archivoId"] = reader.GetString(15);
+                    if (!reader.IsDBNull(17)) row["caption"] = reader.GetString(17);
                     result.Add(row);
                 }
                 return result;
@@ -141,7 +149,9 @@ namespace Mensajeria.Componentes
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
+                    if (reader.IsDBNull(0)) continue;
                     string contacto = reader.GetString(0);
+                    if (reader.IsDBNull(1)) continue;
                     string fecha = reader.GetString(1);
                     if (string.IsNullOrWhiteSpace(contacto)
                         || !DateTimeOffset.TryParse(fecha, CultureInfo.InvariantCulture,
@@ -153,6 +163,73 @@ namespace Mensajeria.Componentes
                 }
                 return fechas.ToDictionary(par => par.Key, par => par.Value.Original,
                     StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
+        /// UIX-24: preview del ultimo mensaje de cada contacto para la lista.
+        /// Una query por todos los contactos, no una por conversacion: la
+        /// lista se repinta en cada mensaje entrante.
+        /// </summary>
+        public IReadOnlyDictionary<string, PreviewUltimoMensaje> UltimoMensajePorContacto(string yo)
+        {
+            lock (_store.SyncRoot)
+            {
+                var resultado = new Dictionary<string, PreviewUltimoMensaje>(StringComparer.OrdinalIgnoreCase);
+                using var cmd = _store.Connection.CreateCommand();
+                cmd.CommandText = @"
+    SELECT contacto, tipo, contenido, nombre_archivo, caption, propio
+    FROM (
+        SELECT CASE WHEN origen = @yo THEN destino ELSE origen END AS contacto,
+               tipo, contenido, nombre_archivo, caption,
+               CASE WHEN origen = @yo THEN 1 ELSE 0 END AS propio,
+               ROW_NUMBER() OVER (
+                   PARTITION BY CASE WHEN origen = @yo THEN destino ELSE origen END
+                   ORDER BY fecha_envio DESC) AS rn
+        FROM historial_local
+        WHERE (origen = @yo OR destino = @yo) AND id_mensaje IS NOT NULL
+    ) WHERE rn = 1";
+                cmd.Parameters.AddWithValue("@yo", yo);
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    if (reader.IsDBNull(0)) continue;
+                    string tipo = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                    string? contenido = reader.IsDBNull(2) ? null : reader.GetString(2);
+                    string? nombre = reader.IsDBNull(3) ? null : reader.GetString(3);
+                    string? pie = reader.IsDBNull(4) ? null : reader.GetString(4);
+                    // El prefijo "Tú: " sale de `origen = yo`, NO de la columna
+                    // `enviado`. En la BD real hay 17 filas ENTRANTES con
+                    // `enviado = 1` (las escribe el sincronizador de SYNC_LOGIN),
+                    // así que con la columna el preview de un mensaje que LLEGA
+                    // se anunciaba como propio. Java lo sacaba de `origen` desde R1.
+                    bool propio = !reader.IsDBNull(5) && reader.GetInt64(5) == 1;
+
+                    string texto;
+                    // Mismo texto que `HistorialLocal.leerPreview` en Java
+                    // (R1): "[imagen] foto.png" y, si hay pie, "— pie". Con solo
+                    // "[Imagen]" dos fotos distintas se veían igual en la lista.
+                    if (tipo == "MENSAJE_IMAGEN")
+                    {
+                        string etiqueta = string.IsNullOrWhiteSpace(nombre)
+                            ? "[imagen]" : "[imagen] " + nombre;
+                        texto = string.IsNullOrWhiteSpace(pie) ? etiqueta : etiqueta + " — " + pie;
+                    }
+                    else if (tipo == "MENSAJE_ARCHIVO")
+                    {
+                        string etiqueta = string.IsNullOrWhiteSpace(nombre)
+                            ? "[archivo]" : "[archivo] " + nombre;
+                        texto = string.IsNullOrWhiteSpace(pie) ? etiqueta : etiqueta + " — " + pie;
+                    }
+                    else texto = contenido ?? "";
+
+                    // La cita solo ocupa la primera linea del preview.
+                    int salto = texto.IndexOf("\n", StringComparison.Ordinal);
+                    if (salto > 0) texto = texto[..salto];
+
+                    resultado[reader.GetString(0)] = new PreviewUltimoMensaje(texto, propio);
+                }
+                return resultado;
             }
         }
 
@@ -183,7 +260,8 @@ namespace Mensajeria.Componentes
     SELECT id_mensaje FROM historial_local
     WHERE ((origen = @o1 AND destino = @d1) OR (origen = @o2 AND destino = @d2))
       AND (LOWER(contenido) LIKE LOWER(@p) ESCAPE '\'
-        OR LOWER(nombre_archivo) LIKE LOWER(@p) ESCAPE '\')
+        OR LOWER(nombre_archivo) LIKE LOWER(@p) ESCAPE '\'
+        OR LOWER(caption) LIKE LOWER(@p) ESCAPE '\')
     ORDER BY fecha_envio DESC
     LIMIT @lim";
                 cmd.Parameters.AddWithValue("@o1", origen);
@@ -193,7 +271,13 @@ namespace Mensajeria.Componentes
                 cmd.Parameters.AddWithValue("@p", like);
                 cmd.Parameters.AddWithValue("@lim", limite);
                 using var reader = cmd.ExecuteReader();
-                while (reader.Read()) ids.Add(reader.GetString(0));
+                while (reader.Read())
+                {
+                    // Una id nula no identifica nada: se ignora en vez de tumbar
+                    // la busqueda entera.
+                    if (reader.IsDBNull(0)) continue;
+                    ids.Add(reader.GetString(0));
+                }
                 return ids;
             }
         }
@@ -271,7 +355,11 @@ namespace Mensajeria.Componentes
                 cmd.Parameters.AddWithValue("@yo", yo);
                 cmd.Parameters.AddWithValue("@otro", otro);
                 using var reader = cmd.ExecuteReader();
-                while (reader.Read()) ids.Add(reader.GetString(0));
+                while (reader.Read())
+                {
+                    if (reader.IsDBNull(0)) continue;
+                    ids.Add(reader.GetString(0));
+                }
                 return ids;
             }
         }
@@ -288,7 +376,11 @@ namespace Mensajeria.Componentes
                     GROUP BY origen";
                 cmd.Parameters.AddWithValue("@yo", yo);
                 using var reader = cmd.ExecuteReader();
-                while (reader.Read()) conteo[reader.GetString(0)] = reader.GetInt32(1);
+                while (reader.Read())
+                {
+                    if (reader.IsDBNull(0)) continue;
+                    conteo[reader.GetString(0)] = reader.GetInt32(1);
+                }
                 return conteo;
             }
         }

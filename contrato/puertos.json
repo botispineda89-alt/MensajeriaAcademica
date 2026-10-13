@@ -73,7 +73,7 @@
       "java": "transversal/records/MensajeLocal.java",
       "python": "dataclass(frozen=True)",
       "csharp": "sealed record",
-      "nota": "17 componentes. Es la fila de `historial_local`. `destino == \"*\"` marca una difusion propia.",
+      "nota": "18 componentes. Es la fila de `historial_local`. `destino == \"*\"` marca una difusion propia.",
       "componentes": [
         "String idMensaje",
         "String origen",
@@ -91,7 +91,8 @@
         "boolean descargado",
         "String estado",
         "String archivoId",
-        "String etapasFiltrado"
+        "String etapasFiltrado",
+        "String caption"
       ]
     },
     {
@@ -360,6 +361,16 @@
           "firma": "RespuestaRed enviarArchivoFragmentado(String id, String remitente, String destinatario, String nombreArchivo, String mime, byte[] contenido)",
           "lanzar": "IOException",
           "nota": "default: degrada a trama unica. Recibe bytes CRUDOS porque el corte en trozos solo tiene sentido sobre el archivo. Unica via que supera 16 MiB por trama."
+        },
+        {
+          "firma": "RespuestaRed enviarImagen(String id, String remitente, String destinatario, String nombreArchivo, String mime, String contenidoBase64, String caption)",
+          "lanzar": "IOException",
+          "nota": "default: UIX-24/UIX-28. El pie viaja en el `contenido` del MISMO MENSAJE_IMAGEN, no en un segundo mensaje."
+        },
+        {
+          "firma": "RespuestaRed enviarArchivoFragmentado(String id, String remitente, String destinatario, String nombreArchivo, String mime, byte[] contenido, String caption)",
+          "lanzar": "IOException",
+          "nota": "default: el pie viaja en el `contenido` del ARCHIVO_INICIO (los clientes viejos lo ignoran) y el servidor lo persiste con el archivo."
         },
         {
           "firma": "RespuestaRed difundir(String remitente, String contenido)",
@@ -710,6 +721,16 @@
           "lanzar": "ExcepcionCliente, IOException"
         },
         {
+          "firma": "boolean enviarImagen(String destinatario, byte[] bytes, String nombreArchivo, String mime, String caption)",
+          "lanzar": "ExcepcionCliente, IOException",
+          "nota": "UIX-24: el pie viaja en la MISMA trama, para que la imagen y su texto salgan como una sola burbuja."
+        },
+        {
+          "firma": "boolean enviarArchivo(String destinatario, byte[] bytes, String nombreArchivo, String mime, String caption)",
+          "lanzar": "ExcepcionCliente, IOException",
+          "nota": "UIX-24: idem, el pie va pegado al ARCHIVO_INICIO."
+        },
+        {
           "firma": "List<MensajeLocal> conversacion(String otro, int limite, int offset)",
           "lanzar": "ExcepcionCliente, IOException"
         },
@@ -804,6 +825,16 @@
         {
           "firma": "boolean enviarArchivo(String yo, String destinatario, byte[] bytes, String nombreArchivo, String mime)",
           "lanzar": "ExcepcionCliente"
+        },
+        {
+          "firma": "boolean enviarImagen(String yo, String destinatario, byte[] bytes, String nombreArchivo, String mime, String caption)",
+          "lanzar": "ExcepcionCliente",
+          "nota": "UIX-24: el pie va en el contenido del mismo MENSAJE_IMAGEN (una sola burbuja)."
+        },
+        {
+          "firma": "boolean enviarArchivo(String yo, String destinatario, byte[] bytes, String nombreArchivo, String mime, String caption)",
+          "lanzar": "ExcepcionCliente",
+          "nota": "UIX-24: el pie va en el contenido del mismo ARCHIVO_INICIO."
         }
       ]
     },
@@ -1002,6 +1033,28 @@
           "firma": "void limpiarAdjunto()"
         },
         {
+          "firma": "List<AdjuntoPendiente> adjuntos()",
+          "nota": "PLAN2 R3: el lote pendiente, ya en memoria, para que el compositor no toque el disco."
+        },
+        {
+          "firma": "int agregarAdjuntos(List<AdjuntoPendiente> nuevos)",
+          "nota": "PLAN2 R3: devuelve cuantos entraron; el resto se avisa, no se pierde."
+        },
+        {
+          "firma": "void quitarAdjunto(int indice)"
+        },
+        {
+          "firma": "void limpiarAdjuntos()"
+        },
+        {
+          "firma": "boolean enviarImagen(String destinatario, byte[] bytes, String nombre, String mime, String caption)",
+          "nota": "default: la sobrecarga sin pie delega aqui."
+        },
+        {
+          "firma": "boolean enviarArchivo(String destinatario, byte[] bytes, String nombre, String mime, String caption)",
+          "nota": "default: la sobrecarga sin pie delega aqui."
+        },
+        {
           "firma": "void seleccionarRespuesta(MensajeLocal mensaje)"
         },
         {
@@ -1023,6 +1076,14 @@
         },
         {
           "firma": "boolean enviarAdjunto(String destinatario, boolean esImagen)",
+          "lanzar": "ExcepcionCliente, IOException"
+        },
+        {
+          "firma": "boolean enviarImagen(String destinatario, byte[] bytes, String nombre, String mime, String caption, MensajeLocal respuesta)",
+          "lanzar": "ExcepcionCliente, IOException"
+        },
+        {
+          "firma": "boolean enviarArchivo(String destinatario, byte[] bytes, String nombre, String mime, String caption, MensajeLocal respuesta)",
           "lanzar": "ExcepcionCliente, IOException"
         },
         {
@@ -1180,6 +1241,12 @@
         },
         {
           "firma": "void descargarArchivo(MensajeLocal item)"
+        },
+        {
+          "firma": "boolean imagenIlegible(String idMensaje)"
+        },
+        {
+          "firma": "Path originalDe(String idMensaje)"
         }
       ]
     },

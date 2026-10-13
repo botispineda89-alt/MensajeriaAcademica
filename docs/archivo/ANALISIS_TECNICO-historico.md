@@ -1,9 +1,23 @@
 # Análisis técnico — auditoría de código, UI y patrones
 
+> **Documento histórico.** Retirado de la raíz el **2026-10-11**: la auditoría inicial (2026-10-05/06) quedó
+> volcada a `ESTADO_ROADMAP.md`, `PLAN_PATRONES_UI.md` y `PLAN_PARIDAD_CLIENTES.md`. Sus hallazgos
+> (seguridad `SEC-05/06`, código muerto `MUERTE-1..5`, 6 bugs P0 `UIX-00a..f`, patrones `PAT-02/03/06`,
+> contrastes `UIX-17/18/19/24`, diagramas `DIAG-07/08`) se ejecutaron y cerraron. Quedan pendientes
+> los items P2 de UI (`UIX-21/22/23/15b/tooltip/cuarto-estado`, `UIX-27/28`), la completación de
+> `PAT-VM`/`PAT-CMD`/`PAT-01`(Py/.NET)/`PAT-04`/`PAT-05`, y `DIAG-09` + reconciliación de legados.
+> El estado vigente manda en el roadmap; esto no es normativa.
+
 Actualizado: **2026-10-06**. Este documento conserva la **base de evidencia de la auditoría
 inicial del 2026-10-05**: rutas, conteos y síntomas describen lo que se encontró antes de varios
-arreglos. No es el tablero vigente; usa [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) para saber qué
+arreglos. No es el tablero vigente; usa [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md) para saber qué
 hallazgos siguen abiertos. No inferir que un hallazgo descrito en presente continúa ocurriendo.
+
+> **Después de esta auditoría.** El 2026-10-10/11 se ejecutó el lote de clientes JavaFX/WPF (envío
+> múltiple en WPF, seis fallos de JavaFX y .NET, WebP de punta a punta) y se fusionó ese trabajo en
+> el roadmap §5.4–§5.8. Lo que se decidió y por qué está en
+> [`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md);
+> los planes que lo dirigían (`PLAN3.MD`, `PLAN_AMBOS.md`) se retiraron de la raíz.
 
 > **Estado de aplicación.** Los hallazgos de §1 (`SEC-05`, `SEC-06`), §2 (lotes `MUERTE-1` a
 > `MUERTE-5`), **§3.1 (los 6 bugs P0 de UI)** y **§4 (`PAT-03`)** **se aplicaron el 2026-10-05**:

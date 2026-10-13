@@ -3,9 +3,6 @@
 from pathlib import Path
 
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QMessageBox
-
-
 class ProcesadorTareasChat:
     def _procesar_tarea(self, tipo, resultado, error):
         if self._cerrando:
@@ -119,17 +116,36 @@ class ProcesadorTareasChat:
             elif destino == "remoto":
                 self._solicitar_historial_remoto(usuario, pagina, True)
         elif tipo == "envio":
-            usuario, result, ids_enviados = resultado
+            usuario, _, ids_enviados, avisos, estados, restantes = resultado
             self.btn_enviar.setEnabled(True)
-            if result is False:
+            self._ocultar_progreso_envio()
+            if any(estado is False for estado in estados.values()):
                 self.lbl_estado_red.setText("Sin red: guardado para reintentar")
-            else:
-                for mid in ids_enviados:
-                    mensaje = self._mensaje_por_id(mid)
-                    if mensaje is not None and mensaje.get("raw_state") == "PENDIENTE":
+            for mid in ids_enviados:
+                mensaje = self._mensaje_por_id(mid)
+                if mensaje is not None and mensaje.get("raw_state") == "PENDIENTE":
+                    if estados.get(mid) is True:
                         mensaje["state"] = self._estado_visible("ENVIADO")
                         mensaje["raw_state"] = "ENVIADO"
-                        self._modelo_mensajes.refrescar(mid)
+                    elif estados.get(mid) is None:
+                        mensaje["state"] = self._estado_visible("ERROR")
+                        mensaje["raw_state"] = "ERROR"
+                    mensaje["image_loading"] = False
+                    self._modelo_mensajes.refrescar(mid)
+            self._cargar_imagenes_visibles()
+            if restantes:
+                # Cancelación: los adjuntos no enviados vuelven a la bandeja
+                # para reenviarlos; el texto del pie vuelve al compositor.
+                self.bandeja_adjuntos.agregar(
+                    [r["ruta"] for r in restantes if r.get("ruta")])
+                texto_devuelto = next(
+                    (r.get("caption") for r in restantes if r.get("caption")), None)
+                if texto_devuelto:
+                    self.entry_msg.setPlainText(texto_devuelto)
+                self._aviso_red(
+                    f"Envío cancelado: {len(restantes)} adjuntos volvieron a la bandeja.")
+            elif avisos:
+                self._aviso_red("\n".join(avisos))
             self._solicitar_historial(usuario, 0)
             # Mi envío también es "último mensaje": la tarjeta sube arriba.
             self._programar_refresco_recientes()
@@ -168,6 +184,4 @@ class ProcesadorTareasChat:
                 mensaje["descargando"] = False
                 mensaje["descargado_ruta"] = ruta_guardada
                 self._modelo_mensajes.refrescar(mensaje_id)
-            QMessageBox.information(
-                self, "Descarga completa",
-                f"Archivo guardado exitosamente en:\n{ruta_guardada}")
+            self.aviso_inline.mostrar(f"Archivo guardado en: {ruta_guardada}")

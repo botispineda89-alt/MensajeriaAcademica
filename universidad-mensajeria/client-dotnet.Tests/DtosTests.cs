@@ -27,24 +27,42 @@ namespace Mensajeria.Tests
             return JsonSerializer.Deserialize<T>(json, Opciones)!;
         }
 
-        // ------------------------------------------------------- MensajeLocal (17)
+        // ------------------------------------------------------- MensajeLocal (18)
 
         [Fact]
-        public void MensajeLocalIdaYVueltaConservaLosDiecisieteComponentes()
+        public void MensajeLocalIdaYVueltaConservaLosDiecichoComponentes()
         {
             var original = new MensajeLocal(
                 "m-1", "A001", "B002", "MENSAJE_TEXTO", "Hola", "abc123",
                 4, 1, null, null, null, "2026-10-08T10:00:00",
-                true, false, "ENTREGADO", "ar-1", "[{\"etapa\":\"Sepia\",\"ms\":8}]");
+                true, false, "ENTREGADO", "ar-1", "[{\"etapa\":\"Sepia\",\"ms\":8}]", "pie");
 
             var copia = IdaYVuelta(original);
 
             Assert.Equal(original, copia);
-            Assert.Equal(17, Componentes<MensajeLocal>().Count);
+            Assert.Equal(18, Componentes<MensajeLocal>().Count);
             Assert.Equal("Hola", copia.Contenido);
             Assert.Equal(1, copia.NumPalabras);
             Assert.Equal("ENTREGADO", copia.Estado);
             Assert.Equal(original.EtapasFiltrado, copia.EtapasFiltrado);
+            Assert.Equal("pie", copia.Caption);
+        }
+
+        [Fact]
+        public void MensajeLocalSoloTienePieEnLosAdjuntos()
+        {
+            var conPie = new MensajeLocal("m-2", "A001", "B002", "MENSAJE_IMAGEN",
+                null, null, null, null, "foto.png", null, 10L, "2026-10-08T10:00:00",
+                true, true, "ENVIADO", "ar-2", null, "mira el atardecer");
+            var texto = new MensajeLocal("m-3", "A001", "B002", "MENSAJE_TEXTO",
+                "hola", null, null, null, null, null, null, "2026-10-08T10:00:00",
+                true, true, "ENVIADO", null, null, "esto no es un pie");
+            var sinPie = conPie with { Caption = null };
+
+            Assert.True(conPie.TieneCaption());
+            // Un texto normal no lleva pie aunque el campo venga relleno.
+            Assert.False(texto.TieneCaption());
+            Assert.False(sinPie.TieneCaption());
         }
 
         [Fact]

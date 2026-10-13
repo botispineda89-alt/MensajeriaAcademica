@@ -27,7 +27,7 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class MensajeLocal:
-    """Una fila de `historial_local`: 17 componentes.
+    """Una fila de `historial_local`: 18 componentes.
 
     `destino == "*"` marca una difusion propia. `contenido` es NULL para
     imagenes y archivos: los bytes NO se guardan en la base local (§4.2), se
@@ -51,6 +51,7 @@ class MensajeLocal:
     estado: str
     archivo_id: Optional[str]
     etapas_filtrado: Optional[str] = None
+    caption: Optional[str] = None
 
 
 @dataclass(frozen=True)

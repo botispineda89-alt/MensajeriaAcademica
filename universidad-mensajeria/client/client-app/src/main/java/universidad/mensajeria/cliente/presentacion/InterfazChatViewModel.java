@@ -46,6 +46,23 @@ public interface InterfazChatViewModel extends InterfazArchivosConversacion {
 
     String adjuntoMime();
 
+    /** R3: los adjuntos pendientes, en el orden en que se enviarán. */
+    List<AdjuntoPendiente> adjuntos();
+
+    /**
+     * R3: añade un lote de adjuntos ya leídos. Si no caben todos se recorta al
+     * cupo ({@link AdjuntoPendiente#MAXIMO_ARCHIVOS}).
+     *
+     * @return cuántos se aceptaron
+     */
+    int agregarAdjuntos(List<AdjuntoPendiente> nuevos);
+
+    /** R3: quita uno por su posición; recalcula {@code adjuntoDisponible}. */
+    void quitarAdjunto(int indice);
+
+    /** R3: vacía la tira de adjuntos. */
+    void limpiarAdjuntos();
+
     int offsetActual();
 
     void setOffsetActual(int offset);

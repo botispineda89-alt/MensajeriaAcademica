@@ -28,6 +28,7 @@ class EventosChat(QObject):
     disconnected = Signal()
     state = Signal(str)
     task = Signal(str, object, object)
+    progreso = Signal(object)
 
 
 class TareaChat(QRunnable):

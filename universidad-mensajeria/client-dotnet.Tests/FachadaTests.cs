@@ -260,6 +260,62 @@ namespace Mensajeria.Tests
             Assert.False(conv[0].ContainsKey("contenido"));
         }
 
+        [Fact]
+        public void EcoDelOtroClienteSeGuardaEnLaConversacionDelDestinatario()
+        {
+            // Multi-PC: lo enviado desde el otro cliente del MISMO codigo vuelve
+            // con remitente == yo. Guardarlo como yo->yo lo escondia en una
+            // conversacion que no existe y el mensaje no se veia nunca.
+            _red.Recibir(Doc(new Dictionary<string, object?>
+            {
+                { "tipo", "MENSAJE_TEXTO" }, { "id", "eco-1" },
+                { "remitente", "A001" }, { "destinatario", "B002" },
+                { "contenido", "hola desde el otro PC" },
+                { "fechaHora", "2026-10-10T19:05:15" }
+            }));
+
+            var fila = Assert.Single(_f.CargarHistorial("B002"));
+
+            Assert.Equal("hola desde el otro PC", fila["contenido"]);
+            Assert.Equal("A001", fila["origen"]);
+        }
+
+        [Fact]
+        public void EntranteDeOtroCodigoSeGuardaContraMiSesion()
+        {
+            _red.Recibir(Doc(new Dictionary<string, object?>
+            {
+                { "tipo", "MENSAJE_TEXTO" }, { "id", "entrante-2" },
+                { "remitente", "B002" }, { "destinatario", "A001" },
+                { "contenido", "hola" }, { "fechaHora", "2026-10-10T19:05:16" }
+            }));
+
+            var fila = Assert.Single(_f.CargarHistorial("B002"));
+
+            Assert.Equal("hola", fila["contenido"]);
+            Assert.Equal("B002", fila["origen"]);
+        }
+
+        [Fact]
+        public void SyncLoginGuardaElTipoOriginalYNoElDeLaEnvoltura()
+        {
+            // SYNC_LOGIN envuelve un mensaje real; sin normalizar `tipoOriginal`
+            // queda en la BD como SYNC_LOGIN y no se pinta como mensaje de texto.
+            _red.Recibir(Doc(new Dictionary<string, object?>
+            {
+                { "tipo", "SYNC_LOGIN" }, { "id", "sync-1" },
+                { "tipoOriginal", "TEXTO" },
+                { "remitente", "B002" }, { "destinatario", "A001" },
+                { "contenido", "pendiente de ayer" },
+                { "fechaHora", "2026-10-10T19:05:17" }
+            }));
+
+            var fila = Assert.Single(_f.CargarHistorial("B002"));
+
+            Assert.Equal("MENSAJE_TEXTO", fila["tipo"]);
+            Assert.Equal("pendiente de ayer", fila["contenido"]);
+        }
+
         private static Dictionary<string, JsonElement> Doc(Dictionary<string, object?> obj)
         {
             var json = JsonSerializer.Serialize(obj);

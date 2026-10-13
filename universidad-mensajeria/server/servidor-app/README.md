@@ -45,6 +45,25 @@ No publiques MySQL hacia toda la LAN o Internet para que los clientes funcionen.
 - JRE 21 en la máquina de ejecución. JDK 21 + Maven 3.9+ únicamente en la máquina de compilación.
 - MySQL 8.4 accesible desde el servidor. Docker Compose incluido es para desarrollo/pruebas.
 - Puerto TCP del servidor libre; disco persistente para base de datos, logs y archivos subidos.
+- **ImageMagick 7** para aceptar AVIF, HEIC/HEIF y SVG (ver *ImageMagick y formatos de imagen*).
+
+### ImageMagick y formatos de imagen
+
+El JDK sólo decodifica PNG/JPEG/GIF/BMP y `imageio-webp` añade WebP. Para el resto —AVIF,
+HEIC/HEIF, SVG y, en general, cualquier formato que ImageMagick reconozca— el servidor delega
+en ImageMagick a través de `im4java`: convierte el archivo a PNG y a partir de ahí entra en la
+misma tubería de filtros que siempre. Sin ImageMagick el servidor funciona igual, sólo se
+rechazan esos formatos; PNG/JPEG/GIF/BMP/WebP nunca arrancan un proceso externo.
+
+```powershell
+winget install --id ImageMagick.ImageMagick --source winget --exact
+magick -list format | Select-String "AVIF|HEIC|WEBP|SVG"   # los cuatro deben salir
+```
+
+El instalador lo deja en `%ProgramFiles%\ImageMagick-7.x` y lo añade al `PATH` de la máquina:
+hay que **cerrar y reabrir** la terminal (o reiniciar el servicio) para que lo vea. Si el proceso
+arranca con un `PATH` recortado, se le puede dar la ruta exacta con la propiedad de sistema
+`-Dmensajeria.imagen.magick=C:\ruta\a\magick.exe` o con la variable `MAGICK_EXECUTABLE`.
 
 ## Construcción y carpeta independiente
 
@@ -175,6 +194,14 @@ orden: `01_grises.png`, `02_sepia.png`, `03_giro180.png`, `04_brillo.png` y `05_
 Los archivos quedan bajo `uploads/Nombre Apellido [CODIGO]/<SHA-256>/`; MySQL guarda los metadatos
 y el identificador de archivo. El historial entrega ese identificador sin incluir bytes; el cliente
 solicita la descarga por TCP cuando necesita mostrar la imagen.
+
+**Formatos aceptados:** PNG, JPEG, GIF, BMP y **WebP**. La validación mira los *magic bytes* y, para
+WebP, comprueba la firma `WEBP` en el offset 8 en lugar de aceptar cualquier contenedor `RIFF` (un
+`.wav` o un `.avi` empiezan igual). `server/utilerias` incluye `imageio-webp` 3.12.0 (BSD-3) para que
+la tubería de filtros **sepa decodificar** lo que la validación deja pasar: aceptar la cabecera sin
+poder decodificar haría que la imagen se perdiera una fase después, que es peor que rechazarla. Los
+clientes JavaFX y WPF envían el `.webp` sin renombrar ni convertir (convierten a PNG solo para
+pintarlo); el cliente Python lo envía como archivo genérico.
 
 Los archivos genéricos llegan fragmentados (`ARCHIVO_INICIO/PARTE/FIN`, partes de 1 MiB,
 tope 50 MB) y se reensamblan con verificación SHA-256; al completar el `FIN` el servidor

@@ -149,8 +149,8 @@ public class Mensajes implements InterfazMensajes {
                 throw new IllegalArgumentException("los bytes de la imagen no pueden estar vacios");
             }
             if (!universidad.mensajeria.utilerias.imagen.Imagenes.esImagenValida(bytesImagen)) {
-                throw new IllegalArgumentException(
-                        "el archivo no es una imagen PNG/JPEG/GIF/BMP valida");
+                throw new IllegalArgumentException("el archivo no es una imagen valida"
+                        + " (PNG, JPEG, GIF, BMP, WebP, AVIF, HEIC o SVG)");
             }
             try {
                 long maximo = almacenar.leerLimites().maxTamanoArchivo();

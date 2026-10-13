@@ -1,9 +1,13 @@
 """Delegado virtualizado que representa cada mensaje visible."""
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPalette, QTextDocument
+from PySide6.QtCore import QSize, Qt, QUrl
+from PySide6.QtGui import (
+    QColor, QFont, QFontMetrics, QImage, QPalette, QTextCharFormat, QTextCursor,
+    QTextDocument,
+)
 from PySide6.QtWidgets import QApplication, QStyledItemDelegate, QStyle
 
+from transversal import iconos_archivo
 from transversal.fechas import hora_corta
 from ui.lista_virtual import ROL_ITEM
 from ui.renderizado_texto import resaltar_html
@@ -88,7 +92,16 @@ class MensajeDelegate(QStyledItemDelegate):
         if texto:
             doc = QTextDocument()
             doc.setDefaultFont(self._fuente_cuerpo)
-            doc.setHtml(resaltar_html(texto, self._patron))
+            # El icono del tipo va DENTRO del documento y no como widget
+            # aparte: así sizeHint, paint y el clic por coordenadas siguen
+            # midiendo lo mismo sin tocar el reparto de la burbuja.
+            icono = (iconos_archivo.ruta(item.get("filename"))
+                     if item.get("es_archivo") else None)
+            doc.setHtml(iconos_archivo.con_icono(
+                icono, resaltar_html(texto, self._patron)))
+            if icono is not None:
+                doc.addResource(QTextDocument.ResourceType.ImageResource,
+                                QUrl(icono.as_uri()), QImage(str(icono)))
             doc.setTextWidth(interior)
             h = int(doc.size().height()) + 2
             lay["cuerpo"] = (x_burbuja + BUBBLE_PAD_H, y, interior, h)
@@ -118,6 +131,21 @@ class MensajeDelegate(QStyledItemDelegate):
                 h = fm.height() + 2
                 lay["estado_img"] = (x_burbuja + BUBBLE_PAD_H, y, interior, h)
                 y += h + ESPACIADO
+        caption = (item.get("caption") or "").strip()
+        if caption:
+            doc = QTextDocument()
+            doc.setDefaultFont(self._fuente_mini)
+            doc.setPlainText(caption)
+            formato = QTextCharFormat()
+            formato.setForeground(QColor(t["texto_suave"]))
+            cursor = QTextCursor(doc)
+            cursor.select(QTextCursor.SelectionType.Document)
+            cursor.mergeCharFormat(formato)
+            doc.setTextWidth(interior)
+            h = int(doc.size().height()) + 2
+            lay["caption"] = (x_burbuja + BUBBLE_PAD_H, y, interior, h)
+            lay["_caption_doc"] = doc
+            y += h + ESPACIADO
         if item.get("image_error"):
             fm = QFontMetrics(self._fuente_mini)
             h = 25
@@ -195,6 +223,13 @@ class MensajeDelegate(QStyledItemDelegate):
             if "imagen" in lay:
                 x, y, w, h = lay["imagen"]
                 painter.drawPixmap(ox + x, oy + y, lay["_escalado"])
+            if "caption" in lay:
+                painter.save()
+                painter.setPen(QColor(t["texto_suave"]))
+                x, y, w, h = lay["caption"]
+                painter.translate(ox + x, oy + y)
+                lay["_caption_doc"].drawContents(painter)
+                painter.restore()
             if "etapas_filtrado" in lay:
                 x, y, w, h, resumen = lay["etapas_filtrado"]
                 painter.setFont(self._fuente_mini)
@@ -210,14 +245,15 @@ class MensajeDelegate(QStyledItemDelegate):
                 painter.drawText(ox + x, oy + y, w, h,
                                  Qt.AlignmentFlag.AlignLeft
                                  | Qt.AlignmentFlag.AlignVCenter,
-                                 item.get("image_state", ""))
+                                 item.get("image_state") or (
+                                     "Enviada imagen" if propia else "Imagen"))
             if "retry" in lay:
                 self._pintar_boton(painter, option, lay["retry"],
                                    "Reintentar imagen", t)
             if "descarga" in lay:
-                texto = "Descargando…" if item.get("descargando") \
-                    else ("⬇ Descargar" if not item.get("descargado_ruta")
-                          else "⬇ Descargado")
+                texto = "Descargando…" if item.get("descargando") else (
+                    "⬇ Guardar imagen" if item.get("is_image")
+                    else "⬇ Guardar archivo")
                 self._pintar_boton(painter, option, lay["descarga"], texto, t)
             if "pie" in lay:
                 painter.setFont(self._fuente_mini)

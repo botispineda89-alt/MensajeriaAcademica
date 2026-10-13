@@ -143,9 +143,9 @@ class TestContratoDePuertos(unittest.TestCase):
             self.assertTrue(any(obligatorio in c for c in componentes),
                             f"RespuestaRed perdio `{obligatorio}`")
 
-    def test_mensaje_local_conserva_los_17_componentes(self):
+    def test_mensaje_local_conserva_los_18_componentes(self):
         records = {r["nombre"]: r for r in _cargar()["records"]}
-        self.assertEqual(17, len(records["MensajeLocal"]["componentes"]))
+        self.assertEqual(18, len(records["MensajeLocal"]["componentes"]))
 
     def test_pendiente_envio_guarda_bytes_crudos(self):
         """El contrato dice `byte[]`, no Base64.

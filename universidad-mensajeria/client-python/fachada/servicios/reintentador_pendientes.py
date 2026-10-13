@@ -6,6 +6,7 @@ import mimetypes
 import threading
 from threading import Event
 
+from fachada.servicios import coordinador_mensajeria
 from fachada.servicios.respuestas import lanzar_si_error
 from transversal.tipo_mensaje import TipoMensaje
 
@@ -103,7 +104,7 @@ class ReintentadorPendientesCliente:
                     partes = [datos[i:i + _PARTE_MAX_BYTES] for i in range(0, len(datos), _PARTE_MAX_BYTES)]
                     total_partes = max(1, len(partes))
                     try:
-                        self.conexion.pedir({
+                        solicitud_inicio = {
                             "id": p["id"],
                             "tipo": TipoMensaje.ARCHIVO_INICIO,
                             "remitente": p["origen"],
@@ -113,7 +114,10 @@ class ReintentadorPendientesCliente:
                             "tamanoArchivo": len(datos),
                             "totalPartes": total_partes,
                             "fechaHora": p["fecha_creado"],
-                        })
+                        }
+                        if p["contenido"]:
+                            solicitud_inicio["contenido"] = p["contenido"]
+                        self.conexion.pedir(solicitud_inicio)
                         for i, parte in enumerate(partes):
                             self.conexion.pedir({
                                 "id": p["id"],
@@ -155,10 +159,21 @@ class ReintentadorPendientesCliente:
                 }
                 if p["tipo"] == TipoMensaje.MENSAJE_TEXTO:
                     req["contenido"] = p["contenido"]
-                elif p["tipo"] == TipoMensaje.MENSAJE_IMAGEN:
+                if p["tipo"] == TipoMensaje.MENSAJE_IMAGEN:
                     payload = p["payload"] or b""
+                    if len(payload) > coordinador_mensajeria.IMAGEN_MAX_BYTES:
+                        # Píldora venenosa: una imagen que no cabe en una
+                        # trama de 16 MiB NUNCA saldrá por reintento, y cada
+                        # intento tumba la conexión (el servidor corta al ver
+                        # la trama de 47 MB y el cliente se reconecta en
+                        # bucle). ERROR + fuera de la cola.
+                        self.historial.marcar_estado(p["id"], "ERROR")
+                        self.historial.eliminar_pendiente(p["id"])
+                        continue
                     req["contenidoImagen"] = base64.b64encode(payload).decode('utf-8')
                     req["nombreArchivo"] = p["nombre_archivo"]
+                    if p["contenido"]:
+                        req["contenido"] = p["contenido"]
                 try:
                     resp = self.conexion.pedir(req)
                     self._lanzar_si_error(resp, "reintento rechazado")

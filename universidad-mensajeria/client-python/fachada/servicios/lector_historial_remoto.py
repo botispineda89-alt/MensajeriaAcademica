@@ -6,6 +6,7 @@ import json
 import os
 
 from fachada.servicios.respuestas import lanzar_si_error
+from transversal.fechas import a_utc, ahora_utc
 from transversal.tipo_mensaje import TipoMensaje
 
 
@@ -61,7 +62,12 @@ class LectorHistorialRemotoCliente:
             if not fila:
                 raise RuntimeError("imagen no encontrada en el historial")
             ruta_local = fila.get("ruta_archivo")
-            if ruta_local and os.path.isfile(ruta_local):
+            # Caché envenenada (§7 del plan de paridad): un archivo de 0 bytes
+            # o truncado NO es una copia válida; devolverlo dejaba la burbuja
+            # en "Reintentar imagen" para siempre porque el reintento volvía a
+            # leer el veneno. Sin contenido utilizable, se re-descarga.
+            if ruta_local and os.path.isfile(ruta_local) \
+                    and os.path.getsize(ruta_local) > 0:
                 return ruta_local
             archivo_id = fila.get("archivo_id")
             if not archivo_id:
@@ -117,7 +123,7 @@ class LectorHistorialRemotoCliente:
                 es_img = (tipo == TipoMensaje.MENSAJE_IMAGEN)
                 es_arch = (tipo == TipoMensaje.MENSAJE_ARCHIVO)
                 contenido_hist = "[Imagen]" if es_img else ("[Archivo]" if es_arch else fila.get("contenido"))
-                fecha_remota = fila.get("fechaEnvio") or datetime.datetime.now().isoformat()
+                fecha_remota = a_utc(fila.get("fechaEnvio")) or ahora_utc()
                 # La fila viva (UUID del remitente) y la remota (id numerico del
                 # servidor) son el mismo mensaje: fusionar, no duplicar burbujas.
                 conocido = self.historial.buscar_equivalente(
@@ -132,6 +138,7 @@ class LectorHistorialRemotoCliente:
                         tamano_archivo=fila.get("tamanoArchivo"),
                         archivo_id=fila.get("archivoId"),
                         etapas_filtrado=fila.get("etapasFiltrado"),
+                        caption=fila.get("contenido") if es_img or es_arch else None,
                         estado="ENVIADO" if propio else "ENTREGADO")
                     continue
                 self.historial.guardar_mensaje(
@@ -146,5 +153,6 @@ class LectorHistorialRemotoCliente:
                     enviado=1 if propio else 0,
                     archivo_id=fila.get("archivoId"),
                     etapas_filtrado=fila.get("etapasFiltrado"),
+                    caption=fila.get("contenido") if es_img or es_arch else None,
                     estado="ENVIADO" if propio else "ENTREGADO")
             return int(resp.get("totalPaginas") or 0)

@@ -1,7 +1,7 @@
 import threading
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QVBoxLayout, QWidget
 from qfluentwidgets import ComboBox, LineEdit, PasswordLineEdit, PrimaryPushButton
 
 from ui.tema import (
@@ -20,10 +20,13 @@ from ui.tema import (
 
 class LoginWindow(QWidget):
     login_succeeded = Signal(str)
+    _login_finalizado = Signal(bool, object)
 
     def __init__(self, fachada, aviso=""):
         super().__init__()
         self.fachada = fachada
+        self._cerrando = False
+        self._login_finalizado.connect(self._terminar_login)
         self.modo = self._leer_modo()
         self.setWindowTitle("Mensajería Académica | Iniciar sesión")
         self.setMinimumSize(440, 560)
@@ -218,9 +221,8 @@ class LoginWindow(QWidget):
 
         # UIX-00e: login() se llamaba en el hilo de la GUI y puede bloquear hasta
         # 15 s (timeout de la fachada), dejando la ventana congelada. Ahora va en
-        # un hilo de fondo y el resultado vuelve al hilo de la GUI, igual que
-        # LoginController en Java. La excepcion se transporta en un atributo:
-        # PySide no la propaga entre hilos.
+        # un hilo de fondo y el resultado vuelve al hilo de la GUI mediante una
+        # señal, igual que LoginController en Java.
         self._login_en_curso = True
 
         def conectar():
@@ -229,12 +231,14 @@ class LoginWindow(QWidget):
                 fallo = None
             except Exception as error:  # noqa: BLE001 - se muestra al usuario
                 exito, fallo = False, error
-            self._terminar_login(exito, fallo)
+            self._login_finalizado.emit(exito, fallo)
 
         threading.Thread(target=conectar, name="login-fondo", daemon=True).start()
 
     def _terminar_login(self, exito, fallo):
         """Vuelve al hilo de la GUI: solo aqui se toca Qt."""
+        if self._cerrando:
+            return
         self._login_en_curso = False
         self.btn_login.setEnabled(True)
         self.btn_login.setText("Iniciar sesión →")
@@ -250,3 +254,17 @@ class LoginWindow(QWidget):
         else:
             self.lbl_error.setText("✖ Usuario no registrado o datos incorrectos.")
             self.lbl_error.setVisible(True)
+
+    def closeEvent(self, evento):
+        if self._cerrando:
+            evento.accept()
+            return
+        respuesta = QMessageBox.question(
+            self, "Confirmar salida", "¿Deseas cerrar la aplicación?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if respuesta != QMessageBox.StandardButton.Yes:
+            evento.ignore()
+            return
+        self._cerrando = True
+        evento.accept()

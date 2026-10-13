@@ -109,6 +109,11 @@ class ArquitecturaClienteJavaTest {
                 .or().haveSimpleName("GestorSalidaSesionChat")
                 .or().haveSimpleName("CargadorAdjuntoEntradaChat")
                 .or().haveSimpleName("RefrescadorContactosChat")
+                .or().haveSimpleName("PlanEnvioAdjuntos")
+                .or().haveSimpleName("EstadoAvisoInline")
+                .or().haveSimpleName("TecladoCompositor")
+                .or().haveSimpleName("NavegadorCitaChat")
+                .or().haveSimpleName("MontajeImagenes")
                 .should().dependOnClassesThat()
                 .resideInAnyPackage("..cliente.persistencia..",
                         "..cliente.componentes.conexion..",
@@ -127,6 +132,11 @@ class ArquitecturaClienteJavaTest {
                 .or().haveSimpleName("GestorSalidaSesionChat")
                 .or().haveSimpleName("CargadorAdjuntoEntradaChat")
                 .or().haveSimpleName("RefrescadorContactosChat")
+                .or().haveSimpleName("PlanEnvioAdjuntos")
+                .or().haveSimpleName("EstadoAvisoInline")
+                .or().haveSimpleName("TecladoCompositor")
+                .or().haveSimpleName("NavegadorCitaChat")
+                .or().haveSimpleName("MontajeImagenes")
                 .should().dependOnClassesThat()
                 .haveSimpleName("FachadaCliente");
         rule.check(CLIENTE);

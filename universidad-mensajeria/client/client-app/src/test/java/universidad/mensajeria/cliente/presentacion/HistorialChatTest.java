@@ -246,6 +246,16 @@ class HistorialChatTest {
         }
 
         @Override
+        public boolean imagenIlegible(String idMensaje) {
+            return false;
+        }
+
+        @Override
+        public java.nio.file.Path originalDe(String idMensaje) {
+            return null;
+        }
+
+        @Override
         public int paginaRemota(String conversacion) {
             return 0;
         }

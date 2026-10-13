@@ -32,8 +32,18 @@ def serializar(obj) -> bytes:
 
 
 def empaquetar(obj) -> bytes:
-    """`[4 bytes de longitud big-endian][payload UTF-8]` listo para el socket."""
+    """`[4 bytes de longitud big-endian][payload UTF-8]` listo para el socket.
+
+    Levanta `ValueError` si el payload supera el tope de 16 MiB (invariante 2):
+    mejor fallar AQUI, antes del socket, que dejar que el servidor corte la
+    conexion al ver la trama (una imagen de la cola offline de ~35 MB se
+    reenviaba como trama de 47 MB en cada login y el servidor cerraba la
+    sesion: bucle de reconexion).
+    """
     payload = serializar(obj)
+    if len(payload) > TOPE_TRAMA:
+        raise ValueError(
+            f'la trama supera el tope de {TOPE_TRAMA} bytes: {len(payload)}')
     return struct.pack('>I', len(payload)) + payload
 
 

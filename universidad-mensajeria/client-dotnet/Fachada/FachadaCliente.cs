@@ -29,6 +29,7 @@ namespace Mensajeria.Fachada
         private readonly ICacheUsuarios? _cache;
         private readonly IMapeadorDatos _mapeadorDatos;
         private readonly CoordinadorMensajeriaCliente _coordinadorMensajeria;
+        private readonly EnvioMultipleAdjuntos _envioMultipleAdjuntos;
         private readonly ReintentadorPendientesCliente _reintentadorPendientes;
         private readonly GestorReconexionSesion _gestorReconexion;
 
@@ -54,6 +55,9 @@ namespace Mensajeria.Fachada
             _dependenciasInyectadas = false;
             _mapeadorDatos = new MapeadorDatosServidor();
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
+            _envioMultipleAdjuntos = new EnvioMultipleAdjuntos(
+                () => _coordinadorMensajeria, () => UsuarioActual
+                    ?? throw new InvalidOperationException("inicia sesion primero"));
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
             _gestorReconexion = CrearGestorReconexion();
@@ -66,6 +70,9 @@ namespace Mensajeria.Fachada
             _dependenciasInyectadas = false;
             _mapeadorDatos = mapeadorDatos ?? throw new ArgumentNullException(nameof(mapeadorDatos));
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
+            _envioMultipleAdjuntos = new EnvioMultipleAdjuntos(
+                () => _coordinadorMensajeria, () => UsuarioActual
+                    ?? throw new InvalidOperationException("inicia sesion primero"));
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
             _gestorReconexion = CrearGestorReconexion();
@@ -84,6 +91,9 @@ namespace Mensajeria.Fachada
             _cache = cache;
             _mapeadorDatos = mapeadorDatos ?? new MapeadorDatosServidor();
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
+            _envioMultipleAdjuntos = new EnvioMultipleAdjuntos(
+                () => _coordinadorMensajeria, () => UsuarioActual
+                    ?? throw new InvalidOperationException("inicia sesion primero"));
             _reintentadorPendientes = new ReintentadorPendientesCliente(
                 () => Historial, _coordinadorMensajeria);
             _gestorReconexion = CrearGestorReconexion();
@@ -485,13 +495,14 @@ public async Task MarcarLeidosAsync(string otroUsuario)
                 conexion, yo, destinatario, contenido).ConfigureAwait(false);
         }
 
-        public async Task<bool> EnviarImagenAsync(string destinatario, string imagePath)
+        public async Task<bool> EnviarImagenAsync(string destinatario, string imagePath,
+            string? pie = null)
         {
             if (string.IsNullOrEmpty(destinatario)) throw new ArgumentException("elige un destinatario");
             var (conexion, yo) = SesionEnvio();
             RechazarDestinoPropio(destinatario);
             return await _coordinadorMensajeria.EnviarImagenAsync(
-                conexion, yo, destinatario, imagePath).ConfigureAwait(false);
+                conexion, yo, destinatario, imagePath, pie).ConfigureAwait(false);
         }
 
         public const long MaxBytesArchivo = IFachadaCliente.MaxBytesArchivo;
@@ -504,14 +515,34 @@ public async Task MarcarLeidosAsync(string otroUsuario)
         /// en reintentos (el servidor reinicia el buffer ante el mismo id).
         /// </summary>
         public async Task<bool> EnviarArchivoAsync(string destinatario, string rutaArchivo,
-            IProgress<double>? progreso = null, CancellationToken cancelacion = default)
+            IProgress<double>? progreso = null, CancellationToken cancelacion = default,
+            string? pie = null)
         {
             if (string.IsNullOrEmpty(destinatario)) throw new ArgumentException("elige un destinatario");
             var (conexion, yo) = SesionEnvio();
             RechazarDestinoPropio(destinatario);
             return await _coordinadorMensajeria.EnviarArchivoAsync(
-                conexion, yo, destinatario, rutaArchivo, progreso, cancelacion)
+                conexion, yo, destinatario, rutaArchivo, progreso, cancelacion, pie)
                 .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Envía un lote de adjuntos. <paramref name="pie"/> es el texto que el
+        /// usuario escribió: si todo lo adjunto cabe en UNA sola burbuja (un
+        /// adjunto suelto, o varias imágenes montadas) el texto va como pie de
+        /// esa burbuja; si hay varias burbujas, el texto se manda antes por
+        /// separado. Mismas reglas que el cliente JavaFX.
+        /// </summary>
+        public async Task<ResultadoEnvioMultiple> EnviarAdjuntosAsync(string destinatario,
+            IReadOnlyList<AdjuntoPendiente> adjuntos, IProgress<ProgresoEnvio>? progreso = null,
+            CancellationToken cancelacion = default, string? pie = null)
+        {
+            if (string.IsNullOrWhiteSpace(destinatario))
+                throw new ArgumentException("elige un destinatario");
+            RechazarDestinoPropio(destinatario);
+            var (conexion, _) = SesionEnvio();
+            return await _envioMultipleAdjuntos.EnviarAsync(conexion, destinatario,
+                adjuntos, progreso, cancelacion, pie).ConfigureAwait(false);
         }
 
         public async Task DifundirAsync(string contenido)
@@ -741,6 +772,14 @@ public async Task MarcarLeidosAsync(string otroUsuario)
                 : (Historial?.UltimosMensajesPorContacto(UsuarioActual)
                     ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
+        /// <summary>UIX-24: ultimo mensaje de cada contacto, para la lista lateral.</summary>
+        public IReadOnlyDictionary<string, (string Texto, bool Propio)> UltimoMensajePorContacto() =>
+            UsuarioActual == null || Historial == null
+                ? new Dictionary<string, (string, bool)>(StringComparer.OrdinalIgnoreCase)
+                : Historial.UltimoMensajePorContacto(UsuarioActual)
+                    .ToDictionary(par => par.Key, par => (par.Value.Texto, par.Value.Propio),
+                        StringComparer.OrdinalIgnoreCase);
+
         public List<Dictionary<string, object>> DirectorioLocal() =>
             Cache?.Listar() ?? new List<Dictionary<string, object>>();
 
@@ -792,24 +831,58 @@ public async Task MarcarLeidosAsync(string otroUsuario)
                 && tipo != TipoMensaje.BROADCAST && tipo != TipoMensaje.SYNC_LOGIN) return;
             try
             {
-                // Lo entrante siempre es (remitente -> yo): el broadcast aparece
-                // en la conversacion con su remitente (leccion Fase 5).
+                // Lo entrante se guarda en (remitente -> destinatario real). El
+                // broadcast aparece en la conversacion con su remitente (leccion
+                // Fase 5).
                 string remitente = GetString(msg, "remitente") ?? "desconocido";
+                // Eco multi-PC: lo que envie desde el otro cliente del mismo
+                // codigo vuelve con remitente == yo. Si se guardara como yo->yo
+                // caeria en una conversacion que no existe y el mensaje NUNCA se
+                // veria en el chat. Java ya lo resolvia (ReceptorEntrante).
+                bool esEco = UsuarioActual != null
+                    && string.Equals(remitente, UsuarioActual, StringComparison.Ordinal);
+                string? destinatarioTrama = GetString(msg, "destinatario");
+                string destino = esEco
+                    ? (destinatarioTrama ?? remitente)
+                    : (UsuarioActual ?? destinatarioTrama ?? remitente);
                 string id = GetString(msg, "id") ?? Guid.NewGuid().ToString();
-                string fecha = GetString(msg, "fechaHora") ?? DateTime.UtcNow.ToString("O");
+                // UIX-26: el servidor manda hora local SIN zona y este cliente
+                // guarda UTC CON "Z". Al ordenarse por texto, lo que llegaba
+                // quedaba siempre por detrás de lo que salía, y el preview de
+                // la lista marcaba "Tú:" aunque el último mensaje fuera del otro.
+                string fecha = Transversal.FormatoFecha.AUtc(
+                    GetString(msg, "fechaHora")) is { Length: > 0 } f
+                        ? f : DateTime.UtcNow.ToString("O");
                 bool esImagen = tipo == TipoMensaje.MENSAJE_IMAGEN;
                 bool esArchivo = tipo == TipoMensaje.MENSAJE_ARCHIVO;
-                string? texto = esImagen ? "[Imagen]"
-                    : esArchivo ? $"[Archivo: {GetString(msg, "nombreArchivo") ?? "archivo"}]"
-                    : GetString(msg, "contenido");
-                Historial?.UpsertMensaje(id, remitente, UsuarioActual ?? remitente, tipo,
+                // En un adjunto el `contenido` recibido es el pie de la burbuja y
+                // los bytes viajan aparte (contenidoImagen en vivo, archivoId
+                // para la descarga diferida). Se guarda igual que en Java.
+                bool esAdjunto = esImagen || esArchivo;
+                string? cuerpo = GetString(msg, "contenido");
+                string? pie = esAdjunto && !string.IsNullOrWhiteSpace(cuerpo) ? cuerpo : null;
+                string? texto = esAdjunto ? null
+                    : cuerpo;
+                // SYNC_LOGIN envuelve el mensaje real y lo declara en `tipoOriginal`:
+                // sin normalizarlo queda guardado con tipo SYNC_LOGIN.
+                string tipoGuardado = tipo;
+                if (tipo == TipoMensaje.SYNC_LOGIN)
+                {
+                    try
+                    {
+                        tipoGuardado = (_mapeadorDatos ?? new MapeadorDatosServidor())
+                            .NormalizarTipoMensaje(GetString(msg, "tipoOriginal") ?? "");
+                    }
+                    catch (ArgumentException) { tipoGuardado = tipo; }
+                }
+                Historial?.UpsertMensaje(id, remitente, destino, tipoGuardado,
                     texto,
                     GetString(msg, "hashSha256"), GetInt(msg, "numCaracteres"),
                     GetInt(msg, "numPalabras"), GetString(msg, "nombreArchivo"),
-                    null, GetLong(msg, "tamanoArchivo"), fecha, 0,
-                    tipo == TipoMensaje.MENSAJE_TEXTO ? 1 : 0,
+                    null, GetLong(msg, "tamanoArchivo"), fecha, esEco ? 1 : 0,
+                    tipoGuardado == TipoMensaje.MENSAJE_TEXTO ? 1 : 0,
                     "ENTREGADO", GetString(msg, "archivoId"),
-                    GetString(msg, "etapasFiltrado"));
+                    GetString(msg, "etapasFiltrado"), pie);
                 AsegurarEnCache(remitente);
             }
             catch { }

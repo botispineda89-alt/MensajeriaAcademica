@@ -47,7 +47,8 @@ public final class ConstructorRecientes {
         List<RecienteChat> salida = new ArrayList<>();
         for (RecienteChat r : base) {
             salida.add(new RecienteChat(r.otro(), r.ultimoContenido(), r.ultimoTipo(),
-                    r.fechaUltimo(), r.noLeidos(), conectados.contains(r.otro())));
+                    r.fechaUltimo(), r.noLeidos(), conectados.contains(r.otro()),
+                    r.ultimoPropio()));
         }
         return salida;
     }
@@ -90,8 +91,7 @@ public final class ConstructorRecientes {
                     : a.codigo().compareTo(b.codigo());
         });
         for (UsuarioLocal u : sinConversacion) {
-            salida.add(new RecienteChat(u.codigo(), "", "", "", 0,
-                    conectados.contains(u.codigo())));
+            salida.add(RecienteChat.vacio(u.codigo(), conectados.contains(u.codigo())));
         }
     }
 }

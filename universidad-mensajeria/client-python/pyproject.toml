@@ -10,7 +10,11 @@ version = "1.0.0"
 description = "Cliente PySide6 de mensajería académica (TCP + JSON)"
 requires-python = ">=3.11"
 dependencies = [
-    "pillow==10.4.0",
+    # pillow 11.x: pillow-heif 1.8.0 exige pillow>=11.1.0; con 10.4.0 el
+    # `pip install -r requirements.txt` moría con ResolutionImpossible.
+    "pillow==11.3.0",
+    "pillow-avif-plugin==1.6.0",
+    "pillow-heif==1.8.0",
     "PySide6==6.11.2",
     "PySide6-Fluent-Widgets==1.11.3",
 ]

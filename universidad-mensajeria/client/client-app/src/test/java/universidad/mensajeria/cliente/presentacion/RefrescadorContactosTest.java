@@ -71,7 +71,7 @@ class RefrescadorContactosTest {
         estados = new ArrayList<>();
         recientes = new ArrayList<>(List.of(
                 new RecienteChat("B002", "hola", "MENSAJE_TEXTO",
-                        "2026-10-07T10:00:00", 0, true)));
+                        "2026-10-07T10:00:00", 0, true, false)));
         usuarios = new ArrayList<>(List.of(
                 new UsuarioLocal("B002", "Luis", "Díaz", "Sistemas",
                         true, "2026-01-01", "2026-01-01")));

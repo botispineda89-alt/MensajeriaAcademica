@@ -72,10 +72,10 @@ académica (texto, imágenes o archivos), sobre **TCP-IP**, con capas y componen
 
 ### Tecnologías
 
-- **Servidor**: Java 21+ (probado en JDK 25.0.1), JavaFX Graphics 21.0.6 para `VistaEscritorio` y JLine para consola. La vista administrativa ofrece Estado, Conectados, Usuarios, Mensajes, Informes, Logs, Pool y Difundir; Usuarios abre ficha reutilizable con paginación de 50. La consola conserva sus comandos y jerarquía visual. Multi-módulo Maven (§2.4). Spring Boot 3.5.7 (solo `data-jpa`, `validation`) + Flyway 11.14.1 **confinados a `servidor-app`** para la persistencia; los componentes son Java puro y la inyección de dependencias es manual con `Fabrica`.
-- **Cliente Java (principal)**: Java 21+, JavaFX 22.0.2 + AtlantaFX 2.1.0, **H2** local.
-- **Cliente Python (espejo)**: Python 3.13, **PySide6 + QFluentWidgets** para UI, **Pillow** para preview/decodificación de imágenes, `sqlite3` (stdlib). Dependencias fijadas en `client-python/requirements.txt`. Sin frameworks web.
-- **Cliente C# (espejo)**: .NET 8, **WPF (XAML)** para UI, **Microsoft.Data.Sqlite 8.0.10 (fijado)** local, `System.Text.Json`. La suite de tests apunta a `net10.0` (requiere SDK 10); la app sigue en `net8.0-windows`.
+- **Servidor**: Java 21+ (probado en JDK 25.0.1), JavaFX Graphics 21.0.6 para `VistaEscritorio` y JLine para consola. La vista administrativa ofrece Estado, Conectados, Usuarios, Mensajes, Informes, Logs, Pool y Difundir; Usuarios abre ficha reutilizable con paginación de 50. La consola conserva sus comandos y jerarquía visual. Multi-módulo Maven (§2.4). Spring Boot 3.5.7 (solo `data-jpa`, `validation`) + Flyway 11.14.1 **confinados a `servidor-app`** para la persistencia; los componentes son Java puro y la inyección de dependencias es manual con `Fabrica`. El módulo `utilerias` lleva `imageio-webp` 3.12.0 (BSD-3) para decodificar **WebP** en la tubería de filtros (§3).
+- **Cliente Java (principal)**: Java 21+, JavaFX 22.0.2 + AtlantaFX 2.1.0, **H2** local, e `imageio-webp` 3.12.0 (BSD-3) para abrir `.webp` en `ImageIO`.
+- **Cliente Python (espejo)**: Python 3.13, **PySide6 + QFluentWidgets** para UI, **Pillow** para preview/decodificación de imágenes, `sqlite3` (stdlib). Dependencias fijadas en `client-python/requirements.txt`. Sin frameworks web. Sigue siendo el cliente con menos paridad: sin pie en la misma burbuja, sin montaje, sin envío múltiple y con `.webp` como archivo.
+- **Cliente C# (espejo)**: .NET 8, **WPF (XAML)** para UI, **Microsoft.Data.Sqlite 8.0.10 (fijado)** local, `System.Text.Json`, y **`SkiaSharp` + `SkiaSharp.NativeAssets.Win32` 4.153.1 (MIT)** para decodificar, componer y transcodificar imágenes sin depender de WPF. La suite de tests apunta a `net10.0` (requiere SDK 10); la app sigue en `net8.0-windows`.
 - **MySQL 8** principal (servidor, vía Flyway); **PostgreSQL 16 y Oracle 23** opcionales
   conmutables por Adapter §5.4 (los 3 contenedores ya en `docker-compose.yml`).
 - **Historial local multilenguaje**: esquema único **`common-protocol/schema-local.sql`**
@@ -354,6 +354,14 @@ public final class TuberiaFactory {
     public Tuberia archivo();   // SHA256 (archivo genérico, sin transformación)
 }
 ```
+
+**Formatos que entran por la tubería de imagen:** PNG, JPEG, GIF, BMP y **WebP**. La puerta
+(`Imagenes.esImagenValida`) decide por *magic bytes* —para WebP comprueba la firma `WEBP` en el offset
+8, porque un `.wav` o un `.avi` empiezan por `RIFF`— y `server/utilerias` lleva `imageio-webp` 3.12.0
+(BSD-3) para que **la tubería sepa decodificar lo que la puerta deja pasar**: aceptar la cabecera sin
+decodificador haría que la imagen se perdiera una fase después, que es peor que rechazarla. Los
+clientes JavaFX y WPF envían el `.webp` sin renombrar ni convertir (convierten a PNG solo para
+pintarlo); el cliente Python lo envía por la ruta de archivo genérico.
 
 - Cada filtro es una **Strategy** independiente y sin estado (se prueba aislado; LSP entre filtros).
   Los metadatos no se mutan en un contexto compartido: cada filtro los devuelve en su
@@ -1226,10 +1234,10 @@ deuda:
 |---|---|---|---|
 | ViewModel / Presenter | parcial (`ChatViewModel` centraliza estado conversacional básico y delega operaciones; controlador aún coordina UI) | ninguno | parcial (`MensajeVM` solo) |
 | Frontera de vista | **inyección por constructor** desde `FabricaControladores`, vía puertos `InterfazInicioSesion` / `InterfazChatCliente` | **parcheo en runtime** (`setattr` sobre la fachada) + `getattr`/`hasattr` | `IFachadaCliente` inyectada |
-| Archivo mayor | `ChatController.java` 910 líneas (medición 2026-10-06) | `chat_window.py` 1 322 líneas | `ChatWindow.xaml.cs` 790 líneas |
-| Bindings reales | 1 | 0 | `INotifyPropertyChanged` en un VM |
+| Archivo mayor | `ChatController.java` 545 líneas (medición 2026-10-11; eran 552 el 10-10; extracción de `AvisosInlineChat` y `ConfiguradorCeldasChat`) | `chat_window.py` 293 líneas (214 sin blancos) + 31 módulos en `ui/` (4 159 en total; el chat se partió en `constructor_vista_chat`, `paginador_historial_chat`, `gestor_adjuntos_chat`, …) | `ChatWindow.xaml.cs` 1 858 líneas (creció con el lote de adjuntos, aviso inline y lista de contactos; es la mayor deuda de tamaño) |
+| Bindings reales | 8 (medición 2026-10-11; era 1) | 0 | `INotifyPropertyChanged` en un VM |
 
-Detalle y evidencia histórica en `ANALISIS_TECNICO.md` §4. `PAT-01` ya elimina el localizador en
+Detalle y evidencia histórica en `docs/archivo/ANALISIS_TECNICO-historico.md` §4. `PAT-01` ya elimina el localizador en
 Java; composición equivalente para Python/.NET y el resto de patrones siguen en el roadmap. El
 plan con fases y criterios medibles está en [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md).
 
@@ -1275,7 +1283,7 @@ comunidad académica sin código ni contraseña.**
 La causa-raíz no es solo el `if` que falta: es que los 3 comandos **reciben `respuestas` en el
 constructor y no lo usan**, de modo que su firma promete una capacidad que el cuerpo no tiene. Eso
 lo hizo indetectable, y por eso se añaden dos requisitos (`RF-S34` y `RF-S35`) y no solo un fix.
-Detalle en `ANALISIS_TECNICO.md` §1 y en [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) §2.
+Detalle en `docs/archivo/ANALISIS_TECNICO-historico.md` §1 y en [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) §2.
 
 ### 14.5 Diagramas
 

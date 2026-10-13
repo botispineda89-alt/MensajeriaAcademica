@@ -3,6 +3,7 @@
 Los tipos de trama NO se escriben a mano ni aqui ni en el SQL: salen de
 `transversal.tipo_mensaje`, que a su vez se compara con `contrato/puertos.json`.
 """
+from transversal.fechas import a_utc
 from transversal.tipo_mensaje import CONVERSACION, TipoMensaje
 from transversal.etapas_filtrado import mapear_etapas_filtrado
 from puertos.datos import RecienteChat
@@ -21,16 +22,20 @@ class HistorialLocal:
                         fecha_envio, hash_sha256="", num_caracteres=0,
                         num_palabras=0, nombre_archivo="", ruta_archivo="",
                         tamano_archivo=0, enviado=1, descargado=0,
-                        archivo_id=None, estado="ENVIADO", etapas_filtrado=None):
+                        archivo_id=None, estado="ENVIADO", etapas_filtrado=None,
+                        caption=None):
         etapas_filtrado = mapear_etapas_filtrado(etapas_filtrado)
+        # Un solo formato de fecha (invariante 15): la base por cuenta la
+        # comparten Python y .NET, y `fecha_envio` se ordena como TEXTO.
+        fecha_envio = a_utc(fecha_envio)
         with self.db.conexion() as conn:
             conn.execute("""
                 INSERT INTO historial_local 
                 (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
                  num_caracteres, num_palabras, nombre_archivo, archivo_id,
                  ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
-                 etapas_filtrado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 etapas_filtrado, caption)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(id_mensaje) DO UPDATE SET
                     contenido = excluded.contenido,
                     hash_sha256 = COALESCE(excluded.hash_sha256, historial_local.hash_sha256),
@@ -41,6 +46,7 @@ class HistorialLocal:
                     ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
                     tamano_archivo = COALESCE(excluded.tamano_archivo, historial_local.tamano_archivo),
                     etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
+                    caption = COALESCE(excluded.caption, historial_local.caption),
                     descargado = MAX(excluded.descargado, historial_local.descargado),
                     estado = CASE
                         WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
@@ -50,7 +56,7 @@ class HistorialLocal:
             """, (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
                   num_caracteres, num_palabras, nombre_archivo, archivo_id,
                   ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
-                  etapas_filtrado))
+                  etapas_filtrado, caption))
             
     def obtener_conversacion(self, user1, user2, limit=50, offset=0):
         with self.db.conexion() as conn:
@@ -59,7 +65,7 @@ class HistorialLocal:
                        CASE WHEN tipo = ? THEN NULL ELSE contenido END AS contenido,
                        hash_sha256, num_caracteres, num_palabras, nombre_archivo,
                        archivo_id, ruta_archivo, tamano_archivo, fecha_envio,
-                       enviado, descargado, estado, etapas_filtrado
+                       enviado, descargado, estado, etapas_filtrado, caption
                 FROM historial_local
                 WHERE (origen = ? AND destino = ?) OR (origen = ? AND destino = ?)
                 ORDER BY fecha_envio DESC
@@ -166,7 +172,7 @@ class HistorialLocal:
                                      num_caracteres=None, num_palabras=None,
                                      nombre_archivo=None, tamano_archivo=None,
                                      archivo_id=None, estado=None,
-                                     etapas_filtrado=None):
+                                     etapas_filtrado=None, caption=None):
         """Completa la fila viva con metadatos del historial remoto (sin duplicar)."""
         etapas_filtrado = mapear_etapas_filtrado(etapas_filtrado)
         with self.db.conexion() as conn:
@@ -179,6 +185,7 @@ class HistorialLocal:
                     tamano_archivo = COALESCE(?, tamano_archivo),
                     archivo_id = COALESCE(?, archivo_id),
                     etapas_filtrado = COALESCE(?, etapas_filtrado),
+                    caption = COALESCE(?, caption),
                     estado = CASE
                         WHEN historial_local.estado = 'LEIDO' OR ? = 'LEIDO' THEN 'LEIDO'
                         WHEN historial_local.estado = 'ENTREGADO'
@@ -188,7 +195,8 @@ class HistorialLocal:
                 WHERE id_mensaje = ?
             """, (hash_sha256 or None, num_caracteres, num_palabras,
                   nombre_archivo or None, tamano_archivo,
-                  archivo_id or None, etapas_filtrado, estado, estado, estado, estado,
+                  archivo_id or None, etapas_filtrado, caption or None,
+                  estado, estado, estado, estado,
                   id_mensaje))
 
     def contar_conversacion(self, user1, user2):
@@ -275,6 +283,7 @@ class HistorialLocal:
                          (hash_sha256, id_mensaje))
 
     def guardar_pendiente(self, id_pend, tipo, origen, destino, contenido, nombre_archivo, payload, fecha_creado):
+        fecha_creado = a_utc(fecha_creado)
         with self.db.conexion() as conn:
             cursor = conn.cursor()
             # Upsert portable del contrato: pre-DELETE para re-envios del mismo id.

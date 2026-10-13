@@ -20,6 +20,26 @@
             <groupId>universidad.mensajeria</groupId>
             <artifactId>dto</artifactId>
         </dependency>
+        <!-- UIX-27 / PLAN_AMBOS: lector WebP para ImageIO (plugin SPI puro,
+             BSD-3), para que la tuberia de filtros pueda abrir un .webp. Sin el
+             la cabecera pasaria el filtro magico pero ImageIO.read devolveria
+             null y la imagen se perderia justo despues. TwelveMonkeys se
+             registra solo por META-INF/services. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.12.0</version>
+        </dependency>
+        <!-- AVIF/HEIC/SVG (y en general cualquier formato que el JDK no
+             decodifica): im4java es el wrapper de ImageMagick por proceso
+             externo, no JNI, y no arrastra dependencias de ejecucion. Se usa
+             SOLO como plan B de Imagenes.leer: PNG/JPEG/GIF/BMP siguen por
+             ImageIO y WebP por imageio-webp, exactamente como antes. -->
+        <dependency>
+            <groupId>org.im4java</groupId>
+            <artifactId>im4java</artifactId>
+            <version>1.4.0</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

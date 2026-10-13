@@ -1,7 +1,8 @@
 # Plan de patrones de diseño y mejora de UI — los 3 clientes
 
-Actualizado: **2026-10-06**. Este archivo conserva el **plan y sus decisiones de implementación**
-derivados de [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md). Varios lotes ya están aplicados; el
+Actualizado: **2026-10-06**; mediciones y lista de aceptación re-verificadas el **2026-10-11**
+(§4 y §9.1). Este archivo conserva el **plan y sus decisiones de implementación**
+derivados de [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md). Varios lotes ya están aplicados; el
 estado actual de cada tarea se mantiene en [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md). Las mediciones,
 líneas de código y colores en tablas posteriores pueden ser el estado previo a cada lote, no la
 lectura actual del código.
@@ -72,7 +73,7 @@ Precondición: ninguna. Cada uno es un cambio pequeño y verificable por separad
 
 ## 2. Fase B — Limpieza de código muerto (P0/P1)
 
-Detalle completo con los 38 items en [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md) §2.
+Detalle completo con los 38 items en [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) §2.
 Aquí solo el **criterio de parada**, que es lo que evita que esto se vaya de las manos.
 
 ### 2.1 Reglas para decidir qué se borra
@@ -83,7 +84,7 @@ Aquí solo el **criterio de parada**, que es lo que evita que esto se vaya de la
 | **B2 — Nunca borrar por búsqueda de texto** | `.split-pane`, `.list-cell`, `.combo-box` son **clases de estilo integradas** de JavaFX; `chat.fxml:15 fx:controller=` es lo que hace viva `LoginController`; `ServiceLoader` es lo que hace vivos los 5 `Proveedor*`; el escaneo deJUnit es lo que hace vivos los 49 tests. Cada uno tiene 0 refs y vive. |
 | **B3 — Clase `@Configuration`/`@Component` nunca es muerta** | Aunque el nombre no aparezca, Spring la instancia. |
 | **B4 — El enum se borra solo si no hay filas históricas** | `RegistroAccion.java:32` es `@Enumerated(STRING)`. Quitar `CONECTADO`/`HISTORIAL`/`DESCARGA` (`MUERT-09..11`) exige **primero** comprobar la BD de producción. |
-| **B5 — dead feature ≠ código muerto** | `difundir()` sin botón (`ANALISIS_TECNICO.md` §2.2) es una decisión de producto, no basura. Va a decisión, no a borrado. |
+| **B5 — dead feature ≠ código muerto** | `difundir()` sin botón (`docs/archivo/ANALISIS_TECNICO-historico.md` §2.2) es una decisión de producto, no basura. Va a decisión, no a borrado. |
 | **B6 — Lo que se borre va con test** | Un item que no tiene cobertura no se borra: se añade el test y luego se borra. |
 
 ### 2.2 Lotes de borrado
@@ -210,22 +211,25 @@ No es un cliente, pero es la misma categoría de deuda que `PAT-*` y ya está ab
 
 ### 4.1 Qué se extrae, exactamente
 
-| Cliente | Estado actual | Objetivo |
+| Cliente | Estado actual (medición 2026-10-11) | Objetivo |
 |---|---|---|
-| JavaFX | `ChatController.java` **968 líneas** en la continuación 2026-10-06: sigue manejando selección, eventos, envío, paginación, búsqueda y ciclo de vida | Completar `ChatViewModel` para coordinación del chat; el controlador baja a **≈250 líneas** de cableado FXML |
-| Python | `chat_window.py` **1 322 líneas**: 20 atributos mutables, `_construir_ui` (`:243-440`), y `_procesar_tarea` (`:536-661`), un `if/elif` de **100 líneas por 8 tipos de tarea** que *es* un presenter sin tipar | `ChatViewModel(QObject)` con `Property` + `Signal`. La ventana baja a **≈500 líneas** |
-| .NET | `MensajeVM` ya es un VM real (`:33-90`); `UsuarioVM` (`:21-31`) **no notifica**; la ventana guarda 10 campos de estado (`:98-105`); 8 handlers `async void` | `ChatViewModel : INotifyPropertyChanged`. `UsuarioVM` pasa a notificar y el filtro se vuelve observable (mata el `Clear()`+re-`Add()` de `:195-196,202`) |
+| ChatController.java | `ChatController.java` **545 líneas** (968 el 2026-10-06; 597 → 552 → 545 el 2026-10-11 con extracciones de `AvisosInlineChat` y `ConfiguradorCeldasChat`): sigue manejando selección, eventos, envío, paginación, búsqueda y ciclo de vida | Completar `ChatViewModel` para coordinación del chat; el controlador baja a **≈250 líneas** de cableado FXML |
+| Python | `chat_window.py` **293 líneas** (214 sin blancos), pero el chat ya se partió en **31 módulos de `ui/`** (4 159 líneas en total: `constructor_vista_chat`, `paginador_historial_chat`, `gestor_adjuntos_chat`, `refrescador_contactos_chat`, …). La ventana es hoy un **ensamblador**; el trabajo que queda es tipar el presentador disperso | `ChatViewModel(QObject)` con `Property` + `Signal`, sin perder la separación en módulos |
+| .NET | `ChatWindow.xaml.cs` **1 858 líneas** (790 antes del lote de octubre de adjuntos, aviso inline y lista de contactos): concentró bandeja, progreso, cancelación, visor y refresco de contactos. `MensajeVM` es un VM real; `UsuarioVM` **no notificaba** (corregido el 2026-10-10) | `ChatViewModel : INotifyPropertyChanged` y extraer bandeja/progreso/visor a componentes propios; el objetivo de tamaño sigue siendo **≤ 400** |
 
 ### 4.2 Cómo se comprueba que funcionó
 
 | Métrica | Antes | Objetivo |
 |---|---|---|
-| `ChatController.java` / `chat_window.py` / `ChatWindow.xaml.cs` | 968 actual (774 previo) / 1 322 / 790 | **≤ 350** / **≤ 550** / **≤ 400** |
+| `ChatController.java` / `chat_window.py` / `ChatWindow.xaml.cs` | 545 actual (968 → 774 → 597 → 552 previos) / 293 (214 sin blancos) + 31 módulos / 1 858 actual (790 previo) | **≤ 350** / **≤ 550** (sumando lo que se extraiga del total de `ui/`) / **≤ 400** |
 | Métodos privados que los tests tienen que llamar | 3 (`test_ui.py:136,152,163,171`) | **0** |
-| `bind()` reales en el cliente Java | 1 (`:147-150`) | **≥ 8** (los `BooleanProperty` del ViewModel) |
+| `bind()` reales en el cliente Java | 8 (medición 2026-10-11; era 1) | **≥ 8** (los `BooleanProperty` del ViewModel) |
 
 El criterio de 0 métodos privados llamado desde test es el que de verdad importa: significa
 que la lógica se alcanza por una costura pública.
+
+> Cifras al 2026-10-11, sin contar líneas en blanco salvo indicación contraria (`ChatController`
+> 660 totales; `ChatWindow.xaml.cs` 1 973 totales). El detalle de la verificación está en §9.1.
 
 ### 4.3 Orden dentro de la fase
 
@@ -333,8 +337,8 @@ casos pendientes están en `ESTADO_ROADMAP.md` §5.
 | ID | Tarea | Nota |
 |---|---|---|
 | UIX-25..29 | Cerrar los defectos de tematización pendientes; `UIX-25` y `UIX-29` ya están resueltos | §3.4 del análisis y estado actual en el roadmap |
-| **VIS-01** | **Fijar una única paleta por tema, no 3** | el tema oscuro coincide en los 3 clientes (11 colores idénticos). **El claro no coincide en ninguno**: burbuja propia `#E4F3EC` / `#E1F5FE` / `#D9FDD3` y acento `#2456A6` / `#147D73` / defecto de WPF-UI. La fuente de verdad pasa a ser el mismo sitio que ya usa cada toolkit: `chat.css`, `tema.py`, `Tema*.xaml` |
-| **VIS-02** | **Centralizar los 73 literales compartidos** | §5.1 del análisis. El caso grave es la **máquina de estados de mensaje**, escrita como `CASE` SQL 3 veces con la misma precedencia: si se añade un estado y se olvida una pista, el historial de un cliente discrepa del de otro. Ojo: `Respuesta a {identidad}: "…"` es **visible en el protocolo** y no se puede cambiar sin tocar los 3 clientes a la vez |
+| **VIS-01** | **Fijar una única paleta por tema, no 3** | el tema oscuro coincide en los 3 clientes (11 colores idénticos). **El claro no coincide en ninguno**: burbuja propia `#E4F3EC` / `#E1F5FE` / `#D9FDD3` y acento `#2456A6` / `#147D73` / defecto de WPF-UI. La fuente de verdad pasa a ser el mismo sitio que ya usa cada toolkit: `chat.css`, `tema.py`, `Tema*.xaml` — **Cerrado 2026-10-07:** la fuente de verdad es `contrato/tokens-diseno.json`, del que `contrato/generar_tokens.py` produce los 4 CSS, los 2 `.xaml` y los tokens de Python (`ESTADO_ROADMAP.md` §7) |
+| **VIS-02** | **Centralizar los 73 literales compartidos** | §5.1 del análisis. El caso grave es la **máquina de estados de mensaje**, escrita como `CASE` SQL 3 veces con la misma precedencia: si se añade un estado y se olvida una pista, el historial de un cliente discrepa del de otro. Ojo: `Respuesta a {identidad}: "…"` es **visible en el protocolo** y no se puede cambiar sin tocar los 3 clientes a la vez — **Parcial 2026-10-08:** la máquina de estados quedó centralizada en `contrato/estado-mensaje.json` y verificada en los 3 (`contrato/verificar_estado_mensaje.py`); faltan los literales de ventana y diálogo |
 
 ## 8. Qué NO entra en este plan, y por qué
 
@@ -358,14 +362,56 @@ Una fase está cerrada cuando:
    direcciones.
 3. Los literales nuevos no se escriben **inline**: van al sitio de tokens del toolkit
    (`VIS-01`, `VIS-02`).
-4. `ANALISIS_TECNICO.md` §2 está en cero, o el item restante tiene justificación escrita.
+4. `docs/archivo/ANALISIS_TECNICO-historico.md` §2 está en cero, o el item restante tiene justificación escrita.
 5. No hay ninguna clase de JavaFX eliminada sin haber arrancado la aplicación y mirado el
    control (regla B2).
 6. La tabla de tamaños de §4.2 se cumple.
 
+### 9.1 Lista de aceptación verificable — corte 2026-10-11
+
+Ejecutado para este corte: `contrato/verificar.py` **9/9 en verde** (tokens, máquina de estados,
+puertos, suite del contrato, iconos, suites JavaFX/Python/.NET y build WPF) + mediciones directas
+de los fuentes. Cada casilla resume el cierre **con la evidencia citada**; el estado fino por
+tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
+
+**Fases**
+
+- [x] **A — bugs de UI.** `UIX-00a..UIX-00f` cerrados; `00a` y `00f` con verificación en la app
+  real registrada (roadmap §5.1).
+- [x] **B — limpieza.** `MUERTE-1..5` aplicados con sus exclusiones documentadas (`MUERT-23`,
+  `MUERT-37` —objetivo de `UIX-00a`— y la tabla MIME, decisión de paridad); `MUERTE-6` sigue 🟠
+  como decisión de producto.
+- [x] **C — cimientos.** `PAT-01` en Java (composition root + inyección por constructor;
+  re-verificado en `FabricaControladores`), `PAT-03` en los 3 clientes y `PAT-02`/`SEC-05`
+  cerrados.
+- [ ] **C (cola).** `PAT-01` en Python/.NET: composición pendiente en sus UIs.
+- [ ] **D — MVVM.** Parcial en los 3: Java `ChatController` 545 (objetivo ≤ 350), Python ya
+  dividido en 31 módulos de `ui/` (queda tipar el presentador) y .NET 1 858 (objetivo ≤ 400).
+- [ ] **E — Command.** `PAT-CMD` sin empezar (habilitación imperativa; .NET con 0 `ICommand`).
+- [ ] **F — adaptadores.** `PAT-04` sin empezar; `PAT-05` con el fail-fast TLS cableado y solo la
+  matriz de handshake pendiente; `PAT-06` cerrado por otra vía (`MUERTE-5`).
+- [x] **G — contrato visual.** `VIS-01` cerrado (paleta generada; 19 reglas de contraste ≥ 4.5:1);
+  `VIS-02` con la máquina de estados centralizada y verificada en los 3.
+- [ ] **G (cola).** `VIS-02` de ventana/diálogo por centralizar; `UIX-*` restantes según roadmap
+  §5 (`UIX-01`, `UIX-06` y `UIX-15` ya tienen lote de cierre).
+
+**Definición de terminado (§9), condición por condición**
+
+- [x] **1.** Suites de los 3 clientes sin modificar tests: JavaFX **280** (47 clases), Python
+  **278** (5 omitidas), .NET **366**; build WPF 0/0 (`verificar.py` 9/9, 2026-10-11).
+- [X] **2.** Matriz de interoperabilidad de las 6 direcciones: smoke manual pendiente
+  (`GUIA_ACEPTACION.md`).
+- [ ] **3.** Literales nuevos al sitio de tokens: `VIS-01` cerrado; el pendiente es `VIS-02`
+  (literales de ventana/diálogo).
+- [x] **4.** `docs/archivo/ANALISIS_TECNICO-historico.md` §2: `MUERTE-1..5` aplicados y lo restante con justificación
+  escrita (exclusiones y `MUERTE-6` en roadmap §4).
+- [ ] **5.** Regla B2 (ninguna clase de JavaFX eliminada sin verla en la app): control de proceso,
+  no verificable por script.
+- [ ] **6.** Tabla de tamaños §4.2: Java 545 > 350 y .NET 1 858 > 400; pendientes de `PAT-VM`.
+
 ## 10. Referencias
 
-- Evidencia de cada afirmación: [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md).
+- Evidencia de cada afirmación: [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md).
 - Tareas con estado y prioridad: [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md).
 - IDs normativos: [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md).
 - Textos exactos de la UI: [`DIAGRAMAS/textos-ui.md`](DIAGRAMAS/textos-ui.md).

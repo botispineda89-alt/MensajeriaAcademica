@@ -23,7 +23,7 @@ class ConstructorRecientesTest {
     }
 
     private static RecienteChat reciente(String otro, String fecha) {
-        return new RecienteChat(otro, "hola", "MENSAJE_TEXTO", fecha, 0, false);
+        return new RecienteChat(otro, "hola", "MENSAJE_TEXTO", fecha, 0, false, false);
     }
 
     @Test
@@ -81,5 +81,28 @@ class ConstructorRecientesTest {
 
         assertEquals(1, salida.size());
         assertEquals("hola", salida.get(0).ultimoContenido());
+    }
+
+    @Test
+    void conservaSiElUltimoMensajeLoEscribiYo() {
+        // R1: la presencia viene del directorio y el flag de autoría del
+        // historial. Fusionar una con otra no puede perder el prefijo "Tú: ".
+        List<RecienteChat> base = List.of(
+                new RecienteChat("B002", "hola", "MENSAJE_TEXTO", "2026-10-07T10:00", 0, false, true));
+        List<UsuarioLocal> directorio = List.of(usuario("B002", true));
+
+        List<RecienteChat> salida = ConstructorRecientes.armar(base, directorio, "A001");
+
+        assertTrue(salida.get(0).ultimoPropio(), "el flag propio debe sobrevivir a la fusión");
+        assertTrue(salida.get(0).conectado(), "y la presencia seguir calculándose aparte");
+    }
+
+    @Test
+    void unContactoSinConversacionNoEsPropio() {
+        List<UsuarioLocal> directorio = List.of(usuario("B002", true));
+
+        List<RecienteChat> salida = ConstructorRecientes.armar(List.of(), directorio, "A001");
+
+        assertFalse(salida.get(0).ultimoPropio());
     }
 }

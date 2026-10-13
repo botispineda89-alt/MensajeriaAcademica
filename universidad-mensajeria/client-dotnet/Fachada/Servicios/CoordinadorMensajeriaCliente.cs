@@ -65,23 +65,32 @@ namespace Mensajeria.Fachada.Servicios
         }
 
         public async Task<bool> EnviarImagenAsync(IConexionRed conexion, string remitente,
-            string destinatario, string imagePath)
+            string destinatario, string imagePath, string? pie = null)
         {
+            long longitud = new FileInfo(imagePath).Length;
+            if (longitud > CatalogoAdjuntos.MaxBytesImagenTramaUnica)
+                throw new ArgumentException("la imagen supera el límite de envío directo de 12 MB");
             byte[] bytes = await File.ReadAllBytesAsync(imagePath).ConfigureAwait(false);
             if (bytes.Length == 0) throw new ArgumentException("la imagen esta vacia");
             var historial = _historialActual();
             var id = Guid.NewGuid().ToString();
             var fecha = DateTime.UtcNow.ToString("O");
             var nombre = Path.GetFileName(imagePath);
+            // El texto que accompanies a la imagen viaja como pie/caption en el
+            // `contenido` del MISMO MENSAJE_IMAGEN (misma burbuja), no como un
+            // segundo mensaje. El servidor lo persiste tal cual y lo reenvia.
+            var caption = string.IsNullOrWhiteSpace(pie) ? null : pie!.Trim();
             historial?.UpsertMensaje(id, remitente, destinatario,
-                TipoMensaje.MENSAJE_IMAGEN, "[Imagen]", null, null, null,
-                nombre, imagePath, bytes.Length, fecha, 1, 1, "PENDIENTE");
+                TipoMensaje.MENSAJE_IMAGEN, null, null, null, null,
+                nombre, imagePath, bytes.Length, fecha, 1, 1, "PENDIENTE",
+                null, null, caption);
             var mensaje = new Dictionary<string, object?>
             {
                 { "id", id },
                 { "tipo", TipoMensaje.MENSAJE_IMAGEN },
                 { "remitente", remitente },
                 { "destinatario", destinatario },
+                { "contenido", caption },
                 { "contenidoImagen", Convert.ToBase64String(bytes) },
                 { "nombreArchivo", nombre },
                 { "tamanoArchivo", bytes.Length },
@@ -93,91 +102,193 @@ namespace Mensajeria.Fachada.Servicios
                 var aceptada = ExigirAceptado(respuesta, "envio rechazado",
                     TipoMensaje.IMAGE_FILTERED_RESULT);
                 historial?.UpsertMensaje(id, remitente, destinatario,
-                    TipoMensaje.MENSAJE_IMAGEN, "[Imagen]", aceptada.HashSha256,
+                    TipoMensaje.MENSAJE_IMAGEN, null, aceptada.HashSha256,
                     null, null, nombre, imagePath, bytes.Length, fecha, 1, 1,
-                    "ENVIADO", aceptada.ArchivoId, aceptada.EtapasFiltrado);
+                    "ENVIADO", aceptada.ArchivoId, aceptada.EtapasFiltrado, caption);
                 return true;
             }
             catch (Exception error) when (EsFalloTransporte(error))
             {
+                // El pendiente lleva el pie en `contenido` y los bytes en payload.
                 historial?.RegistrarPendiente(id, TipoMensaje.MENSAJE_IMAGEN, remitente,
-                    destinatario, null, nombre, bytes, fecha);
+                    destinatario, caption, nombre, bytes, fecha);
                 return false;
+            }
+            catch
+            {
+                historial?.MarcarEstado(id, "ERROR");
+                throw;
             }
         }
 
         public async Task<bool> EnviarArchivoAsync(IConexionRed conexion, string remitente,
             string destinatario, string rutaArchivo, IProgress<double>? progreso = null,
-            CancellationToken cancelacion = default)
+            CancellationToken cancelacion = default, string? pie = null)
         {
             if (string.IsNullOrEmpty(rutaArchivo) || !File.Exists(rutaArchivo))
                 throw new ArgumentException("archivo no encontrado");
-            byte[] bytes = await File.ReadAllBytesAsync(rutaArchivo, cancelacion).ConfigureAwait(false);
-            if (bytes.Length == 0) throw new ArgumentException("el archivo esta vacio");
-            if (bytes.Length > IFachadaCliente.MaxBytesArchivo) throw new ArgumentException(
+            var info = new FileInfo(rutaArchivo);
+            long tamano = info.Length;
+            if (tamano == 0) throw new ArgumentException("el archivo esta vacio");
+            if (tamano > IFachadaCliente.MaxBytesArchivo) throw new ArgumentException(
                 $"el archivo supera el maximo de {IFachadaCliente.MaxBytesArchivo} bytes");
+            await using var contenido = new FileStream(rutaArchivo, FileMode.Open, FileAccess.Read,
+                FileShare.Read, ParteArchivoBytes, FileOptions.Asynchronous | FileOptions.SequentialScan);
             var historial = _historialActual();
             var id = Guid.NewGuid().ToString();
             var fecha = DateTime.UtcNow.ToString("O");
             var nombre = Path.GetFileName(rutaArchivo);
+            // Igual que en imagen: el texto que acompaña al archivo es su pie y
+            // viaja en la misma burbuja, no en un segundo mensaje.
+            var caption = string.IsNullOrWhiteSpace(pie) ? null : pie!.Trim();
             historial?.UpsertMensaje(id, remitente, destinatario,
-                TipoMensaje.MENSAJE_ARCHIVO, $"[Archivo: {nombre}]", null, null, null,
-                nombre, rutaArchivo, bytes.Length, fecha, 1, 1, "PENDIENTE");
+                TipoMensaje.MENSAJE_ARCHIVO, null, null, null, null,
+                nombre, rutaArchivo, tamano, fecha, 1, 1, "PENDIENTE",
+                null, null, caption);
             try
             {
-                await EnviarFragmentosAsync(conexion, remitente, destinatario, nombre,
-                    MimePorExtension(rutaArchivo), bytes, id, fecha, progreso, cancelacion)
-                    .ConfigureAwait(false);
+                await EnviarFragmentosConStreamAsync(conexion, remitente, destinatario, nombre,
+                    CatalogoAdjuntos.Mime(rutaArchivo), contenido, id, fecha, tamano,
+                    progreso, cancelacion, caption).ConfigureAwait(false);
                 historial?.UpsertMensaje(id, remitente, destinatario,
-                    TipoMensaje.MENSAJE_ARCHIVO, $"[Archivo: {nombre}]", null, null, null,
-                    nombre, rutaArchivo, bytes.Length, fecha, 1, 1, "ENVIADO");
+                    TipoMensaje.MENSAJE_ARCHIVO, null, null, null, null,
+                    nombre, rutaArchivo, tamano, fecha, 1, 1, "ENVIADO",
+                    null, null, caption);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                // La transferencia incompleta no se reintenta automáticamente.
+                historial?.MarcarEstado(id, "ERROR");
+                throw;
             }
             catch (Exception error) when (EsFalloTransporte(error))
             {
-                historial?.RegistrarPendiente(id, TipoMensaje.MENSAJE_ARCHIVO, remitente,
-                    destinatario, null, nombre, bytes, fecha);
+                try
+                {
+                    byte[] payload = await File.ReadAllBytesAsync(rutaArchivo).ConfigureAwait(false);
+                    historial?.RegistrarPendiente(id, TipoMensaje.MENSAJE_ARCHIVO, remitente,
+                        destinatario, caption, nombre, payload, fecha);
+                }
+                catch
+                {
+                    historial?.MarcarEstado(id, "ERROR");
+                    throw;
+                }
                 return false;
             }
+            catch
+            {
+                historial?.MarcarEstado(id, "ERROR");
+                throw;
+            }
         }
+
+        public Task<bool> EnviarArchivoAsync(IConexionRed conexion, string remitente,
+            string destinatario, AdjuntoPendiente adjunto, IProgress<double>? progreso,
+            CancellationToken cancelacion) =>
+            EnviarArchivoAsync(conexion, remitente, destinatario, adjunto.Ruta,
+                progreso, cancelacion);
 
         /// <summary>Reutiliza el mismo protocolo para reenviar archivos pendientes.</summary>
         internal Task EnviarFragmentosAsync(IConexionRed conexion, string remitente,
             string destinatario, string nombre, string mime, byte[] bytes, string id,
-            string fecha, IProgress<double>? progreso, CancellationToken cancelacion) =>
+            string fecha, IProgress<double>? progreso, CancellationToken cancelacion,
+            string? pie = null) =>
             EnviarFragmentosPrivadoAsync(conexion, remitente, destinatario, nombre,
-                mime, bytes, id, fecha, progreso, cancelacion);
+                mime, bytes, id, fecha, progreso, cancelacion, pie);
 
         internal static string MimePorExtension(string ruta) =>
-            Path.GetExtension(ruta).ToLowerInvariant() switch
-            {
-                ".pdf" => "application/pdf",
-                ".png" => "image/png",
-                ".jpg" or ".jpeg" => "image/jpeg",
-                ".gif" => "image/gif",
-                ".bmp" => "image/bmp",
-                ".txt" => "text/plain",
-                _ => "application/octet-stream"
-            };
+            CatalogoAdjuntos.Mime(ruta);
 
-        private static async Task EnviarFragmentosPrivadoAsync(IConexionRed conexion,
-            string remitente, string destinatario, string nombre, string mime,
-            byte[] bytes, string id, string fecha, IProgress<double>? progreso,
-            CancellationToken cancelacion)
+        internal static async Task EnviarFragmentosConStreamAsync(IConexionRed conexion,
+            string remitente, string destinatario, string nombre, string mime, Stream contenido,
+            string id, string fecha, long tamano, IProgress<double>? progreso,
+            CancellationToken cancelacion, string? pie = null)
         {
-            int totalPartes = (bytes.Length + ParteArchivoBytes - 1) / ParteArchivoBytes;
+            int totalPartes = (int)((tamano + ParteArchivoBytes - 1) / ParteArchivoBytes);
+            TimeSpan esperaArchivo = TimeSpan.FromSeconds(45);
             var inicio = await conexion.Pedir(new Dictionary<string, object?>
             {
                 { "id", id },
                 { "tipo", TipoMensaje.ARCHIVO_INICIO },
                 { "remitente", remitente },
                 { "destinatario", destinatario },
+                { "contenido", pie },
+                { "nombreArchivo", nombre },
+                { "mime", mime },
+                { "tamanoArchivo", tamano },
+                { "totalPartes", totalPartes },
+                { "fechaHora", fecha }
+            }, esperaArchivo).ConfigureAwait(false);
+            ExigirAceptado(inicio, "envio rechazado", TipoMensaje.ACK);
+
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            byte[] buffer = new byte[ParteArchivoBytes];
+            for (int i = 0; i < totalPartes; i++)
+            {
+                cancelacion.ThrowIfCancellationRequested();
+                int requeridos = (int)Math.Min(ParteArchivoBytes, tamano - (long)i * ParteArchivoBytes);
+                int leidos = 0;
+                while (leidos < requeridos)
+                {
+                    int n = await contenido.ReadAsync(buffer.AsMemory(leidos, requeridos - leidos),
+                        cancelacion).ConfigureAwait(false);
+                    if (n == 0) throw new IOException("El archivo cambió durante el envío.");
+                    leidos += n;
+                }
+
+                hash.AppendData(buffer, 0, requeridos);
+                string base64 = Convert.ToBase64String(buffer, 0, requeridos);
+                var parte = await conexion.Pedir(new Dictionary<string, object?>
+                {
+                    { "id", id },
+                    { "tipo", TipoMensaje.ARCHIVO_PARTE },
+                    { "remitente", remitente },
+                    { "archivoId", id },
+                    { "indiceParte", i },
+                    { "contenidoImagen", base64 },
+                    { "fechaHora", fecha }
+                }, esperaArchivo).ConfigureAwait(false);
+                ExigirAceptado(parte, "envio rechazado", TipoMensaje.ACK);
+                progreso?.Report((double)(i + 1) / totalPartes);
+            }
+
+            string digest = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+            var fin = await conexion.Pedir(new Dictionary<string, object?>
+            {
+                { "id", id },
+                { "tipo", TipoMensaje.ARCHIVO_FIN },
+                { "remitente", remitente },
+                { "archivoId", id },
+                { "hashSha256", digest },
+                { "fechaHora", fecha }
+            }, esperaArchivo).ConfigureAwait(false);
+            ExigirAceptado(fin, "envio rechazado", TipoMensaje.ACK);
+        }
+
+        private static async Task EnviarFragmentosPrivadoAsync(IConexionRed conexion,
+            string remitente, string destinatario, string nombre, string mime,
+            byte[] bytes, string id, string fecha, IProgress<double>? progreso,
+            CancellationToken cancelacion, string? pie = null)
+        {
+            int totalPartes = (bytes.Length + ParteArchivoBytes - 1) / ParteArchivoBytes;
+            TimeSpan esperaArchivo = TimeSpan.FromSeconds(45);
+            var inicio = await conexion.Pedir(new Dictionary<string, object?>
+            {
+                { "id", id },
+                { "tipo", TipoMensaje.ARCHIVO_INICIO },
+                { "remitente", remitente },
+                { "destinatario", destinatario },
+                // Pie/caption del archivo: viaja en el `contenido` del INICIO
+                // (los servidores que no lo conocen lo ignoran).
+                { "contenido", pie },
                 { "nombreArchivo", nombre },
                 { "mime", mime },
                 { "tamanoArchivo", (long)bytes.Length },
                 { "totalPartes", totalPartes },
                 { "fechaHora", fecha }
-            }).ConfigureAwait(false);
+            }, esperaArchivo).ConfigureAwait(false);
             ExigirAceptado(inicio, "envio rechazado", TipoMensaje.ACK);
             for (int i = 0; i < totalPartes; i++)
             {
@@ -194,7 +305,7 @@ namespace Mensajeria.Fachada.Servicios
                     { "indiceParte", i },
                     { "contenidoImagen", base64 },
                     { "fechaHora", fecha }
-                }).ConfigureAwait(false);
+                }, esperaArchivo).ConfigureAwait(false);
                 ExigirAceptado(parte, "envio rechazado", TipoMensaje.ACK);
                 progreso?.Report((double)(i + 1) / totalPartes);
             }
@@ -208,7 +319,7 @@ namespace Mensajeria.Fachada.Servicios
                 { "archivoId", id },
                 { "hashSha256", hash },
                 { "fechaHora", fecha }
-            }).ConfigureAwait(false);
+            }, esperaArchivo).ConfigureAwait(false);
             ExigirAceptado(fin, "envio rechazado", TipoMensaje.ACK);
         }
 

@@ -20,7 +20,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -28,14 +27,11 @@ import javafx.scene.input.KeyEvent;
 import javafx.util.Duration;
 import universidad.mensajeria.cliente.presentacion.celdas.MensajeCell;
 import universidad.mensajeria.cliente.presentacion.celdas.UsuarioCell;
-import universidad.mensajeria.cliente.presentacion.comandos.EnviarMensajeComando;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 import universidad.mensajeria.cliente.transversal.records.RecienteChat;
 import universidad.mensajeria.cliente.transversal.EstadoConexion;
 import universidad.mensajeria.cliente.presentacion.celdas.FilaChat;
 import universidad.mensajeria.cliente.transversal.records.UsuarioLocal;
-import universidad.mensajeria.cliente.transversal.utilerias.FormatoRespuesta;
-import universidad.mensajeria.cliente.transversal.utilerias.TextoCliente;
 import universidad.mensajeria.cliente.transversal.records.EventoCliente;
 
 /** Presentación JavaFX: no accede directamente a red ni a persistencia. */
@@ -63,12 +59,18 @@ public final class ChatController implements FlujoConversacion {
     @FXML private ListView<RecienteChat> listaUsuarios;
     @FXML private ListView<FilaChat> listaMensajes;
     @FXML private SplitPane divisorPrincipal;
-    @FXML private ImageView vistaPrevia;
+    @FXML private javafx.scene.layout.FlowPane listaAdjuntos;
     @FXML private Button botonMas;
     @FXML private Button botonNuevos;
     @FXML private javafx.scene.control.ProgressIndicator ruedaHistorial;
     @FXML private Button botonEnviar;
     @FXML private Label bannerOffline;
+    /** UIX-26: aviso transitorio con título, texto y ✕ (paridad con .NET). */
+    @FXML private javafx.scene.layout.HBox avisoInline;
+    @FXML private Label avisoInlineTitulo;
+    @FXML private Label avisoInlineTexto;
+    /** UIX-26/PAT-VM: el cableado del aviso vive en su propio colaborador. */
+    private AvisosInlineChat avisos;
 
     private final Executor tareasFondo;
     private final InterfazNavegacionCliente navegacion;
@@ -83,10 +85,14 @@ public final class ChatController implements FlujoConversacion {
     private final Consumer<EstadoConexion> alCambiarEstado = this::pintarEstadoConexion;
     private final SaltoBusquedaPendiente salto = new SaltoBusquedaPendiente();
     private PaginadorHistorialChat paginador;
+    private NavegadorCitaChat navegadorCitas;
+    private ConfiguradorCeldasChat configuradorCeldas;
     private BusquedaHistorialChat busqueda;
     private RefrescadorContactosChat contactos;
     private GestorSalidaSesionChat salida;
     private CargadorAdjuntoEntradaChat adjuntosEntrada;
+    private ChatEnvioAccion envioAccion;
+    private ChatRespuestaAccion respuestaAccion;
     private volatile boolean controladorDetenido;
     private volatile EstadoConexion ultimoEstadoConexion = EstadoConexion.SIN_RED;
     private final ObservableList<RecienteChat> todos;
@@ -126,10 +132,10 @@ public final class ChatController implements FlujoConversacion {
 
     @FXML
     private void initialize() {
+        avisos = new AvisosInlineChat(avisoInline, avisoInlineTitulo, avisoInlineTexto);
         crearGestorAdjuntos();
         crearHistorial();
         crearContactos();
-        configurarCeldas();
         configurarTema();
         configurarAtajos();
         configurarBindings();
@@ -138,6 +144,16 @@ public final class ChatController implements FlujoConversacion {
         configurarDivisorPrincipal();
         actualizarBannerOffline();
         contactos.configurar();
+
+        // Colaboradores de acciones de UI (PAT-VM)
+        envioAccion = new ChatEnvioAccion(viewModel, tareasFondo, adjuntosEntrada, paginador,
+                this::estado, this::mostrarAvisoInline, this::seleccionado, enviando, this::pedirFocoEntrada);
+        respuestaAccion = new ChatRespuestaAccion(viewModel, this::nombreVisible,
+                this::actualizarEtiquetaRespuesta, this::pedirFocoEntrada);
+    }
+
+    private void actualizarEtiquetaRespuesta(String quote) {
+        etiquetaRespuesta.setText(quote);
     }
 
     /** Conserva el ancho del sidebar aislado por cuenta, como los otros clientes. */
@@ -158,7 +174,7 @@ public final class ChatController implements FlujoConversacion {
     private void crearGestorAdjuntos() {
         gestorAdjuntos = fabricaAdjuntos.crear(viewModel, tareasFondo, listaMensajes,
                 this::seleccionado, this::estado);
-        adjuntosEntrada = new CargadorAdjuntoEntradaChat(vistaPrevia, listaMensajes,
+        adjuntosEntrada = new CargadorAdjuntoEntradaChat(listaAdjuntos, listaMensajes,
                 etiquetaAdjunto, viewModel, tareasFondo, this::estado);
     }
 
@@ -202,24 +218,16 @@ public final class ChatController implements FlujoConversacion {
         paginador = new PaginadorHistorialChat(listaMensajes, botonMas, botonNuevos,
                 ruedaHistorial, gestorAdjuntos, viewModel, tareasFondo, this::seleccionado,
                 this::estado, salto, busqueda::saltarA, LIMITE_PAGINA);
+        navegadorCitas = new NavegadorCitaChat(listaMensajes, viewModel, gestorAdjuntos,
+                paginador, ruedaHistorial, tareasFondo, this::seleccionado,
+                this::nombreVisible, this::estado);
+        configuradorCeldas = new ConfiguradorCeldasChat(listaMensajes, listaUsuarios,
+                navegadorCitas, gestorAdjuntos, busqueda, this::nombreVisible,
+                this::alResponder, this::seleccionado);
+        configuradorCeldas.configurar();
     }
 
-    private void configurarCeldas() {
-        listaUsuarios.setCellFactory(v -> new UsuarioCell(this::nombreVisible));
-        listaMensajes.setCellFactory(v -> new MensajeCell(gestorAdjuntos::cargarImagenVisible,
-                gestorAdjuntos::reintentarImagen, this::alResponder, this::nombreVisible,
-                gestorAdjuntos::imagenFallida, gestorAdjuntos::descargarArchivo,
-                busqueda::patronActual));
-        listaMensajes.widthProperty().addListener((o, a, b) -> listaMensajes.refresh());
-        listaMensajes.setPlaceholder(placeholder("Sin mensajes aún. Escribe el primero."));
-        listaUsuarios.setPlaceholder(placeholder("Sin contactos todavía."));
-    }
-
-    private static Label placeholder(String texto) {
-        Label aviso = new Label(texto);
-        aviso.getStyleClass().add("empty-placeholder");
-        return aviso;
-    }
+    
 
     private void configurarTema() {
         comboTema.setItems(FXCollections.observableArrayList("Oscuro", "Claro"));
@@ -246,6 +254,12 @@ public final class ChatController implements FlujoConversacion {
     /** FlujoConversacion: la selección prepara estado y carga mensajes. */
     @Override
     public void alSeleccionar(RecienteChat actual) {
+        if (configuradorCeldas != null) {
+            configuradorCeldas.cancelarNavegacionCita();
+        }
+        // R3: los adjuntos pendientes eran del chat anterior. Sin esto, un archivo
+        // elegido para Joan se enviaría a Sofia sin que nadie lo pidiera.
+        adjuntosEntrada.limpiar();
         Preferences.userNodeForPackage(ChatController.class)
                 .put("ultimoChat_" + viewModel.codigoActual(), actual.otro());
         viewModel.setOffsetActual(0);
@@ -277,7 +291,8 @@ public final class ChatController implements FlujoConversacion {
                 viewModel.respuestaSeleccionadaProperty().isNotNull());
         etiquetaAdjunto.visibleProperty().bind(adjuntoDisponible);
         etiquetaAdjunto.managedProperty().bind(etiquetaAdjunto.visibleProperty());
-        vistaPrevia.visibleProperty().bind(adjuntoDisponible);
+        // R3: la tira de miniaturas se pinta/limpia desde CargadorAdjuntoEntradaChat,
+        // no con un binding: su contenido depende de cuántos adjuntos haya.
     }
 
     private void suscribirModelo() {
@@ -288,6 +303,12 @@ public final class ChatController implements FlujoConversacion {
 
     public void detener() {
         controladorDetenido = true;
+        if (configuradorCeldas != null) {
+            configuradorCeldas.detener();
+        }
+        if (navegadorCitas != null) {
+            navegadorCitas.cancelar();
+        }
         contactos.detenerRespaldo();
         if (gestorAdjuntos != null) {
             gestorAdjuntos.detener();
@@ -312,45 +333,27 @@ public final class ChatController implements FlujoConversacion {
 
     @FXML
     private void alEnviar() {
-        String destino = seleccionado();
-        String texto = campoEntrada.getText() == null ? "" : campoEntrada.getText().trim();
-        byte[] adjunto = viewModel.adjuntoBytes();
-        String nombre = viewModel.adjuntoNombre();
-        if (!puedeEnviar(texto, adjunto != null, destino != null, enviando.get())) {
-            return;
+        if (envioAccion != null && envioAccion.intentarEnviar(campoEntrada.getText())) {
+            campoEntrada.clear();
         }
-        MensajeLocal respuesta = viewModel.respuestaSeleccionada();
-        enviando.set(true);
-        campoEntrada.clear();
-        adjuntosEntrada.limpiar();
-        cancelarRespuesta();
-        new EnviarMensajeComando(viewModel, tareasFondo, destino, texto, adjunto, nombre,
-                respuesta, this::alEnvioTerminado, this::alEnvioFallido).ejecutar();
-    }
-
-    private void alEnvioTerminado(boolean enRed) {
-        enviando.set(false);
-        estado(enRed ? "Enviado" : "Sin red: guardado para reintentar");
-        paginador.cargarConversacion();
-        pedirFocoEntrada();
-    }
-
-    private void alEnvioFallido(String detalle) {
-        enviando.set(false);
-        estado("No se completó el envío: " + detalle);
-        paginador.cargarConversacion();
-        pedirFocoEntrada();
     }
 
     @FXML
     private void alTeclaEntrada(KeyEvent evento) {
         if (evento.getCode() == KeyCode.ESCAPE) {
-            cancelarRespuesta();
+            if (respuestaAccion != null) {
+                respuestaAccion.cancelar();
+            }
             adjuntosEntrada.limpiar();
             evento.consume();
             return;
         }
-        if (evento.getCode() == KeyCode.ENTER && !evento.isShiftDown()
+        // R2: Enter envía. Shift+Enter NO entra en esta rama y su evento no se
+        // consume: eso es lo que deja que el TextArea inserte su "\n".
+        // El "doble envío" del defaultButton del botón no es un bug: alEnviar
+        // pone `enviando` de forma síncrona y la segunda llamada es un no-op.
+        if (TecladoCompositor.debeEnviar(evento.getCode(), evento.isShiftDown(),
+                evento.isControlDown(), evento.isAltDown())
                 && botonEnviar != null && !botonEnviar.isDisabled()) {
             evento.consume();
             alEnviar();
@@ -358,21 +361,15 @@ public final class ChatController implements FlujoConversacion {
     }
 
     private void alResponder(MensajeLocal mensaje) {
-        viewModel.seleccionarRespuesta(mensaje);
-        String quote = TextoCliente.truncarCita(
-                FormatoRespuesta.prefijo(mensaje, nombreVisible(mensaje.origen())));
-        etiquetaRespuesta.setText(quote);
-        javafx.application.Platform.runLater(() -> {
-            if (campoEntrada != null) {
-                campoEntrada.requestFocus();
-            }
-        });
+        if (respuestaAccion != null) {
+            respuestaAccion.responderA(mensaje);
+        }
     }
 
-    @FXML private void alCancelarRespuesta() { cancelarRespuesta(); }
-
-    private void cancelarRespuesta() {
-        viewModel.cancelarRespuesta();
+    @FXML private void alCancelarRespuesta() {
+        if (respuestaAccion != null) {
+            respuestaAccion.cancelar();
+        }
     }
 
     @FXML
@@ -516,6 +513,23 @@ public final class ChatController implements FlujoConversacion {
     }
 
     /**
+     * UIX-26: muestra un aviso que <b>se quita solo</b>. El cableado JavaFX vive
+     * en {@link AvisosInlineChat} y la decisión de plazo en {@link EstadoAvisoInline}.
+     */
+    void mostrarAvisoInline(String texto, TipoAviso tipo) {
+        if (avisos != null) {
+            avisos.mostrar(texto, tipo);
+        }
+    }
+
+    @FXML
+    void alCerrarAvisoInline() {
+        if (avisos != null) {
+            avisos.limpiar();
+        }
+    }
+
+    /**
      * PAT-03/UIX-00c: pinta el estado que publica la fachada. Llega en el hilo
      * de red, así que el salto a JavaFX es obligatorio. El banner ámbar aparece
      * en cuanto cae el socket, sin esperar al sondeo de 30 s.
@@ -538,6 +552,14 @@ public final class ChatController implements FlujoConversacion {
             }
             if (etiquetaEstado != null && !estado.equals(EstadoConexion.CONECTADO)) {
                 etiquetaEstado.setText(estado.texto());
+            }
+            // UIX-26: perder la conexión también se avisa en el aviso inline, que
+            // se retira solo. El bannerOffline de al lado se queda mientras siga
+            // sin red (refleja el estado); este es el "te pasó esto" puntual.
+            if (estado == EstadoConexion.SIN_RED && !controladorDetenido) {
+                mostrarAvisoInline(estado.texto(), TipoAviso.ADVERTENCIA);
+            } else if (restaurada && !controladorDetenido) {
+                mostrarAvisoInline("Conexión recuperada.", TipoAviso.EXITO);
             }
             if (restaurada && !controladorDetenido) {
                 alActualizar();

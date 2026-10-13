@@ -24,7 +24,7 @@ if %ERRORLEVEL% GEQ 8 (
 )
 
 echo [2/3] Verificando contenido minimo...
-for %%F in (main.py requirements.txt client.properties store\schema-local.sql fachada\fachada_cliente.py ui\chat_window.py ui\fondos\fondo_chat_claro.jpg ui\fondos\fondo_chat_oscuro.jpg) do (
+for %%F in (main.py requirements.txt client.properties store\schema-local.sql fachada\fachada_cliente.py ui\chat_window.py ui\fondos\fondo_chat_claro.jpg ui\fondos\fondo_chat_oscuro.jpg ui\iconos\pdf.png ui\iconos\xlsx.png ui\iconos\csv.png ui\iconos\json.png ui\iconos\docs.png) do (
     if not exist "%DIST%\%%F" (
         echo [ERROR] Falta %DIST%\%%F.
         exit /b 1

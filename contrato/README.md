@@ -31,7 +31,8 @@ El mismo color vivia en **7 sitios**: `chat.css`, `chat-claro.css`, `login.css`,
 | `puertos.json` | **Los 23 puertos**, con su equivalente en Python y C# |
 | `verificar_puertos.py` | Comprueba que el codigo Java cumple el contrato |
 | `test_puertos.py` | 12 tests que fallan si divergen |
-| `verificar.py` | Los 8 pasos, exit 0 o 1 |
+| `verificar_iconos.py` | Los 5 iconos por tipo de archivo son los mismos en los 3 clientes |
+| `verificar.py` | Los 9 pasos, exit 0 o 1 |
 
 ## La maquina de estados del mensaje
 
@@ -71,7 +72,10 @@ cliente y no en los otros dos.
 # Los puertos: el JSON es la especificacion, esto la contrasta con el codigo Java.
 .\universidad-mensajeria\client-python\.venv\Scripts\python.exe contrato\verificar_puertos.py
 
-# Todo: tokens + maquina de estados + puertos + las 3 suites + el build de WPF.
+# Los iconos por tipo de archivo: mismo dibujo y mismo catalogo en los 3 clientes.
+.\universidad-mensajeria\client-python\.venv\Scripts\python.exe contrato\verificar_iconos.py
+
+# Todo: tokens + maquina de estados + puertos + iconos + las 3 suites + el build de WPF.
 .\universidad-mensajeria\client-python\.venv\Scripts\python.exe contrato\verificar.py
 ```
 
@@ -116,8 +120,8 @@ universidad-mensajeria/client-python/ui/tema_tokens.py
 el JSON seria documentacion que nadie relee: el dia que se anada un metodo al
 puerto y no al contrato, nadie se entera.
 
-**No son 12 interfaces: son 23 puertos.** El recuento inicial solo miraba
-`client-interfaces`; hay 9 mas por `client-app` y `presentacion`:
+**No son 12 interfaces: son 23 puertos** (verificados el 2026-10-10 con `verificar_puertos.py`, exit 0).
+El recuento inicial solo miraba `client-interfaces`; hay 9 más por `client-app` y `presentacion`:
 
 ```
 Capa 1 · Adaptadores   InterfazConexionRed, ReceptorMensajes,
@@ -134,7 +138,9 @@ Capa 3 · Presentacion  InterfazChatViewModel, InterfazNavegacionCliente,
                        InterfazGestorAdjuntos, InterfazFabricaAdjuntos, FlujoConversacion
 ```
 
-177 metodos, 8 records, 2 enums, 6 excepciones. Cada puerto lleva su equivalente
+**202 métodos** (el lote de clientes de octubre añadió 11 firmas: `caption` en el envío de imagen y
+de archivo, el lote de adjuntos en `InterfazChatViewModel` y `GestorAdjuntosChat`), 8 records,
+2 enums, 6 excepciones. Cada puerto lleva su equivalente
 en Python y C#, marcado como `a crear` o `a tipar` segun toque la Fase 1.4 o la 2.
 
 Lo que el verificador comprueba: firmas exactas (en orden, como multiconjunto, para
@@ -149,6 +155,14 @@ haya cambiado.
 > trataban dos sobrecargas distintas como la misma al ordenar los parametros, y
 > confundian `java.util.List<X>` con `List<X>`. La mutacion (borrar un metodo del
 > JSON y comprobar que falla) es la que lo dejo trustworthy.
+
+## Estado de `verificar.py` (2026-10-11)
+
+`verificar.py` es la puerta de calidad del repositorio y **hoy sale con codigo 0** (los 9 pasos,
+comprobado ejecutandolo entero). El fallo del esquema de Python que la dejaba en 1
+(`test_copia_python_conserva_el_esquema_canonico`, invariante 14) ya no ocurre: la copia de
+`client-python/store/schema-local.sql` lleva la columna `caption`. Ver `ESTADO_ROADMAP.md` §5.8
+para el historial del asunto.
 
 ## Relacion con el plan
 

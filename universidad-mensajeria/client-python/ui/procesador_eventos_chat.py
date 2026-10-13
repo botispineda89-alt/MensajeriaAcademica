@@ -4,6 +4,7 @@ import uuid
 
 from PySide6.QtWidgets import QMessageBox
 
+from transversal import iconos_archivo
 from transversal.estado_conexion import CONECTADO, muestra_banner, texto as texto_estado
 from transversal.tipo_mensaje import TipoMensaje
 
@@ -29,28 +30,57 @@ class ProcesadorEventosChat:
         # arriba con preview e insignia, como en WhatsApp. Coalesce por ráfagas.
         self._programar_refresco_recientes()
         remitente = mensaje.get("remitente")
-        if remitente == self.usuario_seleccionado:
+        propio = remitente == self.codigo
+        conversacion = (
+            mensaje.get("destinatario") if propio else remitente
+        )
+        if conversacion and conversacion == self.usuario_seleccionado:
             id_mensaje = mensaje.get("id") or str(uuid.uuid4())
-            if id_mensaje not in self._historial_ids:
+            existente = self._mensaje_por_id(id_mensaje)
+            if existente is not None:
+                if propio:
+                    existente.update({
+                        "sender": "Tú",
+                        "is_own": True,
+                        "state": self._estado_visible("ENVIADO"),
+                        "raw_state": "ENVIADO",
+                    })
+                existente["archivo_id"] = mensaje.get(
+                    "archivoId", existente.get("archivo_id"))
+                self._modelo_mensajes.refrescar(id_mensaje)
+            else:
                 usuario = next((u for u in self._directorio if u.get("codigo") == remitente), {})
                 nombre = " ".join(filter(None, [usuario.get("nombres"), usuario.get("apellidos")])).strip()
-                identidad = f"{nombre} [{remitente}]" if nombre else remitente
+                identidad = "Tú" if propio else (
+                    f"{nombre} [{remitente}]" if nombre else remitente)
                 es_imagen = tipo == TipoMensaje.MENSAJE_IMAGEN
                 es_archivo = tipo == TipoMensaje.MENSAJE_ARCHIVO
                 if es_archivo:
-                    texto_burbuja = f"📎 {mensaje.get('nombreArchivo') or 'archivo'}"
+                    nombre_archivo = mensaje.get("nombreArchivo") or "archivo"
+                    prefijo_archivo = "Enviado archivo" if propio else "Archivo"
+                    gancho = iconos_archivo.prefijo(nombre_archivo)
+                    texto_burbuja = f"{gancho}{prefijo_archivo}: {nombre_archivo}"
                 else:
                     texto_burbuja = "" if es_imagen else (mensaje.get("contenido") or "")
                 item = {
-                    "id": id_mensaje, "sender": identidad, "date": mensaje.get("fechaHora", ""),
+                    "id": id_mensaje, "sender": identidad,
+                    "date": mensaje.get("fechaHora", ""),
                     "text": texto_burbuja,
-                    "state": "", "raw_state": "", "is_own": False,
+                    "state": self._estado_visible("ENVIADO") if propio else "",
+                    "raw_state": "ENVIADO" if propio else "", "is_own": propio,
                     "is_image": es_imagen, "es_archivo": es_archivo,
                     "archivo_id": mensaje.get("archivoId"),
                     "etapas_filtrado": mensaje.get("etapasFiltrado"),
+                    "caption": (mensaje.get("contenido") or "")
+                    if es_imagen or es_archivo else "",
                     "filename": mensaje.get("nombreArchivo") or "",
                     "path": "", "image_loaded": False, "image_loading": False,
-                    "image_state": "Imagen", "image_base64": mensaje.get("contenidoImagen")
+                    "image_state": (
+                        f"Enviada imagen: {mensaje.get('nombreArchivo')}"
+                        if es_imagen and propio else
+                        f"Imagen: {mensaje.get('nombreArchivo') or 'imagen'}"
+                        if es_imagen else ""),
+                    "image_base64": mensaje.get("contenidoImagen")
                 }
                 self._historial_ids.add(id_mensaje)
                 self._agregar_fila(item)
@@ -59,9 +89,11 @@ class ProcesadorEventosChat:
                     self.lista_mensajes.scrollToBottom()
                 else:
                     self._avisar_nuevo()
-            self._solicitar_historial(remitente, 0)
-            if hasattr(self.fachada, "marcar_leidos"):
-                self._ejecutar("marcar_leidos", lambda: self.fachada.marcar_leidos(remitente))
+            self._solicitar_historial(conversacion, 0)
+            if not propio and hasattr(self.fachada, "marcar_leidos"):
+                self._ejecutar(
+                    "marcar_leidos",
+                    lambda: self.fachada.marcar_leidos(conversacion))
 
     def _procesar_desconexion(self):
         # PAT-03: el estado lo lleva _procesar_estado_conexion. Aquí solo queda

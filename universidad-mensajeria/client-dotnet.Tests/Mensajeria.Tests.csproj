@@ -14,6 +14,13 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <!-- Montaje y transcodificacion de imagenes viven en Transversal/ sin WPF,
+         asi que los tests necesitan el mismo decodificador que la app. -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.153.1" />
+    <!-- FORMATOS-01: TranscodificadorImagen lleva AVIF/HEIC/SVG a PNG vía
+         ImageMagick; los tests que lo ejercitan necesitan el mismo paquete. -->
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
   </ItemGroup>
 
   <!-- Se compilan las fuentes no-UI del cliente (sin Views/App.xaml) -->
@@ -49,6 +56,15 @@
        fichero, los tests validan el esquema que se distribuye. -->
   <ItemGroup>
     <None Include="..\client-dotnet\Store\schema-local.sql" Link="Store\schema-local.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- FORMATOS-02: los PNG de los iconos por tipo. Se enlazan los mismos que
+       distribuye la app para que el test compruebe que el catalogo no apunta a
+       un dibujo que no se copia a la salida. -->
+  <ItemGroup>
+    <None Include="..\client-dotnet\Iconos\*.png" Link="Iconos\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

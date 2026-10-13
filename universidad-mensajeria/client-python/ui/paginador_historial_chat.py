@@ -2,6 +2,7 @@
 
 from PySide6.QtWidgets import QAbstractItemView
 
+from transversal import iconos_archivo
 from transversal.fechas import agrupar, clave_dia, etiqueta_dia
 from transversal.tipo_mensaje import TipoMensaje
 from ui.lista_virtual import ROL_ITEM
@@ -121,6 +122,9 @@ class PaginadorHistorialChat:
                         if fila.get("etapas_filtrado"):
                             existente["etapas_filtrado"] = fila["etapas_filtrado"]
                             self._modelo_mensajes.refrescar(id_mensaje)
+                        if fila.get("caption"):
+                            existente["caption"] = fila["caption"]
+                            self._modelo_mensajes.refrescar(id_mensaje)
                     continue
                 if id_mensaje:
                     self._historial_ids.add(id_mensaje)
@@ -172,7 +176,14 @@ class PaginadorHistorialChat:
         else:
             tamano_str = ""
         if es_archivo:
-            texto_burbuja = f"📎 {nombre_arch}  ({tamano_str})" if nombre_arch else "[Archivo]"
+            prefijo = "Enviado archivo" if fila.get("origen") == self.codigo else "Archivo"
+            detalle = f" · {tamano_str}" if tamano_str else ""
+            # FORMATOS-02: si el tipo tiene icono propio, el delegado lo pinta
+            # grande y el 📎 genérico del texto sobra (doble icono).
+            gancho = iconos_archivo.prefijo(nombre_arch)
+            texto_burbuja = (
+                f"{gancho}{prefijo}: {nombre_arch}{detalle}"
+                if nombre_arch else f"{gancho}{prefijo}")
         elif es_imagen:
             texto_burbuja = ""
         else:
@@ -186,11 +197,16 @@ class PaginadorHistorialChat:
             "raw_state": raw_state if is_own else "",
             "is_own": is_own,
             "is_image": es_imagen, "es_archivo": es_archivo,
+            "caption": fila.get("caption") or "",
             "archivo_id": fila.get("archivo_id"),
             "etapas_filtrado": fila.get("etapas_filtrado"),
             "filename": nombre_arch, "path": fila.get("ruta_archivo") or "",
             "image_loaded": False, "image_loading": False,
-            "image_state": "Imagen" if es_imagen else "",
+            "image_state": (
+                f"Enviada imagen: {nombre_arch}" if es_imagen and is_own
+                else f"Imagen: {nombre_arch}" if es_imagen and nombre_arch
+                else "Enviada imagen" if es_imagen else ""
+            ),
             "mostrar_remitente": True,
             "_cruda": fila,
         }

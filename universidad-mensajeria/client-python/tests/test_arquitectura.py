@@ -162,7 +162,7 @@ class TestRecordsIgualesAlContrato(unittest.TestCase):
 
     def test_cuentas_de_componentes_del_contrato(self):
         contrato = _records_del_contrato()
-        esperadas = {"MensajeLocal": 17, "RecienteChat": 6,
+        esperadas = {"MensajeLocal": 18, "RecienteChat": 6,
                      "PendienteEnvio": 10, "UsuarioLocal": 7,
                      "PaginaHistorialRemota": 3, "EventoCliente": 3}
         for nombre, cuenta in esperadas.items():

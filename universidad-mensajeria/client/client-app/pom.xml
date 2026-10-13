@@ -61,6 +61,37 @@
             <artifactId>gson</artifactId>
         </dependency>
 
+        <!-- UIX-27 / PLAN_AMBOS 2.2: lector WebP para ImageIO (plugin SPI puro,
+             BSD-3). Sin esto ni JavaFX ni ImageIO saben abrir un .webp, y el
+             servidor lo rechaza por magic bytes, asi que el unico sitio donde
+             el .webp se puede recuperar es aqui: se transcodifica a PNG y a
+             partir de ahi es una imagen normal para los tres clientes.
+             TwelveMonkeys se registra solo por META-INF/services: no hay que
+             llamar a ImageIO.scanForPlugins(). -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.12.0</version>
+        </dependency>
+
+        <!-- FORMATOS-01: rasterizador SVG (Apache-2, un solo jar puro). Un SVG
+             no es un stream de ImageIO, asi que TranscodificadorImagen lo pinta
+             sobre un Graphics2D para llevarlo a PNG solo para la vista. -->
+        <dependency>
+            <groupId>com.github.weisj</groupId>
+            <artifactId>jsvg</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+
+        <!-- FORMATOS-01: puente con ImageMagick para lo que la pila del cliente
+             no abre (AVIF/HEIC si el SPI no cubre la variante). Misma herramienta
+             y autodeteccion que el servidor (DecodificadorMagick); Apache-2. -->
+        <dependency>
+            <groupId>org.im4java</groupId>
+            <artifactId>im4java</artifactId>
+            <version>1.4.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

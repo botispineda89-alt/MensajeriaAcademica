@@ -1,13 +1,15 @@
 package universidad.mensajeria.cliente.presentacion;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -21,35 +23,34 @@ import org.junit.jupiter.api.Test;
 import javafx.application.Platform;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
-import javafx.scene.image.ImageView;
+import javafx.scene.layout.FlowPane;
 import universidad.mensajeria.cliente.presentacion.celdas.FilaChat;
 import universidad.mensajeria.cliente.transversal.utilerias.TextoCliente;
 
 /**
- * El adjunto de entrada vive en su propio colaborador (SRP): lee en fondo,
- * prepara el adjunto en el ViewModel y limpia al enviar o quitar.
+ * R3: el adjunto de entrada elige VARIOS archivos, los lee en fondo y pinta una
+ * tira de miniaturas. Un archivo que no entra no tumba el resto del lote.
  */
 class AdjuntoEntradaChatTest {
 
-    private ImageView vistaPrevia;
+    private FlowPane tira;
     private ListView<FilaChat> lista;
     private Label etiqueta;
     private List<String> estados;
-    private List<String> llamadas;
-    private byte[] preparado;
+    private List<AdjuntoPendiente> agregados;
     private final Executor fondo = Runnable::run;
 
     @BeforeEach
     void montar() throws Exception {
         iniciarJavaFx();
         ejecutarEnJavaFx(() -> {
-            vistaPrevia = new ImageView();
+            tira = new FlowPane();
             lista = new ListView<>();
             etiqueta = new Label();
             return null;
         });
         estados = new ArrayList<>();
-        llamadas = new ArrayList<>();
+        agregados = new ArrayList<>();
     }
 
     @Test
@@ -63,10 +64,69 @@ class AdjuntoEntradaChatTest {
         });
         vaciarColaFx();
 
-        assertTrue(llamadas.contains("prepararAdjunto"));
-        assertEquals(tmp.getFileName().toString(), nombrePreparado());
-        assertEquals("contenido", new String(preparado()));
+        assertEquals(1, agregados.size());
+        assertEquals(tmp.getFileName().toString(), agregados.get(0).nombre());
+        assertEquals("contenido", new String(agregados.get(0).bytes()));
         Files.deleteIfExists(tmp);
+    }
+
+    @Test
+    void unWebpSeAdjuntaTalCualSinConvertirloAPng() throws Exception {
+        // UIX-27: el archivo tiene que viajar tal cual. Antes, al elegirlo, se
+        // transcodificaba a PNG y el receptor recibía un "foto.png" que nadie
+        // había enviado. El nombre, el mime y los bytes se respetan.
+        Path temporal = Files.createTempFile("foto", ".webp");
+        try {
+            byte[] original = Base64.getDecoder().decode(
+                    "UklGRhwAAABXRUJQVlA4TA8AAAAvHcAEAAcQ0f/+ByKi/wEA");
+            Files.write(temporal, original);
+            Path webp = temporal;
+
+            ejecutarEnJavaFx(() -> {
+                cargador().cargarArchivo(webp.toFile());
+                return null;
+            });
+            vaciarColaFx();
+
+            assertEquals(1, agregados.size());
+            AdjuntoPendiente adjunto = agregados.get(0);
+            assertTrue(adjunto.nombre().endsWith(".webp"),
+                    "el nombre conserva la extensión original, no .png");
+            assertEquals("image/webp", adjunto.mime());
+            assertArrayEquals(original, adjunto.bytes(),
+                    "los bytes son los del archivo, no un PNG renombrado");
+            assertTrue(adjunto.esImagen(),
+                    "y sigue siendo una imagen: viaja como MENSAJE_IMAGEN");
+        } catch (Exception fallo) {
+            throw new AssertionError(fallo);
+        } finally {
+            try {
+                Files.deleteIfExists(temporal);
+            } catch (IOException ignorado) {
+                // temporal
+            }
+        }
+    }
+
+    @Test
+    void cargaVariosArchivosDeUnaVez() throws Exception {
+        Path a = Files.createTempFile("uno", ".png");
+        Path b = Files.createTempFile("dos", ".pdf");
+        Files.write(a, new byte[]{1, 2, 3});
+        Files.write(b, new byte[]{4, 5, 6});
+
+        ejecutarEnJavaFx(() -> {
+            cargador().cargarArchivos(List.of(a.toFile(), b.toFile()));
+            return null;
+        });
+        vaciarColaFx();
+
+        assertEquals(2, agregados.size(), "los dos archivos deben entrar");
+        assertTrue(agregados.get(0).esImagen(), ".png se reconoce como imagen");
+        assertTrue(agregados.get(1).nombre().endsWith(".pdf"));
+        assertTrue(etiqueta.getText().startsWith("2 archivos"), "el resumen cuenta los dos");
+        Files.deleteIfExists(a);
+        Files.deleteIfExists(b);
     }
 
     @Test
@@ -82,9 +142,35 @@ class AdjuntoEntradaChatTest {
         });
         vaciarColaFx();
 
+        assertEquals(0, agregados.size(), "no debe entrar un archivo de más de 50 MiB");
         assertEquals(1, estados.size());
-        assertTrue(estados.get(0).startsWith("No se pudo leer el archivo"));
+        assertTrue(estados.get(0).startsWith("No se pudieron adjuntar"),
+                "avisa del rechazo: " + estados.get(0));
         Files.deleteIfExists(tmp);
+    }
+
+    @Test
+    void unArchivoMaloNoTumbaElLote() throws Exception {
+        Path bueno = Files.createTempFile("bueno", ".png");
+        Path malo = Files.createTempFile("malo", ".bin");
+        Files.write(bueno, new byte[]{1, 2, 3});
+        try (var raf = new java.io.RandomAccessFile(malo.toFile(), "rw")) {
+            raf.setLength(TextoCliente.TOPE_ADJUNTO_BYTES + 1);
+        }
+
+        ejecutarEnJavaFx(() -> {
+            cargador().cargarArchivos(List.of(malo.toFile(), bueno.toFile()));
+            return null;
+        });
+        vaciarColaFx();
+
+        assertEquals(1, agregados.size(), "el bueno entra igual");
+        assertEquals(bueno.getFileName().toString(), agregados.get(0).nombre());
+        assertEquals(1, estados.size());
+        assertTrue(estados.get(0).contains("malo"),
+                "el aviso nombra el archivo rechazado: " + estados.get(0));
+        Files.deleteIfExists(bueno);
+        Files.deleteIfExists(malo);
     }
 
     @Test
@@ -94,17 +180,23 @@ class AdjuntoEntradaChatTest {
             return null;
         });
 
-        assertTrue(llamadas.contains("limpiarAdjunto"));
-        assertNull(vistaPrevia.getImage());
+        assertTrue(agregados.isEmpty());
+        assertEquals("", etiqueta.getText());
     }
 
-    private String nombrePreparado() {
-        return (String) llamadas.stream().filter(s -> s.startsWith("nombre:"))
-                .map(s -> s.substring("nombre:".length())).findFirst().orElseThrow();
-    }
+    @Test
+    void soltarUnaCarpetaNoEsUnError() throws Exception {
+        Path carpeta = Files.createTempDirectory("carpeta");
 
-    private byte[] preparado() {
-        return preparado;
+        ejecutarEnJavaFx(() -> {
+            cargador().cargarArchivos(List.of(carpeta.toFile()));
+            return null;
+        });
+        vaciarColaFx();
+
+        assertTrue(agregados.isEmpty());
+        assertTrue(estados.isEmpty(), "una carpeta no es un error del usuario");
+        Files.deleteIfExists(carpeta);
     }
 
     private CargadorAdjuntoEntradaChat cargador() {
@@ -112,17 +204,16 @@ class AdjuntoEntradaChatTest {
                 getClass().getClassLoader(),
                 new Class<?>[]{InterfazChatViewModel.class},
                 (proxy, method, args) -> switch (method.getName()) {
-                    case "prepararAdjunto" -> {
-                        llamadas.add("prepararAdjunto");
-                        llamadas.add("nombre:" + args[1]);
-                        preparado = ((byte[]) args[0]).clone();
-                        yield null;
+                    case "agregarAdjuntos" -> {
+                        List<AdjuntoPendiente> nuevos = (List<AdjuntoPendiente>) args[0];
+                        agregados.addAll(nuevos);
+                        yield nuevos.size();
                     }
-                    case "limpiarAdjunto" -> { llamadas.add("limpiarAdjunto"); yield null; }
-                    case "adjuntoNombre" -> "f.txt";
+                    case "adjuntos" -> List.copyOf(agregados);
+                    case "limpiarAdjuntos", "limpiarAdjunto" -> { agregados.clear(); yield null; }
                     default -> null;
                 });
-        return new CargadorAdjuntoEntradaChat(vistaPrevia, lista, etiqueta, vista,
+        return new CargadorAdjuntoEntradaChat(tira, lista, etiqueta, vista,
                 fondo, estados::add);
     }
 

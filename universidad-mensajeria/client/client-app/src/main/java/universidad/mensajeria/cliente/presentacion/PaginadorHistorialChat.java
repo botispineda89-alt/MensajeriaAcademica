@@ -198,6 +198,10 @@ public final class PaginadorHistorialChat {
     }
 
     void cargarConversacion() {
+        cargarConversacion(null);
+    }
+
+    void cargarConversacion(Runnable alTerminar) {
         String otro = seleccionado.get();
         if (otro == null) {
             return;
@@ -224,6 +228,9 @@ public final class PaginadorHistorialChat {
                 int intentos = salto.intentos();
                 salto.consumir();
                 alSaltar.accept(id, intentos);
+            }
+            if (alTerminar != null) {
+                alTerminar.run();
             }
         });
         tarea.setOnFailed(e -> {

@@ -29,11 +29,11 @@ class PruebasListaMensajesChat(unittest.TestCase):
             self.app.processEvents()
             self.addCleanup(vista.close)
 
-            textura = vista.viewport().palette().brush(
-                vista.viewport().backgroundRole()).texture()
-            self.assertEqual(vista.viewport().size(), textura.size())
+            # El viewport pinta la imagen a cover: toda la superficie queda
+            # del color de la imagen (2x1 monocroma escalada).
             render = vista.viewport().grab().toImage()
             self.assertEqual(QColor("#d02030"), render.pixelColor(30, 30))
+            self.assertEqual(QColor("#d02030"), render.pixelColor(130, 70))
 
 
 if __name__ == "__main__":

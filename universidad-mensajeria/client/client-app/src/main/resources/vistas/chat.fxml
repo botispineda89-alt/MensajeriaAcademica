@@ -6,10 +6,11 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.SplitPane?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TextField?>
-<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
@@ -70,6 +71,18 @@
         </HBox>
         <Label fx:id="bannerOffline" text="⛔ Sin conexión — mensajes en cola local, se reintentan solos"
                visible="false" managed="false" styleClass="offline-banner" maxWidth="Infinity"/>
+        <!-- UIX-26: aviso transitorio con título, texto y ✕. Reutiliza
+             `offline-banner` a proposito: los CSS se generan desde el contrato
+             de diseño y anadir una clase aqui tocaria a los 3 clientes. -->
+        <HBox fx:id="avisoInline" spacing="10" alignment="CENTER_LEFT"
+              visible="false" managed="false" styleClass="offline-banner">
+            <padding><Insets top="8" right="10" bottom="8" left="10"/></padding>
+            <Label fx:id="avisoInlineTitulo" styleClass="reply-heading" maxWidth="Infinity"/>
+            <Label fx:id="avisoInlineTexto" styleClass="session-label" wrapText="true"
+                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+            <Button text="✕" onAction="#alCerrarAvisoInline" styleClass="icon-button"
+                    accessibleText="Cerrar el aviso"/>
+        </HBox>
         <VBox spacing="8" styleClass="composer-area">
             <HBox fx:id="barraRespuesta" spacing="8" alignment="CENTER_LEFT"
                   visible="false" managed="false" styleClass="reply-preview">
@@ -82,15 +95,18 @@
             </HBox>
             <HBox fx:id="barraAdjunto" spacing="8" alignment="CENTER_LEFT"
                   visible="false" managed="false" styleClass="attachment-preview">
-                <ImageView fx:id="vistaPrevia" fitWidth="64" fitHeight="52" preserveRatio="true"/>
-                <Label fx:id="etiquetaAdjunto" styleClass="attachment-name" HBox.hgrow="ALWAYS"/>
+                <ScrollPane fitToHeight="true" prefHeight="76" HBox.hgrow="ALWAYS"
+                            styleClass="attachment-preview">
+                    <FlowPane fx:id="listaAdjuntos" hgap="8" vgap="8" prefWrapLength="520"/>
+                </ScrollPane>
+                <Label fx:id="etiquetaAdjunto" styleClass="attachment-name" maxWidth="Infinity"/>
                 <Button text="✕" onAction="#alQuitarImagen" styleClass="icon-button"
-                        accessibleText="Quitar imagen adjunta"/>
+                        accessibleText="Quitar los adjuntos pendientes"/>
             </HBox>
             <HBox spacing="8" alignment="BOTTOM_CENTER" styleClass="composer-row">
                 <Button fx:id="botonAdjuntar" text="＋" onAction="#alElegirImagen"
-                        styleClass="icon-button" accessibleText="Adjuntar imagen"/>
-                <TextArea fx:id="campoEntrada" promptText="Escribe un mensaje (Enter para enviar)"
+                        styleClass="icon-button" accessibleText="Adjuntar imágenes o documentos (pueden ser varios)"/>
+                <TextArea fx:id="campoEntrada" promptText="Escribe un mensaje (Enter envía · Mayús+Enter salto de línea)"
                           wrapText="true" prefRowCount="2" onKeyPressed="#alTeclaEntrada"
                           styleClass="message-input" HBox.hgrow="ALWAYS"/>
                 <Button fx:id="botonEnviar" text="Enviar" onAction="#alEnviar"

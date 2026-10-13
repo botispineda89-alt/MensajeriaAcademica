@@ -10,6 +10,21 @@
   <ItemGroup>
     <PackageReference Include="WPF-UI" Version="4.3.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.31" />
+    <!-- UIX-27 / PLAN_AMBOS 2.3: ni WPF ni System.Drawing saben abrir un .webp,
+         y el servidor lo rechaza por magic bytes (Imagenes.esImagenValida). Con
+         Skia (MIT) el cliente lo transcodifica a PNG al elegirlo y a partir de
+         ahi es una imagen normal para los tres clientes. Ademas resuelve el
+         montaje de varias imagenes en una sola burbuja sin depender de WPF, que
+         es lo que permite testearlo. -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <!-- El paquete SkiaSharp solo trae los managed; el codec (y con el los
+         .webp) vive en la libreria nativa. Sin esto no se decodifica nada. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.153.1" />
+    <!-- FORMATOS-01: AVIF, HEIC/HEIF y SVG no los abre ni WPF ni Skia; es la
+         misma pila ImageMagick que el servidor usa en DecodificadorMagick,
+         empaquetada para .NET, y solo se usa para la vista (el archivo
+         original viaja tal cual). -->
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
   </ItemGroup>
   <ItemGroup>
     <None Update="client.properties">
@@ -23,6 +38,13 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <Content Include="Temas\fondos\fondo_chat_claro.jpg;Temas\fondos\fondo_chat_oscuro.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <!-- FORMATOS-02: iconos por tipo de archivo. Son los mismos PNG, byte a
+         byte, que el cliente JavaFX (resources/iconos/) y el Python
+         (ui/iconos/): el mismo PDF se ve igual en los tres. -->
+    <Content Include="Iconos\*.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

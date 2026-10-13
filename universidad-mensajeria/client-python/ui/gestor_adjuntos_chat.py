@@ -1,9 +1,8 @@
 """Selección, transferencia y visualización de adjuntos del chat."""
 
 from pathlib import Path
+import shutil
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from ui.lista_virtual import ROL_ITEM
@@ -12,61 +11,48 @@ from ui.cargador_adjunto_entrada_chat import CargadorAdjuntoEntradaChat
 
 
 class GestorAdjuntosChat:
-    # SEG-02: el servidor solo transforma PNG/JPEG/GIF/BMP; WebP viaja como archivo.
-    _EXTENSIONES_IMAGEN = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
+    # FORMATOS: lo mismo que el servidor acepta en su tubería
+    # (Imagenes.esImagenValida): PNG/JPEG/GIF/BMP, WebP, AVIF, HEIC/HEIF y
+    # SVG. Todo lo de esta lista viaja como MENSAJE_IMAGEN y el servidor le
+    # aplica los filtros; lo demás viaja como archivo.
+    _EXTENSIONES_IMAGEN = {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp",
+        ".avif", ".heic", ".heif", ".svg",
+    }
     _cargador_adjunto_entrada = CargadorAdjuntoEntradaChat()
 
     def _fijar_imagen_adjunta(self, ruta):
-        if not ruta or not Path(ruta).is_file():
+        if not ruta:
             return
-        self.imagen_pendiente = str(Path(ruta).resolve())
-        ext = Path(ruta).suffix.casefold()
-        es_imagen = ext in self._EXTENSIONES_IMAGEN
-        if es_imagen:
-            pixmap = QPixmap(self.imagen_pendiente)
-            if not pixmap.isNull():
-                thumb = pixmap.scaled(48, 48, Qt.AspectRatioMode.KeepAspectRatio,
-                                      Qt.TransformationMode.SmoothTransformation)
-                self.lbl_preview_thumb.setPixmap(thumb)
-            else:
-                self.lbl_preview_thumb.setText("🖼")
-        else:
-            # Ícono genérico por extensión
-            iconos = {
-                ".pdf": "📄", ".docx": "📝", ".xlsx": "📊",
-                ".pptx": "📑", ".txt": "📃", ".zip": "🗜", ".rar": "🗜",
-            }
-            self.lbl_preview_thumb.setText(iconos.get(ext, "📎"))
-            self.lbl_preview_thumb.setStyleSheet(
-                "border-radius: 4px; border: 1px solid #CCD6D8; "
-                "background: #FFFFFF; font-size: 24px;")
-        tamano_kb = Path(ruta).stat().st_size / 1024
-        tamano_str = (f"{tamano_kb/1024:.1f} MB" if tamano_kb >= 1024
-                      else f"{tamano_kb:.1f} KB")
-        self.lbl_adjunto.setText(f"{Path(ruta).name}  ({tamano_str})")
-        self.preview_container.setVisible(True)
-        self._actualizar_envio()
+        agregadas, rechazadas = self.bandeja_adjuntos.agregar([ruta])
+        if rechazadas:
+            self._aviso_red("No se pudo adjuntar el archivo o se alcanzó el máximo de adjuntos.")
+        if agregadas:
+            self.preview_container.setVisible(True)
+            self.btn_quitar_adjunto.setVisible(True)
 
     def _quitar_adjunto(self):
-        self.imagen_pendiente = None
-        self.lbl_preview_thumb.clear()
-        self.lbl_adjunto.clear()
+        self.bandeja_adjuntos.limpiar()
         self.preview_container.setVisible(False)
-        self._actualizar_envio()
+        self.btn_quitar_adjunto.setVisible(False)
 
     def adjuntar_imagen(self):
-        """Adjunta cualquier archivo (imagen o documento) a la conversación."""
+        """Añade archivos múltiples a la bandeja de envío."""
         if not self.usuario_seleccionado:
             QMessageBox.information(self, "Seleccionar conversación",
                                     "Selecciona una conversación primero.")
             return
-        ruta, _ = QFileDialog.getOpenFileName(
+        rutas, _ = QFileDialog.getOpenFileNames(
             self, "Seleccionar archivo", "",
             "Todos los archivos (*.*);;"
-            "Imágenes (*.png *.jpg *.jpeg *.gif *.bmp *.webp);;"
+            "Imágenes (*.png *.jpg *.jpeg *.gif *.bmp *.webp *.avif *.heic *.heif *.svg);;"
             "Documentos (*.pdf *.docx *.xlsx *.pptx *.txt *.zip)")
-        if ruta:
-            self._fijar_imagen_adjunta(ruta)
+        agregadas, rechazadas = self.bandeja_adjuntos.agregar(rutas)
+        if agregadas:
+            self.preview_container.setVisible(True)
+            self.btn_quitar_adjunto.setVisible(True)
+        if rechazadas:
+            self._aviso_red("Algunos archivos no se adjuntaron; máximo 12 archivos por envío.")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -86,19 +72,23 @@ class GestorAdjuntosChat:
 
     def dropEvent(self, event):
         if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                ruta = url.toLocalFile()
-                if Path(ruta).is_file():
-                    if not self.usuario_seleccionado:
-                        QMessageBox.information(
-                            self, "Seleccionar conversación",
-                            "Selecciona una conversación primero.")
-                        event.acceptProposedAction()
-                        return
-                    self._fijar_imagen_adjunta(ruta)
-                    event.acceptProposedAction()
-                    return
-            self._aviso_red("El archivo arrastrado no se pudo leer.")
+            if not self.usuario_seleccionado:
+                QMessageBox.information(
+                    self, "Seleccionar conversación",
+                    "Selecciona una conversación primero.")
+                event.ignore()
+                return
+            rutas = [url.toLocalFile() for url in event.mimeData().urls()
+                     if url.isLocalFile()]
+            agregadas, rechazadas = self.bandeja_adjuntos.agregar(rutas)
+            if agregadas:
+                self.preview_container.setVisible(True)
+                self.btn_quitar_adjunto.setVisible(True)
+            if rechazadas:
+                self._aviso_red("Algunos archivos arrastrados no se pudieron adjuntar.")
+            if agregadas:
+                event.acceptProposedAction()
+                return
             event.ignore()
             return
         event.ignore()
@@ -117,6 +107,8 @@ class GestorAdjuntosChat:
             if not isinstance(mensaje, dict):
                 continue
             if not mensaje.get("is_image") or mensaje.get("image_loading") or mensaje.get("image_loaded"):
+                continue
+            if mensaje.get("raw_state") == "PENDIENTE":
                 continue
             mensaje["image_loading"] = True
             mensaje["image_error"] = ""
@@ -205,8 +197,10 @@ class GestorAdjuntosChat:
         def descargar():
             try:
                 if es_imagen:
-                    # obtener_imagen resuelve caché local, base64 o archivoId.
-                    self.fachada.obtener_imagen(mensaje.get("id"), ruta_sugerida)
+                    origen = self.fachada.obtener_imagen(
+                        mensaje.get("id"), ruta_sugerida)
+                    if Path(origen).resolve() != Path(ruta_sugerida).resolve():
+                        shutil.copy2(origen, ruta_sugerida)
                 else:
                     self.fachada.descargar_archivo(archivo_id, ruta_sugerida)
                 return mensaje.get("id"), ruta_sugerida

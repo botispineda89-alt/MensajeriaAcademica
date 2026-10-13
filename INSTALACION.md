@@ -14,7 +14,7 @@ construye **una vez** y se distribuyen las salidas.
 
 | PC | Proceso | Necesita |
 |---|---|---|
-| **Servidor** | `servidor.jar` | **JDK/JRE 21+** · MySQL 8 accesible · puerto `5000` abierto |
+| **Servidor** | `servidor.jar` | **JDK/JRE 21+** · MySQL 8 accesible · **ImageMagick 7** · puerto `5000` abierto |
 | **Cliente JavaFX** | `client-app.jar` | **JRE 21+** · nada más |
 | **Cliente Python** | `main.py` | **Python 3.13** + entorno virtual propio |
 | **Cliente WPF** | `Mensajeria.exe` | **Nada**: la publicación es *self-contained* |
@@ -33,6 +33,25 @@ Solo el **PC de desarrollo** (el que tiene el repo) necesita el toolchain comple
 
 > ⚠️ **El único requisito duro es el JDK 21+.** Todo lo demás se puede evitar en destino porque
 > las distribuciones ya son autocontenidas.
+
+### 1.1 ImageMagick — sólo el servidor
+
+Sirve para aceptar imágenes que el JDK no sabe abrir: **AVIF, HEIC/HEIF y SVG**. El servidor las
+convierte a PNG con ImageMagick (`im4java`) y las pasa por la misma tubería de filtros que un PNG.
+Si no está instalado el servidor arranca igual: sólo se rechazan esos formatos.
+
+```powershell
+winget install --id ImageMagick.ImageMagick --source winget --exact
+
+# Cierra y reabre la terminal antes de comprobar (el PATH se actualiza, la consola no).
+magick -version
+magick -list format | Select-String "AVIF|HEIC|WEBP|SVG"
+```
+
+En la lista deben aparecer **AVIF** (`rw+`), **HEIC** (`r--`), **WEBP** (`rw+`) y **SVG** (`rw+`,
+renderizado por librsvg). HEIC sólo se lee, que es justo lo que necesita el servidor. Si el
+servicio no ve el ejecutable, se le indica la ruta con la propiedad de sistema
+`-Dmensajeria.imagen.magick=...` o con la variable de entorno `MAGICK_EXECUTABLE`.
 
 ## 2. Paso 0 — Comprobar qué falta
 

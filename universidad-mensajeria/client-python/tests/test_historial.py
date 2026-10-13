@@ -75,6 +75,23 @@ class TestHistorial(unittest.TestCase):
         self.assertEqual(len(pagina), 2)
         self.assertEqual(pagina[1]["contenido"], "editado")
 
+    def test_caption_se_conserva_en_upsert_y_en_pagina(self):
+        self.h.guardar_mensaje(
+            "caption-1", "A", "B", "MENSAJE_IMAGEN", "[Imagen]",
+            "2026-01-01T10:00:00", nombre_archivo="foto.png",
+            caption="Un día en el campus")
+        self.h.guardar_mensaje(
+            "caption-1", "A", "B", "MENSAJE_IMAGEN", "[Imagen]",
+            "2026-01-01T10:00:00", nombre_archivo="foto.png")
+
+        self.assertEqual(
+            "Un día en el campus",
+            self.h.obtener_por_id("caption-1")["caption"])
+        pagina = next(
+            fila for fila in self.h.obtener_conversacion("A", "B")
+            if fila["id_mensaje"] == "caption-1")
+        self.assertEqual("Un día en el campus", pagina["caption"])
+
     def test_marcar_descargado(self):
         self.h.marcar_descargado("m3", "/tmp/f.png")
         fila = self.h.obtener_conversacion("A", "C")[0]
@@ -120,6 +137,47 @@ class TestHistorial(unittest.TestCase):
         self.assertIsNone(imagen["contenido"])
         self.assertEqual(self.h.obtener_por_id("imagen-base64")["contenido"], "aGVsbG8=")
 
+    def test_fechas_heredadas_se_normalizan_a_utc_al_abrir(self):
+        # Regresión del smoke: la base por cuenta la comparten Python y .NET.
+        # .NET guarda UTC con Z y este cliente guardaba hora local sin zona;
+        # la columna es TEXT y se ordena como tal, así que lo propio recién
+        # enviado quedaba DETRÁS de filas .NET más viejas y desaparecía de la
+        # página 0 del historial. Al abrir, la migración debe dejar un solo
+        # formato (UIX-26, réplica de LocalStore.NormalizarFechasAUtc).
+        with self.db.conexion() as conn:
+            conn.execute("UPDATE historial_local SET fecha_envio = ? "
+                         "WHERE id_mensaje = 'm1'",
+                         ("2026-01-01T15:00:00.0000000Z",))  # .NET: 10:00 local
+            conn.execute("UPDATE historial_local SET fecha_envio = ? "
+                         "WHERE id_mensaje = 'm2'",
+                         ("2026-01-01T10:05:00",))           # local: 15:05 UTC real
+
+        # Reabrir dispara la normalización de una pasada.
+        reabierta = Database("sqlite:///" + self.db.db_path,
+                             esquema_path=ESQUEMA_CANONICO)
+        h2 = HistorialLocal(reabierta)
+
+        with reabierta.conexion() as c:
+            formatos = dict(c.execute(
+                "SELECT id_mensaje, fecha_envio FROM historial_local "
+                "WHERE id_mensaje IN ('m1', 'm2')").fetchall())
+        self.assertTrue(formatos["m1"].endswith("Z"),
+                        "una fila que ya tiene Z no se debe tocar")
+        self.assertEqual("2026-01-01T15:00:00.0000000Z", formatos["m1"])
+        self.assertTrue(formatos["m2"].endswith("Z"),
+                        "la fila local debe normalizarse a UTC con Z")
+        # En UTC real m2 (15:05Z) es más nuevo que m1 (15:00Z): el orden como
+        # TEXTO ahora respeta la cronología.
+        pagina = h2.obtener_conversacion("A", "B")
+        self.assertEqual(["m2", "m1"], [m["id_mensaje"] for m in pagina])
+
+    def test_guardar_pendiente_tambien_normaliza_su_fecha(self):
+        self.h.guardar_pendiente(
+            "p-utc", "MENSAJE_TEXTO", "A", "B", "hola", None, None,
+            "2026-01-01T10:06:00")
+        pendiente = self.h.obtener_pendientes()[0]
+        self.assertTrue(pendiente["fecha_creado"].endswith("Z"))
+
     def test_migracion_aditiva_conserva_historial_anterior(self):
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         tmp.close()
@@ -144,7 +202,9 @@ class TestHistorial(unittest.TestCase):
         with migrated.conexion() as conn:
             columnas = {r[1] for r in conn.execute("PRAGMA table_info(historial_local)")}
             fila = conn.execute("SELECT contenido, estado, archivo_id FROM historial_local WHERE id_mensaje='old'").fetchone()
-        self.assertTrue({"estado", "archivo_id", "etapas_filtrado"} <= columnas)
+        self.assertTrue({
+            "estado", "archivo_id", "etapas_filtrado", "caption"
+        } <= columnas)
         self.assertEqual(tuple(fila), ("conservado", "ENVIADO", None))
 
     def test_pendientes_con_predelete_e_intentos(self):

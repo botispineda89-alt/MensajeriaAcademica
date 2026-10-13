@@ -19,6 +19,15 @@ compilar; se recomienda también JRE 21 en la máquina final. El launcher habili
 `javafx.graphics` y el tema AtlantaFX se cambia como hoja de escena, sin sustituir el user-agent de
 JavaFX.
 
+El cliente depende de `com.twelvemonkeys.imageio:imageio-webp` (BSD-3), un lector WebP por SPI de
+`ImageIO`: ni JavaFX ni `ImageIO` abren un `.webp` sin él. Es **solo lector** (no escribe WebP) y
+`dependency:copy-dependencies` lo copia a `lib/` al distribuir. Para los formatos amplios
+(`FORMATOS-01`): `com.github.weisj:jsvg` (Apache-2) rasteriza SVG y `org.im4java:im4java` (Apache-2)
+habla con **ImageMagick** para AVIF/HEIC/HEIF — se autodetecta (`magick` en PATH o
+`%ProgramFiles%\ImageMagick*`, con `mensajeria.imagen.magick`/`MAGICK_EXECUTABLE` para forzarlo);
+sin ImageMagick esas imágenes se muestran como «Formato no soportado por este cliente», siguen
+siendo imágenes filtradas por el servidor y se pueden guardar.
+
 ## Crear carpeta distribuible para Windows x64
 
 Ejecuta desde la raíz `universidad-mensajeria/`. El destino debe ser una carpeta nueva:
@@ -80,13 +89,30 @@ historial remoto.
   con presencia en línea/desconectado, buscador y filtro Todos/Conectados;
   el contacto `Sistema Mensajeria [SERVIDOR]` es el buzón del servidor
   (sirve para escribirle y recibe sus difusiones).
-- Chat 1 a 1: redacción de texto más adjunto (imagen o archivo genérico
+- Chat 1 a 1: redacción de texto más adjuntos (imágenes o archivos genéricos
   hasta 50 MB, con vista previa) y un único botón Enviar —sin botón de
-  difundir en este cliente—. Texto e imagen juntos se envían como dos
-  mensajes. Los estados son `✓` enviado, `✓✓` entregado y `✓✓` azul leído;
-  se puede responder citando y descargar archivos recibidos.
+  difundir en este cliente—. El texto escrito junto a un adjunto viaja como
+  **pie de la misma burbuja**, no como un segundo mensaje, y varias imágenes se
+  componen en un montaje y salen como **una sola burbuja**. Los estados son `✓`
+  enviado, `✓✓` entregado y `✓✓` azul leído; se puede responder citando,
+  descargar y guardar los adjuntos recibidos.
+- Avisos: los mensajes recuperables (envío correcto, fallo, pérdida y recuperación
+  de red) salen en una banda sobre el chat y **se retiran solos** a los 4-12 s
+  según el tipo; también se pueden cerrar con su ✕.
+- Imágenes: se abren en un visor a **resolución real** (no sobre la miniatura),
+  con zoom 1:1 acotado, y "Guardar" entrega el original. Los `.webp` se envían
+  tal cual —el servidor los acepta y les aplica los cinco filtros— y el cliente
+  solo genera una copia PNG para pintarlos. Lo mismo aplica a AVIF, HEIC/HEIF
+  y SVG (`FORMATOS-01`): viajan como imagen, el servidor los filtra y, si hay
+  ImageMagick instalado, el cliente también los muestra y los amplía.
+- Iconos por tipo de archivo (`FORMATOS-02`): un PDF, una hoja de cálculo, un
+  CSV, un JSON o un documento se pintan con su dibujo de `resources/iconos/`
+  (en la bandeja de adjuntos y delante del nombre en la burbuja) en vez del
+  `📎` genérico, que se queda solo para las extensiones sin dibujo. Los mismos
+  PNG, byte a byte, en los tres clientes: `contrato/verificar_iconos.py`.
 - Responder: doble-click sobre la burbuja (o botón `↩`) arma la cita y deja
-  el foco ya en "Escribe un mensaje", sin click extra; Enter envía.
+  el foco ya en "Escribe un mensaje", sin click extra; Enter envía y
+  `Shift+Enter` hace salto de línea.
 - Tema: oscuro por defecto (`tema=oscuro` en `client.properties`, `Tema`
   cae a oscuro sin clave). El combo `Oscuro/Claro` cambia AtlantaFX +
   `chat.css/chat-claro.css` y persiste la elección. El fondo del historial

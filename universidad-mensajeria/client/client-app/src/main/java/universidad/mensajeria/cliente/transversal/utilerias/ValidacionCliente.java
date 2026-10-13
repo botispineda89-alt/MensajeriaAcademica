@@ -35,9 +35,21 @@ public final class ValidacionCliente {
         }
     }
 
+    /** Tope de una imagen en trama única (invariante 2): misma regla y valor
+     * que el cliente .NET (CatalogoAdjuntos.MaxBytesImagenTramaUnica) y el
+     * cliente Python (IMAGEN_MAX_BYTES). El base64 infla ×4/3 y la trama
+     * resultante tiene que caber en los 16 MiB que valida el servidor;
+     * mandarla de todos modos corta la conexión. */
+    public static final long MAXIMO_IMAGEN_TRAMA = 12L * 1024 * 1024;
+
     public static void imagen(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             throw new ExcepcionValidacion("la imagen esta vacia");
+        }
+        if (bytes.length > MAXIMO_IMAGEN_TRAMA) {
+            throw new ExcepcionValidacion(String.format(
+                    "la imagen supera el límite de envío directo de 12 MB (%.1f MB)",
+                    bytes.length / 1024.0 / 1024.0));
         }
     }
 }

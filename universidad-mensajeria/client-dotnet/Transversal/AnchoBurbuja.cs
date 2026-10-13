@@ -13,10 +13,12 @@ namespace Mensajeria.Transversal
         public static double Calcular(double anchoLista)
         {
             // La medida puede llegar como NaN/Infinity durante el primer pase
-            // de layout o al redimensionar el ListBox. En ese momento se deja
-            // que el contenedor limite el ancho real disponible.
+            // de layout o al redimensionar el ListBox. En ese momento NO se fija
+            // ancho: devolver NaN deja que el contenedor limite lo disponible.
+            // Antes se devolvia Tope (720, el valor MAYOR) y por eso las burbujas
+            // se salian de la columna en paneles mas estrechos que 720.
             if (double.IsNaN(anchoLista) || double.IsInfinity(anchoLista)
-                || anchoLista <= 100) return Tope;
+                || anchoLista <= 100) return double.NaN;
             return System.Math.Min(Tope, System.Math.Max(Suelo, anchoLista * Fraccion));
         }
     }

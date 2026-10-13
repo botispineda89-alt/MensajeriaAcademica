@@ -91,6 +91,7 @@ namespace Mensajeria.Tests
                 + "\"contenido\":\"hola\",\"fechaEnvio\":\"2026-10-08T10:00:00Z\"},"
                 + "{\"id\":\"m2\",\"remitente\":\"B002\","
                 + "\"destinatario\":\"A001\",\"tipo\":\"MENSAJE_ARCHIVO\","
+                + "\"contenido\":\"el informe del trimestre\","
                 + "\"nombreArchivo\":\"informe.pdf\"}]";
 
             var mensajes = mapeador.MapearPaginaHistorial(json, "A001");
@@ -100,7 +101,41 @@ namespace Mensajeria.Tests
             Assert.Equal("ENVIADO", mensajes[0].Estado);
             Assert.False(mensajes[1].Enviado);
             Assert.Equal("ENTREGADO", mensajes[1].Estado);
-            Assert.Equal("[Archivo: informe.pdf]", mensajes[1].Contenido);
+            // En un adjunto el `contenido` remoto es el pie: viaja en `caption`
+            // y el cuerpo queda null (los bytes nunca se arrastran al listado).
+            Assert.Null(mensajes[1].Contenido);
+            Assert.Equal("el informe del trimestre", mensajes[1].Caption);
+        }
+
+        [Fact]
+        public void MapeadorAceptaLosNombresCortosQueGuardaElServidor()
+        {
+            // El servidor persiste "TEXTO"/"IMAGEN"/"ARCHIVO" (es lo que espera
+            // TipoContenido en JPA) mientras el contrato del cliente usa el
+            // prefijo MENSAJE_. Sin esta equivalencia la pagina de historial
+            // revienta y el chat aparece vacio con un error de sincronizacion.
+            var mapeador = new MapeadorDatosServidor();
+
+            Assert.Equal("MENSAJE_TEXTO", mapeador.NormalizarTipoMensaje("TEXTO"));
+            Assert.Equal("MENSAJE_IMAGEN", mapeador.NormalizarTipoMensaje("IMAGEN"));
+            Assert.Equal("MENSAJE_ARCHIVO", mapeador.NormalizarTipoMensaje("ARCHIVO"));
+            // Y los nombres largos siguen siendo validos tal cual.
+            Assert.Equal("MENSAJE_TEXTO", mapeador.NormalizarTipoMensaje("MENSAJE_TEXTO"));
+
+            const string json = "[{\"id\":\"m1\",\"remitente\":\"B002\","
+                + "\"destinatario\":\"A001\",\"tipo\":\"TEXTO\","
+                + "\"contenido\":\"hola\",\"fechaEnvio\":\"2026-10-08T10:00:00Z\"},"
+                + "{\"id\":\"m2\",\"remitente\":\"B002\","
+                + "\"destinatario\":\"A001\",\"tipo\":\"IMAGEN\","
+                + "\"contenido\":\"una foto\",\"nombreArchivo\":\"f.png\"}]";
+
+            var mensajes = mapeador.MapearPaginaHistorial(json, "A001");
+
+            Assert.Equal(2, mensajes.Count);
+            Assert.Equal("MENSAJE_TEXTO", mensajes[0].Tipo);
+            Assert.Equal("hola", mensajes[0].Contenido);
+            Assert.Equal("MENSAJE_IMAGEN", mensajes[1].Tipo);
+            Assert.Equal("una foto", mensajes[1].Caption);
         }
 
         [Fact]

@@ -2,7 +2,9 @@
 
 Sistema de escritorio cliente/servidor para mensajería académica. Un servidor Java recibe conexiones TCP y procesa mensajes JSON; tres clientes independientes usan JavaFX, PySide6 y WPF. Solo el servidor accede a MySQL; los clientes mantienen su historial local en H2 o SQLite.
 
-> Estado documental consolidado el **2026-10-07**. Para el estado operativo y las verificaciones fechadas, consulta [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md). Este README es la entrada rápida, no reemplaza los registros históricos de auditoría ni los requerimientos.
+> Estado documental consolidado el **2026-10-10**. Para el estado operativo y las verificaciones
+> fechadas, consulta [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md). Este README es la entrada rápida, no
+> reemplaza los registros históricos de auditoría ni los requerimientos.
 
 ## Componentes
 
@@ -29,9 +31,10 @@ El contrato de red es TCP con una cabecera big-endian de 4 bytes y un cuerpo JSO
 | [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) | Estado vigente, pendientes conocidos y evidencia con fecha. |
 | [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) | Comportamiento acordado del sistema. |
 | [`PLAN.md`](PLAN.md) | Arquitectura y decisiones técnicas. |
-| [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md) | Auditoría histórica con ubicación de hallazgos; consultar el roadmap para saber si siguen abiertos. |
+| [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) | Auditoría histórica con ubicación de hallazgos; consultar el roadmap para saber si siguen abiertos. |
 | [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) | Plan e historial de mejoras de las interfaces. |
-| [`docs/archivo/README.md`](docs/archivo/README.md) | Qué se archivó/fusionó el 2026-10-07 y dónde está lo único que tenía. |
+| [`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md) | Qué debe ser igual en los tres clientes y qué falta. |
+| [`docs/archivo/README.md`](docs/archivo/README.md) | Qué se archivó/fusionó y dónde está lo único que tenía. |
 | [`DIAGRAMAS/README.md`](DIAGRAMAS/README.md) | Índice de fuentes/renderes de diagramas (incluye legados migrados). |
 
 
@@ -39,12 +42,14 @@ El contrato de red es TCP con una cabecera big-endian de 4 bytes y un cuerpo JSO
 
 - `SEC-05`/`SEC-06` — autorización de comandos: cerrados y cubiertos por pruebas; el detalle del hallazgo se conserva como historial en la auditoría.
 - Vista administrativa JavaFX: incluye pestaña reutilizable de ficha de usuario, métricas de mensajes, sesiones/IP disponibles, detalle de texto/imagen, y pestañas Estado, Conectados, Usuarios, Mensajes, Informes, Logs, Pool y Difundir. La consola JLine conserva los comandos e incorpora jerarquía visual.
-- UIX-15 — avisos/errores recuperables en el cliente WPF: banner inline; continúan tres confirmaciones modales de salida.
+- Clientes JavaFX y WPF: envío de varias imágenes en una sola burbuja (montaje), texto como pie de la imagen o del archivo en la misma burbuja, botón de guardar en imágenes, aviso inline con cierre automático, visor a resolución real y lista de contactos al día. JavaFX ofrece selección/arrastre múltiple y bandeja de hasta 5 adjuntos; WPF admite lotes de hasta 12 con progreso por bytes y cancelación. Python admite lotes de hasta 12 con vista previa compuesta local (cada imagen original se sube por separado).
+- Imágenes WebP —y los formatos amplios AVIF/HEIC/SVG (`FORMATOS-01`)—: el servidor los acepta y los procesa (ImageMagick/`imageio-webp`); los tres clientes los envían tal cual como `MENSAJE_IMAGEN` y convierten **solo para pintar**.
+- Fallo abierto y documentado: la **subida duplicada de la misma imagen** en el servidor (`ESTADO_ROADMAP.md` §5.7). La deriva del `schema-local.sql` de Python (§5.8) quedó cerrada: `contrato/verificar.py` pasó **9/9 pasos con exit 0**.
+- Suites verificadas el **2026-10-11** (`contrato/verificar.py`, **9/9 pasos, exit 0**): JavaFX **280/280** (47 clases; el test de framing es data-driven desde §5.14), .NET **366/366**, Python **281 casos (5 omitidas)**, build WPF sin advertencias, `verificar_puertos.py` OK (202 métodos), iconos iguales en los 3 y `server/utilerias` 15/15 + `codec` 7/7 (10-10). El servidor no se re-ejecutó: su último registro fechado es del 2026-10-08 con 4 fallos preexistentes.
 - La automatización de preparación de entorno instala/verifica herramientas del usuario sin permisos de administrador, documentada en [`AUTOMATIZACION_ENTORNO.md`](AUTOMATIZACION_ENTORNO.md).
-- Los reportes de pruebas no son uniformes: al 2026-10-06 el último resultado anotado de WPF es 71/71; los reportes Surefire existentes registran dos fallos de umbrales de rendimiento en `CargaMixtaTest`. Las fechas, límites y otras suites se detallan en el roadmap; no se afirma que esta revisión haya ejecutado las suites.
 
 ## Advertencia JavaFX `sun.misc.Unsafe`
 
 La distribución actual del servidor usa JavaFX Graphics **21.0.6**. En JDK recientes el renderizador `com.sun.marlin.OffHeapArray` puede emitir una advertencia al llamar `Unsafe.allocateMemory`; el stack trace señala el JAR de JavaFX, no una llamada de la lógica de mensajería. La guía del servidor explica el alcance y las alternativas de runtime. El aviso no significa por sí solo que el servidor haya fallado.
 
-Consulta [`docs/archivo/README.md`](docs/archivo/README.md) para ver qué se archivó o fusionó el 2026-10-07 y dónde está el material único preservado.
+Consulta [`docs/archivo/README.md`](docs/archivo/README.md) para ver qué se archivó o fusionó (2026-10-07) y qué planes ya ejecutados se retiraron de la raíz (2026-10-10), y dónde está el material único preservado.

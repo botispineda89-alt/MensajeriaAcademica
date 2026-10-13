@@ -44,8 +44,9 @@ namespace Mensajeria.Tests
         [Fact]
         public void AnchoBurbujaSigueAListaConTopeYSuelo()
         {
-            Assert.Equal(720, AnchoBurbuja.Calcular(0));
-            Assert.Equal(720, AnchoBurbuja.Calcular(50));
+            // Sin ancho fiable se deja sin tope (NaN), no se fuerza el maximo.
+            Assert.True(double.IsNaN(AnchoBurbuja.Calcular(0)));
+            Assert.True(double.IsNaN(AnchoBurbuja.Calcular(50)));
             Assert.Equal(585, AnchoBurbuja.Calcular(900));
             Assert.Equal(720, AnchoBurbuja.Calcular(2000));
             Assert.Equal(280, AnchoBurbuja.Calcular(300));

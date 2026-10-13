@@ -58,6 +58,14 @@ el archivo, no se toca el script.
 
 ## 2. Índice completo
 
+> **Los diagramas de clases de los clientes son anteriores al lote de octubre de 2026.**
+> `clases/clases-client-{app,dotnet,python,interfaces}.mmd` reflejan el código hasta el 2026-10-06 y
+> **no incluyen** las clases del lote de adjuntos: `PlanEnvioAdjuntos`, `MontajeImagenes`,
+> `EstadoAvisoInline`, `TranscodificadorImagen`, `EscalaVisor`, `TecladoCompositor`, `NavegadorCitaChat`
+> (JavaFX) y `EnvioMultipleAdjuntos`, `CatalogoAdjuntos`, `AdjuntosPanelVM`, `FormatoPreview`,
+> `FormatoCita`, `BotonGuardar` (WPF). Reflejarlos es trabajo de `DIAG-09`/consolidación, no un
+> descuido: hasta entonces, el código es la fuente y estos `.mmd` son de lectura orientativa.
+
 ### 2.1 Casos de uso — **NUEVO** (no existía ningún `usecaseDiagram` en el repo)
 
 | Archivo | Contenido | Origen |
@@ -271,7 +279,7 @@ Cosas que se han verificado en el código y que conviene no contradecir:
 - **Historial de `SEC-05`:** antes del arreglo, `LogoutCommand`, `ListarCommand` y
   `ListarUsuariosCommand` no aplicaban la guarda. El hallazgo está cerrado por el SPI fail-closed,
   guardas y pruebas; no usar el diagrama histórico como evidencia de un fallo vigente. Está
-  documentado en [`ANALISIS_TECNICO.md`](../ANALISIS_TECNICO.md) §1 y señalado en
+  documentado en [`docs/archivo/ANALISIS_TECNICO-historico.md`](../docs/archivo/ANALISIS_TECNICO-historico.md) §1 y señalado en
   `secuencia/seq-conexion-y-trama.mmd`.
 - `FabricaDelDespachador.NULA` se asigna pero **recibe 0 llamadas**: `Proveedor` sobreescribe
   `crear(FachadaSalida)`, así que la ruta sin salida nunca se toma.
@@ -293,6 +301,6 @@ Cosas que se han verificado en el código y que conviene no contradecir:
 ## 5. Referencias
 
 - Análisis con la evidencia de por qué faltaba cada uno:
-  [`ANALISIS_TECNICO.md`](../ANALISIS_TECNICO.md) §6.
+  [`docs/archivo/ANALISIS_TECNICO-historico.md`](../docs/archivo/ANALISIS_TECNICO-historico.md) §6.
 - Textos literales de la UI: [`textos-ui.md`](textos-ui.md).
 - Tareas del roadmap: [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md) (`DIAG-*`).

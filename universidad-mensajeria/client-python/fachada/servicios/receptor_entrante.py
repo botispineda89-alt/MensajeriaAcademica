@@ -4,6 +4,7 @@ from typing import Callable
 
 from fachada.servicios.publicador_eventos import PublicadorEventosCliente
 from transversal.estado_conexion import SESION_CERRADA, SIN_RED
+from transversal.fechas import a_utc, ahora_utc
 from transversal.tipo_mensaje import CONVERSACION, TipoMensaje
 
 _LOG = logging.getLogger(__name__)
@@ -55,14 +56,22 @@ class ReceptorEntranteCliente:
         # se confunden con mensajes enviados por el otro usuario.
         es_imagen = tipo == TipoMensaje.MENSAJE_IMAGEN
         es_archivo = tipo == TipoMensaje.MENSAJE_ARCHIVO
+        remitente = mensaje.get("remitente")
+        destinatario = mensaje.get("destinatario")
+        destino_local = (
+            destinatario if remitente == self.codigo_actual and destinatario
+            else self.codigo_actual
+        )
         self.historial.guardar_mensaje(
             id_mensaje=mensaje.get("id"),
-            origen=mensaje.get("remitente"),
-            destino=self.codigo_actual,
+            origen=remitente,
+            destino=destino_local,
             tipo=tipo,
             contenido=("[Imagen]" if es_imagen else "[Archivo]" if es_archivo
                        else mensaje.get("contenido")),
-            fecha_envio=mensaje.get("fechaHora"),
+            # El servidor manda hora local SIN zona; se guarda UTC con Z
+            # (invariante 15, igual que .NET: FachadaCliente → FormatoFecha.AUtc).
+            fecha_envio=a_utc(mensaje.get("fechaHora")) or ahora_utc(),
             hash_sha256=mensaje.get("hashSha256") or "",
             num_caracteres=mensaje.get("numCaracteres") or 0,
             num_palabras=mensaje.get("numPalabras") or 0,
@@ -71,6 +80,7 @@ class ReceptorEntranteCliente:
             descargado=1 if tipo == TipoMensaje.MENSAJE_TEXTO else 0,
             archivo_id=mensaje.get("archivoId"), estado="ENVIADO",
             etapas_filtrado=mensaje.get("etapasFiltrado"),
+            caption=mensaje.get("contenido") if es_imagen or es_archivo else None,
         )
         if mensaje.get("remitente"):
             self._sincronizador._asegurar_en_cache(mensaje["remitente"])
