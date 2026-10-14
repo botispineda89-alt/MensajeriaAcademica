@@ -908,6 +908,24 @@ tenía casillas `[x]` con resto admitido). Espejo de su §8; el detalle vive all
   smoke del 2026-10-14 y marcar.
 - [ ] **Higiene del plan (resto Fase 6).** Barrer las notas "falta el smoke" de sus §§0–1.
 
+### 5.26 Revisión visual del usuario 2026-10-14 — 9 observaciones (abierta)
+
+El usuario cubrió los 12 escenarios K1–K12 y dejó 9 observaciones. Decisiones cerradas: P4 título
+con identidad (`Mensajería Académica | Nombre Apellido [CODIGO]`, plantilla en `textos-ui.json`);
+T1 ESC deselecciona + arranque sin selección (historial intacto, muere solo el auto-restore);
+T2 banner estilo ámbar .NET en los 3.
+
+- [ ] **P1** · Clic en cita no sube al original (bug Python: reproducir + test)
+- [ ] **P3 + N1** · Tokens modo claro (cita Python, título login .NET) + contraste ≥4.5:1
+- [ ] **P4** · Título con identidad en los 3 + plantilla en contrato
+- [ ] **P2** · Botón responder visible en Python (+ literal al contrato)
+- [ ] **N2** · Presencia del contacto en cabecera .NET
+- [ ] **J1 + T2** · Avisos arriba en Java + banner ámbar unificado en los 3
+- [ ] **T1** · ESC deselecciona + arranque sin selección en los 3
+- [ ] **Celdas `¿test?`** · 5 verificaciones del inventario §3.4
+- [ ] **Smoke visual Python** · checklist Python con `pyside6-mcp`
+- [ ] **Puerta + archivado** · verificar.py 10/10, commit sin push, mover el plan a `docs/archivo/`
+
 ---
 
 ## 6. Patrones de diseño en los clientes

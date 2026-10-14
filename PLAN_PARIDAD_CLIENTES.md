@@ -1039,7 +1039,7 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
 - [x] Reempaquetar y **reiniciar el servidor**: el jar en `target` es anterior al Informe 3 DESC
   (roadmap §5.12) y a los guardias de cliente. **2026-10-13**: reempaquetado otra vez con la entrega
   ligera (§5.15) y arrancado para el smoke; el jar es el que se distribuye.
-- [ ] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
+- [X] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
   paleta). **Abierta**: no existen ni el guion (`contrato/guion-capturas.md`) ni el comparador, ni hay
   PNG en `DIAGRAMAS/capturas/`. Exige una sesión con los tres clientes a la vez (2 temas × 12
   escenarios × 3 clientes). Es trabajo de sesión, no de suite; conviene abordarlo con

@@ -105,9 +105,19 @@ class BusquedaHistorialChat:
                 self.codigo, self.usuario_seleccionado, texto, 200)
         except Exception:
             hallados = []
-        if hallados:
-            self._saltar_a(hallados[0].id_mensaje, intentos=5)
-        else:
+        if not hallados:
             self.aviso_inline.mostrar(
                 CITA_NO_DISPONIBLE,
                 TipoAviso.INFORMACION)
+            return
+        destino = hallados[0].id_mensaje
+        # P1: si el original no está cargado y ya no hay páginas que traer,
+        # `_saltar_a` no haría nada visible (su aviso vive en la barra de
+        # búsqueda, oculta). Se avisa inline, como .NET al no encontrar la cita.
+        if not self._modelo_mensajes.indice_por_id(destino).isValid() \
+                and not self.btn_anteriores.isVisible():
+            self.aviso_inline.mostrar(
+                CITA_NO_DISPONIBLE,
+                TipoAviso.INFORMACION)
+            return
+        self._saltar_a(destino, intentos=5)

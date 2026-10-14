@@ -560,6 +560,31 @@ class PruebasUI(unittest.TestCase):
             "El mensaje citado no está disponible en este historial.",
             TipoAviso.INFORMACION)
 
+    def test_cita_no_cargada_y_sin_paginas_avisa_inline(self):
+        # P1: el original existe en el historial pero no está cargado y ya no
+        # hay páginas que traer: antes no pasaba nada visible (el aviso de
+        # `_saltar_a` vive en la barra de búsqueda, oculta).
+        from puertos.datos import MensajeLocal
+
+        self.chat.usuario_seleccionado = "B002"
+
+        class HistorialFalso:
+            def buscar(self, yo, otro, patron, limite=200):
+                return [MensajeLocal(
+                    "viejo-1", "B002", "A001", "MENSAJE_TEXTO", "viejo", None,
+                    None, None, None, None, None, "2026-01-01T10:00:00",
+                    False, False, "ENVIADO", None, None, None)]
+
+        self.fachada.historial = HistorialFalso()
+        self.chat.btn_anteriores.setVisible(False)
+        with patch.object(self.chat.aviso_inline, "mostrar") as mostrar:
+            self.chat._navegar_cita(
+                {}, 'Respuesta a Bea Dos [B002]: "viejo"')
+
+        mostrar.assert_called_once_with(
+            "El mensaje citado no está disponible en este historial.",
+            TipoAviso.INFORMACION)
+
     def test_acuse_leido_actualiza_la_burbuja_por_id(self):
         self.chat.lista_usuarios.setCurrentRow(0)
         self.chat._agregar_fila({
