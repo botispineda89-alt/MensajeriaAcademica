@@ -75,7 +75,7 @@ namespace Mensajeria.Views
                 if (version != _versionNavegacionCita || codigo != UsuarioDestino) return;
                 if (ubicacion == null)
                 {
-                    MostrarAvisoInline("El mensaje citado no está disponible en este historial.",
+                    MostrarAvisoInline(TextosVentana.CitaNoDisponible,
                         TipoAvisoInline.Informacion);
                     return;
                 }

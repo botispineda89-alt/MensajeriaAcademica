@@ -101,12 +101,13 @@ public final class TextoCliente {
      */
     public static String previoConversacion(String contenido, boolean propio) {
         // Sin mensaje no hay autor: nunca "Tú: Sin mensajes aún".
+        // El literal vive en TextosVentana (VIS-02, mismo paquete).
         if (contenido == null || contenido.isBlank()) {
-            return "Sin mensajes aún";
+            return TextosVentana.SIN_MENSAJES_FILA;
         }
         String base = contenido.replaceAll("\\s+", " ").trim();
         if (base.isEmpty()) {
-            return "Sin mensajes aún";
+            return TextosVentana.SIN_MENSAJES_FILA;
         }
         if (base.length() > CORTE_PREVIEW) {
             base = base.substring(0, CORTE_PREVIEW - 1) + "…";

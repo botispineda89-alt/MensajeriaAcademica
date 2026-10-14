@@ -4,6 +4,12 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QVBoxLayout, QWidget
 from qfluentwidgets import ComboBox, LineEdit, PasswordLineEdit, PrimaryPushButton
 
+from transversal.textos import (
+    CERRAR_PROGRAMA_PREGUNTA,
+    CONFIRMAR_SALIDA,
+    TITULO_LOGIN,
+)
+
 from ui.tema import (
     MODO_OSCURO,
     TOKENS_CANONICOS,
@@ -28,7 +34,7 @@ class LoginWindow(QWidget):
         self._cerrando = False
         self._login_finalizado.connect(self._terminar_login)
         self.modo = self._leer_modo()
-        self.setWindowTitle("Mensajería Académica | Iniciar sesión")
+        self.setWindowTitle(TITULO_LOGIN)
         self.setMinimumSize(440, 560)
 
         root = QVBoxLayout(self)
@@ -260,7 +266,7 @@ class LoginWindow(QWidget):
             evento.accept()
             return
         respuesta = QMessageBox.question(
-            self, "Confirmar salida", "¿Deseas cerrar la aplicación?",
+            self, CONFIRMAR_SALIDA, CERRAR_PROGRAMA_PREGUNTA,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
         if respuesta != QMessageBox.StandardButton.Yes:

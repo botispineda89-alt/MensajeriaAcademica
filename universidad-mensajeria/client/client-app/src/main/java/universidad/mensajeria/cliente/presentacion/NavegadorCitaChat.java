@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * Resuelve y navega a la cita visible de un mensaje sin ampliar el protocolo.
@@ -100,7 +101,7 @@ public final class NavegadorCitaChat {
             Ubicacion destino = tarea.getValue();
             if (destino == null) {
                 paginador.cargarConversacion(
-                        () -> estado.accept("El mensaje citado no está disponible en este historial."));
+                        () -> estado.accept(TextosVentana.CITA_NO_DISPONIBLE));
                 return;
             }
             viewModel.setOffsetActual((destino.rango() / LIMITE_PAGINA) * LIMITE_PAGINA);

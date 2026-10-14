@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import javafx.beans.property.BooleanProperty;
 import universidad.mensajeria.cliente.presentacion.comandos.EnviarMensajeComando;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * PAT-VM: encapsula la acción de enviar mensaje (texto + adjuntos + respuesta)
@@ -138,7 +139,7 @@ final class ChatEnvioAccion {
         } else {
             // Sin red no es un error: se queda en la cola y se reintenta solo.
             // Por eso es INFORMACION y no ERROR.
-            estado.accept("Sin red: guardado para reintentar");
+            estado.accept(TextosVentana.SIN_RED);
             mostrarAviso.accept("Sin red: quedó en la cola y se reintentará solo.",
                     TipoAviso.INFORMACION);
         }

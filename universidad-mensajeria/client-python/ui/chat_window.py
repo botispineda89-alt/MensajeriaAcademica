@@ -4,6 +4,7 @@ from PySide6.QtCore import QSize, QTimer
 from PySide6.QtWidgets import QMainWindow
 
 from transversal.estado_conexion import CONECTADO
+from transversal.textos import TITULO_CHAT
 from ui.busqueda_historial_chat import BusquedaHistorialChat
 from ui.componentes_chat import TareaChat as _Task
 from ui.composicion_chat import construir_contexto_chat
@@ -140,7 +141,7 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._pool = self._ctx.pool
         self._directorio_imagenes = self._ctx.directorio_imagenes()
 
-        self.setWindowTitle(f"Mensajería Académica | {codigo}")
+        self.setWindowTitle(TITULO_CHAT.format(codigo=codigo))
         self.setMinimumSize(QSize(900, 600))
         self.resize(1120, 740)
         self.setAcceptDrops(True)

@@ -140,7 +140,7 @@ namespace Mensajeria.Views
                     ? "Elige un contacto para empezar a conversar."
                     : CargandoHistorial ? "Cargando conversación…"
                     : _errorCargaHistorial ? "No se pudo cargar el historial. Revisa la conexión e inténtalo de nuevo."
-                    : "Sin mensajes aún. Escribe el primero.";
+                    : TextosVentana.VacioChat;
             }
         }
     }

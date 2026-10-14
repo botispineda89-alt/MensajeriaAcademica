@@ -1,5 +1,7 @@
 """Acciones de búsqueda del historial desde la interfaz de chat."""
 
+from transversal.textos import CITA_NO_DISPONIBLE
+
 
 class BusquedaHistorialChat:
     def _mostrar_buscar(self):
@@ -105,5 +107,5 @@ class BusquedaHistorialChat:
             self._saltar_a(hallados[0].get("id_mensaje"), intentos=5)
         else:
             self.aviso_inline.mostrar(
-                "El mensaje citado no está disponible en este historial.",
+                CITA_NO_DISPONIBLE,
                 TipoAviso.INFORMACION)

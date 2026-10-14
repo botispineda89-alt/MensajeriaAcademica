@@ -15,7 +15,7 @@ namespace Mensajeria.Views
         protected override void OnClosing(CancelEventArgs e)
         {
             if (!_cierreProgramado
-                && MessageBox.Show("¿Deseas cerrar el programa?", "Confirmar salida",
+                && MessageBox.Show(TextosVentana.CerrarProgramaPregunta, TextosVentana.ConfirmarSalida,
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;

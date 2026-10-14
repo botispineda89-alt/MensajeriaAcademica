@@ -5,6 +5,8 @@ from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout
 from qfluentwidgets import PushButton
 
+from transversal.textos import TITULO_VISOR
+
 
 class VisorImagenChat(QDialog):
     """Visor con zoom y pan: rueda anclada al ratón y atajos de teclado."""
@@ -12,7 +14,7 @@ class VisorImagenChat(QDialog):
     def __init__(self, pixmap, titulo, parent=None):
         from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView
         super().__init__(parent)
-        self.setWindowTitle(titulo or "Imagen")
+        self.setWindowTitle(titulo or TITULO_VISOR)
         self.resize(940, 760)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self._zoom = 1.0

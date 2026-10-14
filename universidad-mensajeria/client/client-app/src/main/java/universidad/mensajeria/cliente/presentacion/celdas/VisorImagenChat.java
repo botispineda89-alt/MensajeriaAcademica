@@ -22,6 +22,7 @@ import universidad.mensajeria.cliente.transversal.utilerias.TranscodificadorImag
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * UIX-28: visor de imagen grande con zoom y pan, a resolución real.
@@ -166,7 +167,7 @@ public final class VisorImagenChat {
         Scene escena = new Scene(raiz, VENTANA_ANCHO, VENTANA_ALTO);
         atajosTeclado(escena, zoom, encaje);
         Stage ventana = new Stage();
-        ventana.setTitle(item.nombreArchivo() == null ? "Imagen" : item.nombreArchivo());
+        ventana.setTitle(item.nombreArchivo() == null ? TextosVentana.TITULO_VISOR : item.nombreArchivo());
         ventana.setScene(escena);
         ventana.show();
     }

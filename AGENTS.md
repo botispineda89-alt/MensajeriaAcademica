@@ -119,15 +119,12 @@ Notas que se adivinan mal:
   relativo al directorio de trabajo (Python) o a la carpeta del ejecutable (.NET).
 - Tests WPF requieren **SDK 10** aunque la app sea `net8.0-windows`. No hay CI workflows en
   `.github/`; la verificación es local (`contrato/verificar.py`).
-- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-13,
-  segunda tanda del plan de patrones UI): JavaFX **298/298** (50 clases, ArchUnit incluida),
-  Python **297** (5 omitidas) y .NET **386/386** en verde; build WPF Release 0/0;
+- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-14,
+  tercera tanda: checklist 5.21 + VIS-02): JavaFX **299/299** (50 clases, ArchUnit incluida),
+  Python **307** (5 omitidas) y .NET **386/386** en verde; build WPF Release 0/0;
   `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
-  **`contrato/verificar.py` pasó 9/9 (exit 0)** y sirve como puerta de calidad.
-  *(Corrección: la nota anterior decía JavaFX 299 y .NET 368; el 299 no se reproduce —
-  `mvn -pl client/client-app -am test` agrega 298 en 50 clases. Los 386 de .NET y los 297 de
-  Python incluyen lo añadido en esa tanda: `ProveedorSesionLocalTests` + reglas de arquitectura,
-  y `test_toda_tarea_lanzada_tiene_manejador`.)*
+  **`contrato/verificar.py` pasó 10/10 (exit 0)** y sirve como puerta de calidad (el paso 6 es
+  nuevo: `verificar_textos_ui.py`, literales de ventana/diálogo una vez por cliente).
 - `servidor-app` solo ejecutó `EntregaCasoPayloadGrandeTest` (4/4) el 2026-10-13; **la suite completa
   no se re-ejecutó**: su último registro fechado es el del 2026-10-08, 106 casos, **102 en verde y
   4 fallos preexistentes** (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`), ajenos

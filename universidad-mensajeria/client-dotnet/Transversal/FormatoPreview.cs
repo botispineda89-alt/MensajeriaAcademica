@@ -16,8 +16,11 @@ namespace Mensajeria.Transversal
         /// <summary>Prefijo cuando el último mensaje lo escribió la sesión activa.</summary>
         public const string PREFIJO_PROPIO = "Tú: ";
 
-        /// <summary>Lo que se ve cuando la conversación no tiene ningún mensaje.</summary>
-        public const string SIN_MENSAJES = "Sin mensajes aún";
+        /// <summary>
+        /// Lo que se ve cuando la conversación no tiene ningún mensaje.
+        /// Vive en <see cref="TextosVentana"/> (VIS-02); aquí solo el alias.
+        /// </summary>
+        public const string SIN_MENSAJES = TextosVentana.SinMensajesFila;
 
         /// <summary>Ancho máximo del preview (54 con el "…").</summary>
         public const int CORTE = 54;

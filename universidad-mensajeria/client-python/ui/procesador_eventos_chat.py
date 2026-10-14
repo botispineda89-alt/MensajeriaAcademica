@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMessageBox
 
 from transversal import iconos_archivo
 from transversal.estado_conexion import CONECTADO, muestra_banner, texto as texto_estado
+from transversal.textos import SESION_CERRADA_DEFECTO
 from transversal.tipo_mensaje import TipoMensaje
 
 
@@ -113,7 +114,7 @@ class ProcesadorEventosChat:
                 self.lbl_estado_red.setText("En línea")
 
     def _procesar_cierre(self, mensaje):
-        motivo = mensaje.get("motivo") or mensaje.get("mensajeError") or "Sesión cerrada por el servidor."
+        motivo = mensaje.get("motivo") or mensaje.get("mensajeError") or SESION_CERRADA_DEFECTO
         QMessageBox.information(self, "Sesión cerrada", motivo)
         self._cerrando = True
         self.fachada.desconectar()

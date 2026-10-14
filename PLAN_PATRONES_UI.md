@@ -432,25 +432,35 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   refactor sin defecto detrás. `PAT-06` cerrado por otra vía (`MUERTE-5`).
 - [x] **G — contrato visual.** `VIS-01` cerrado (paleta generada; 19 reglas de contraste ≥ 4.5:1);
   `VIS-02` con la máquina de estados centralizada y verificada en los 3.
-- [x] **G (cola).** `VIS-02` de ventana/diálogo por centralizar; `UIX-*` restantes según roadmap
-  §5 (`UIX-01`, `UIX-06` y `UIX-15` ya tienen lote de cierre).
+- [x] **G (cola).** `VIS-02` cerrado (2026-10-14): `contrato/textos-ui.json` fija 20
+  literales de ventana/diálogo y `contrato/verificar_textos_ui.py` (paso 6 de la
+  puerta) comprueba que cada uno vive una sola vez por cliente
+  (`TextosVentana` en Java/.NET, `transversal/textos.py` en Python) y que ningún
+  otro fuente lo repite inline. Al centralizar salieron 3 derivas que el catálogo
+  ya normaba y se unificaron: Python preguntaba `¿Deseas cerrar la aplicación?`,
+  Java preguntaba otra cosa al salir en todas, y .NET tenía otro texto de
+  `¿Deseas salir…?` y otro aviso de sin-red. `UIX-*` restantes según roadmap §5
+  (`UIX-01`, `UIX-06` y `UIX-15` ya tienen lote de cierre).
 
 **Definición de terminado (§9), condición por condición**
 
-- [x] **1.** Suites de los 3 clientes sin modificar tests existentes: JavaFX **298** (50 clases),
-  Python **297** (5 omitidas), .NET **386**; build WPF Release 0 errores/0 avisos
-  (`verificar.py` **9/9, exit 0**, 2026-10-13, segunda tanda).
-  *Las únicas pruebas tocadas son las nuevas: `ProveedorSesionLocalTests` (5),
-  `ChatViewModelTests` (9), `ElEstadoDeConversacionNoViveEnLaVentana`,
-  `LaFachadaNoComponeElAlmacenamientoLocal`, `ElAlmacenamientoLocalSeComponeEnElCompositionRoot`,
-  `test_la_ventana_de_chat_no_es_su_propia_raiz_de_composicion`,
-  `test_toda_tarea_lanzada_tiene_manejador` y
-  `test_el_view_model_es_un_qobject_con_un_solo_predicado_de_envio`. Ninguna prueba existente
-  cambió de aserción.*
+- [x] **1.** Suites de los 3 clientes sin modificar tests existentes: JavaFX **299** (50 clases),
+  Python **307** (5 omitidas), .NET **386**; build WPF Release 0 errores/0 avisos
+  (`verificar.py` **10/10, exit 0**, 2026-10-14, tercera tanda).
+  *Las únicas pruebas tocadas son las nuevas: `test_tick_azul_solo_cuando_el_crudo_es_leido`,
+  `test_respuesta_se_reparte_en_cita_y_cuerpo`, `test_clic_en_cita_salta_al_mensaje_original`,
+  `test_cita_sin_original_muestra_el_aviso_de_dotnet`, `test_formato_cita.py` (6),
+  `filtrarExcluyeLaSesionPropiaAunqueTengaFilaEnElHistorial` y el paso
+  `verificar_textos_ui.py`. Ninguna prueba existente cambió de aserción
+  (el intento de filtrar en `ConstructorRecientes` se revirtió justo por eso:
+  `recientesIncluyeChatConUnoMismo` fija el dato A→A).*
 - [X] **2.** Matriz de interoperabilidad de las 6 direcciones: smoke manual pendiente
   (`GUIA_ACEPTACION.md`).
-- [ ] **3.** Literales nuevos al sitio de tokens: `VIS-01` cerrado; el pendiente es `VIS-02`
-  (literales de ventana/diálogo).
+- [x] **3.** Literales nuevos al sitio de tokens: `VIS-01` cerrado y `VIS-02` cerrado
+  (2026-10-14): ventana/diálogo en `contrato/textos-ui.json` + módulo único por
+  cliente + paso 6 de la puerta. El contenido de botones y etiquetas sigue en el
+  marcado de cada toolkit (ahí la centralización nativa es el propio FXML/XAML);
+  los títulos sí van al módulo (en .NET con `x:Static`).
 - [x] **4.** `docs/archivo/ANALISIS_TECNICO-historico.md` §2: `MUERTE-1..5` aplicados y lo restante con justificación
   escrita (exclusiones y `MUERTE-6` en roadmap §4).
 - [ ] **5.** Regla B2 (ninguna clase de JavaFX eliminada sin verla en la app): control de proceso,

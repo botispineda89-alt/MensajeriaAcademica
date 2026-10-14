@@ -5,6 +5,14 @@ import shutil
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from transversal.textos import (
+    DESCARGA_ERROR_TITULO,
+    DESCARGA_SIN_ID,
+    GUARDAR_ARCHIVO,
+    SELECCIONA_CONVERSACION_PRIMERO,
+    TITULO_SELECCIONAR_CONVERSACION,
+    TITULO_VISOR,
+)
 from ui.estado_aviso_inline import TipoAviso
 from ui.lista_virtual import ROL_ITEM
 from ui.visor_imagen_chat import VisorImagenChat as _VisorImagen
@@ -40,8 +48,8 @@ class GestorAdjuntosChat:
     def adjuntar_imagen(self):
         """Añade archivos múltiples a la bandeja de envío."""
         if not self.usuario_seleccionado:
-            QMessageBox.information(self, "Seleccionar conversación",
-                                    "Selecciona una conversación primero.")
+            QMessageBox.information(self, TITULO_SELECCIONAR_CONVERSACION,
+                                    SELECCIONA_CONVERSACION_PRIMERO)
             return
         rutas, _ = QFileDialog.getOpenFileNames(
             self, "Seleccionar archivo", "",
@@ -77,8 +85,8 @@ class GestorAdjuntosChat:
         if event.mimeData().hasUrls():
             if not self.usuario_seleccionado:
                 QMessageBox.information(
-                    self, "Seleccionar conversación",
-                    "Selecciona una conversación primero.")
+                    self, TITULO_SELECCIONAR_CONVERSACION,
+                    SELECCIONA_CONVERSACION_PRIMERO)
                 event.ignore()
                 return
             rutas = [url.toLocalFile() for url in event.mimeData().urls()
@@ -156,7 +164,7 @@ class GestorAdjuntosChat:
             if pixmap is None or pixmap.isNull():
                 return
             mensaje = self._mensaje_por_id(mensaje_id) or {}
-            visor = _VisorImagen(pixmap, mensaje.get("filename") or "Imagen",
+            visor = _VisorImagen(pixmap, mensaje.get("filename") or TITULO_VISOR,
                                  self.window())
             visor.show()
         except Exception:
@@ -185,14 +193,14 @@ class GestorAdjuntosChat:
         es_imagen = bool(mensaje.get("is_image"))
         archivo_id = mensaje.get("archivo_id")
         if not archivo_id and not es_imagen:
-            QMessageBox.warning(self, "No se pudo descargar", "El identificador del archivo no está disponible.")
+            QMessageBox.warning(self, DESCARGA_ERROR_TITULO, DESCARGA_SIN_ID)
             return
         if es_imagen:
             nombre_defecto = mensaje.get("filename") or "imagen.png"
         else:
             nombre_defecto = mensaje.get("filename") or "archivo.bin"
         ruta_sugerida, _ = QFileDialog.getSaveFileName(
-            self, "Guardar archivo", nombre_defecto, "Todos los archivos (*.*)")
+            self, GUARDAR_ARCHIVO, nombre_defecto, "Todos los archivos (*.*)")
         if not ruta_sugerida:
             return
 

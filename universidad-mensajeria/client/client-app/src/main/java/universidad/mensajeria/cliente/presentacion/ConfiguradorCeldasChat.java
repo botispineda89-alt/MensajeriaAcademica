@@ -11,6 +11,7 @@ import universidad.mensajeria.cliente.transversal.records.RecienteChat;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * Configura la fábrica de celdas de la lista de mensajes y la navegación de cita.
@@ -64,7 +65,7 @@ final class ConfiguradorCeldasChat {
                 gestorAdjuntos::imagenIlegible,
                 gestorAdjuntos::originalDe));
         listaMensajes.widthProperty().addListener((o, a, b) -> listaMensajes.refresh());
-        listaMensajes.setPlaceholder(placeholder("Sin mensajes aún. Escribe el primero."));
+        listaMensajes.setPlaceholder(placeholder(TextosVentana.VACIO_CHAT));
         listaUsuarios.setPlaceholder(placeholder("Sin contactos todavía."));
     }
 

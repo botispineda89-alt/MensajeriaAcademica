@@ -2,6 +2,12 @@
 
 from PySide6.QtWidgets import QMessageBox
 
+from transversal.textos import (
+    CERRAR_SESION_PREGUNTA,
+    CONFIRMAR_SALIDA,
+    SALIR_TODOS_PREGUNTA,
+)
+
 
 class GestorSalidaSesionChat:
     def expulsar_otras(self):
@@ -9,7 +15,7 @@ class GestorSalidaSesionChat:
 
     def salir_en_todos(self):
         respuesta = QMessageBox.question(
-            self, "Confirmar salida", "¿Cerrar todas las sesiones de esta cuenta?",
+            self, CONFIRMAR_SALIDA, SALIR_TODOS_PREGUNTA,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
         if respuesta != QMessageBox.StandardButton.Yes:
@@ -21,7 +27,7 @@ class GestorSalidaSesionChat:
             evento.accept()
             return
         respuesta = QMessageBox.question(
-            self, "Confirmar salida", "¿Deseas cerrar esta sesión y volver al inicio?",
+            self, CONFIRMAR_SALIDA, CERRAR_SESION_PREGUNTA,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No)
         if respuesta != QMessageBox.StandardButton.Yes:

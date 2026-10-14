@@ -797,31 +797,26 @@ Pendiente de estos tres ítems, si alguien lo quiere: la interfaz `HistorialLoca
 vista la salta y habla con `fachada.historial`) y la costura `Transporte` en los tres. Ninguna de las
 dos es una avería.
 
-### 5.21 Checklist de cierre: 3 defectos del smoke visual + resto de patrones — ⬜ abierto 2026-10-14
+### 5.21 Checklist de cierre: 3 defectos del smoke visual + resto de patrones — ✅ cerrada 2026-10-14
 
-El usuario ya hizo el smoke visual con las 3 apps abiertas y reportó 3 defectos. Esta es la lista
-canónica de lo que falta; nada de aquí está implementado todavía.
+El usuario ya hizo el smoke visual con las 3 apps abiertas y reportó 3 defectos. Los 3 están
+implementados y verificados (esta era la lista canónica; ya no hay nada abierto aquí).
 
-**A — Defectos del smoke (los 3 con causa localizada en el código).**
+**A — Defectos del smoke (los 3 cerrados).**
 
-- [ ] **PY-1 · El "visto" (LEÍDO) no se pinta de azul en Python.** Causa probable:
-  `ui/celdas/mensaje_delegate.py:268-270` pide `"Le" in raw_state`, pero el estado real es `"LEIDO"`
-  (todo mayúsculas) y la comparación es sensible a mayúsculas: nunca se cumple y siempre pinta
-  `visto_otro`. Los tokens sí existen (`tick.read` → `visto_leido`). Cierre: comparar contra
-  `"LEIDO"` exacto y comprobar a ojo que el `✓✓ Leído` propio sale azul en los 2 temas y el
-  `✓✓ Entregado` sigue gris.
-- [ ] **JV-1 · La sesión propia sale en la lista de chats (Java).** Python ya filtra
-  (`procesador_tareas_chat.py:201`, `refrescador_contactos_chat.py:81` con `!= self.codigo`); Java no:
-  `SincronizadorDirectorioCliente.sincronizarDirectorio()` guarda el directorio tal cual, con la
-  sesión dentro. Cierre: filtrar en la causa raíz (sincronizador o vista del directorio, no en cada
-  llamada) y comprobar que la propia cuenta no sale en la lista ni se puede abrir auto-chat, sin
-  romper `asegurarEnCache` ni el conteo de conectados.
-- [ ] **PY-2 · Las respuestas no se ven como en .NET.** .NET separa cita/cuerpo con
-  `FormatoCita.Separar` y pinta la cita como bloque (fondo `CitaBgBrush`, borde izquierdo grueso
-  `3,1,1,1`, clicable → `NavegarACitaAsync`); Python pinta la burbuja con el texto crudo
-  `Respuesta a …`. Cierre: portar la misma regla de separación (cita = lo anterior al primer salto
-  doble, igual que `MensajeCell.extraerCita` en Java) y el mismo bloque citado clicable con
-  navegación al mensaje original, incluyendo el caso de la cita con saltos dentro.
+- [x] **PY-1 · El "visto" (LEÍDO) no se pinta de azul en Python.** Era la comparación
+  `"Le" in raw_state` contra un crudo en mayúsculas: nunca coincidía. Ahora es
+  `tema.color_tick(t, crudo)` (el color es del tema) + `test_tick_azul_…`. Comprobar a ojo
+  el `✓✓ Leído` azul en los 2 temas.
+- [x] **JV-1 · La sesión propia sale en la lista de chats (Java).** El filtro va en
+  `ChatViewModel.filtrar` (la entrega a la vista, como Python), no en `ConstructorRecientes`:
+  el primer intento filtraba el dato y rompía `recientesIncluyeChatConUnoMismo`, que fija que
+  el servidor acepta A→A. Se revirtió y se filtró en la vista + `filtrarExcluyeLaSesion…`.
+- [x] **PY-2 · Las respuestas no se ven como en .NET.** Nuevo `transversal/formato_cita.py`
+  (misma regla que `MensajeCell.extraerCita` y `FormatoCita.Separar`) + `ui/celdas/bloque_cita.py`
+  (reparto, pintado y clic) + `_navegar_cita` (busca el extracto en el historial local y salta
+  con `_saltar_a`; mismo aviso que .NET si no aparece). El delegado solo delega para no superar
+  su tope de 350 líneas (queda en 350 exactas).
 
 **B — Resto de `PLAN_PATRONES_UI.md` (su §9.1).**
 
@@ -836,6 +831,25 @@ canónica de lo que falta; nada de aquí está implementado todavía.
   y costura `Transporte { Pedir, Enviar }` en los 3. O se hacen o se dejan documentados como
   descartados.
 - [ ] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones).
+
+### 5.22 `VIS-02`: literales de ventana/diálogo, una vez por cliente — ✅ cerrado 2026-10-14
+
+`contrato/textos-ui.json` fija 20 literales (sale de `DIAGRAMAS/textos-ui.md` §1 y §6) y
+`contrato/verificar_textos_ui.py` (paso 6 de la puerta) comprueba que cada uno vive en el módulo
+de su cliente (`TextosVentana` en Java/.NET, `transversal/textos.py` en Python) y que ningún otro
+fuente lo repite inline (los tests sí pueden fijarlos). Los títulos van al módulo y las vistas los
+referencian (Java/Python en código, .NET con `x:Static`); el contenido de botones y etiquetas sigue
+en el marcado de cada toolkit. Los literales parametrizados (`Sesión cerrada: {motivo}`,
+`Archivo guardado en: {ruta}`) quedan fuera: centralizar el formato es otro plan.
+
+Al centralizar salieron 3 derivas que el catálogo ya normaba y se unificaron (ningún test las
+fijaba): Python preguntaba `¿Deseas cerrar la aplicación?` al cerrar el login, Java preguntaba otra
+cosa al salir en todas, y .NET tenía otro texto de `¿Deseas salir…?` y otro aviso de sin-red. Lo que
+difiere a propósito se conserva y el contrato lo fija para que no derive más (título del chat con
+la cuenta en Python, `Guardar archivo` sin título en .NET, avisos de un solo cliente).
+
+Verificación de esta tanda: JavaFX 299/299 (50 clases), Python 307 (5 omitidas), .NET 386/386, build
+WPF Release 0 errores/0 avisos, `contrato/verificar.py` 10/10 con exit 0.
 
 ---
 

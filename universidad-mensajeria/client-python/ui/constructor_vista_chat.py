@@ -10,6 +10,10 @@ from qfluentwidgets import (
     ComboBox, LineEdit, ListWidget, PrimaryPushButton, PushButton,
 )
 
+from transversal.textos import (
+    CARGAR_ANTERIORES,
+    SELECCIONA_CONVERSACION,
+)
 from ui.componentes_chat import CampoMensaje as _ComposerEdit
 from ui.celdas.contacto_delegate import ContactoDelegate
 from ui.celdas.mensaje_delegate import MensajeDelegate
@@ -128,7 +132,7 @@ class ConstructorVistaChat:
         self._header = header
         header_row = QHBoxLayout(header)
         header_row.setContentsMargins(18, 12, 18, 12)
-        self.lbl_conversacion = QLabel("Selecciona una conversación")
+        self.lbl_conversacion = QLabel(SELECCIONA_CONVERSACION)
         self.lbl_conversacion.setStyleSheet("font-size: 17px; font-weight: 700; color: #E8EEF2;")
         self.lbl_presencia = QLabel("")
         self.lbl_presencia.setStyleSheet("color: #A8B8C1; font-size: 11px;")
@@ -155,7 +159,7 @@ class ConstructorVistaChat:
         self.lista_mensajes.setModel(self._modelo_mensajes)
         self.lista_mensajes.setItemDelegate(self._delegado_mensajes)
         self.lista_mensajes.doubleClicked.connect(self._responder_dobleclick)
-        self.btn_anteriores = PushButton("↑ Cargar mensajes anteriores")
+        self.btn_anteriores = PushButton(CARGAR_ANTERIORES)
         self.btn_anteriores.setAccessibleName("Cargar mensajes anteriores")
         self.btn_anteriores.clicked.connect(self._cargar_anteriores)
         self.btn_anteriores.setVisible(False)

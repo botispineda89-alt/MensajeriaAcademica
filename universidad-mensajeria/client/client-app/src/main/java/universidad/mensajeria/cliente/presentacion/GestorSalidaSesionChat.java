@@ -6,6 +6,7 @@ import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * Salida de sesión del chat: kick, salir simple/total y cierre remoto (Fase 3).
@@ -49,21 +50,21 @@ public final class GestorSalidaSesionChat {
                 return null;
             }
         };
-        tarea.setOnSucceeded(e -> estado.accept("Se solicitó cerrar tus otras sesiones"));
+        tarea.setOnSucceeded(e -> estado.accept(TextosVentana.OTRAS_SESIONES_ESTADO));
         tarea.setOnFailed(e -> estado.accept(
                 "Error: " + FormatoErrorCliente.mensaje(tarea.getException())));
         tareasFondo.execute(tarea);
     }
 
     public void salir() {
-        if (navegacion.confirmar("¿Deseas cerrar esta sesión y volver al inicio?")) {
+        if (navegacion.confirmar(TextosVentana.CERRAR_SESION_PREGUNTA)) {
             salirAlInicio(false);
         }
     }
 
     public void salirEnTodas() {
         if (navegacion.confirmar(
-                "¿Deseas cerrar esta sesión y cerrar también las otras sesiones de tu cuenta?")) {
+                TextosVentana.SALIR_TODOS_PREGUNTA)) {
             salirAlInicio(true);
         }
     }
@@ -110,7 +111,7 @@ public final class GestorSalidaSesionChat {
         cierreRemotoProcesado = true;
         detener.run();
         viewModel.cerrarSesionRemota();
-        navegacion.avisarProximoLogin("Tu sesión se cerró. Inicia sesión nuevamente.");
+        navegacion.avisarProximoLogin(TextosVentana.SESION_CERRADA_DEFECTO);
         try {
             navegacion.mostrarLogin();
         } catch (universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente

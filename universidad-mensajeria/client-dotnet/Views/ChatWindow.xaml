@@ -4,7 +4,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:Mensajeria.Views"
         xmlns:transversal="clr-namespace:Mensajeria.Transversal"
-        Title="Mensajería Académica | Chat" Height="760" Width="1120"
+        Title="{x:Static transversal:TextosVentana.TituloChat}" Height="760" Width="1120"
         MinHeight="600" MinWidth="880" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBgBrush}">
     <Window.Resources>
@@ -87,13 +87,13 @@
             <Border DockPanel.Dock="Top" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,1,1,0" Padding="18,12">
                 <DockPanel>
                     <StackPanel>
-                        <TextBlock x:Name="txtTitulo" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource LabelBrush}" Text="Selecciona una conversación"
+                        <TextBlock x:Name="txtTitulo" FontSize="17" FontWeight="SemiBold" Foreground="{DynamicResource LabelBrush}" Text="{x:Static transversal:TextosVentana.SeleccionaConversacion}"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTipService.ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                         <TextBlock x:Name="txtEstado" Foreground="{DynamicResource MutedBrush}" FontSize="11" Margin="0,3,0,0"/>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <ui:Button x:Name="btnAnteriores" Content="↑ Cargar mensajes anteriores"
+                        <ui:Button x:Name="btnAnteriores" Content="{x:Static transversal:TextosVentana.CargarAnteriores}"
                                    Click="BtnAnteriores_Click" Visibility="Collapsed"
                                    AutomationProperties.Name="Cargar mensajes anteriores"/>
                         <!-- UIX-14: gira mientras se trae historial. -->

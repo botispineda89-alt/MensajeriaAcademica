@@ -25,6 +25,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /**
  * Contactos y refresco del directorio con presencia (Fase 3).
@@ -127,7 +128,7 @@ public final class RefrescadorContactosChat {
                     if (actual != null) {
                         flujo.alSeleccionar(actual);
                     } else {
-                        etiquetaChat.setText("Selecciona una conversación");
+                        etiquetaChat.setText(TextosVentana.SELECCIONA_CONVERSACION);
                         etiquetaPresencia.setText("");
                     }
                 });

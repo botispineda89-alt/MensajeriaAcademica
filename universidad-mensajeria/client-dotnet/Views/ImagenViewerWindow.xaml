@@ -1,7 +1,8 @@
 <Window x:Class="Mensajeria.Views.ImagenViewerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Imagen" Height="760" Width="940"
+        xmlns:transversal="clr-namespace:Mensajeria.Transversal"
+        Title="{x:Static transversal:TextosVentana.TituloVisor}" Height="760" Width="940"
         MinHeight="300" MinWidth="400" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBgBrush}">
     <!-- UIX-08: visor con zoom y pan en vez de ventana fija. -->

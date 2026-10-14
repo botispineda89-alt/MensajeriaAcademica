@@ -22,6 +22,7 @@ import universidad.mensajeria.cliente.presentacion.celdas.FilaChat;
 import universidad.mensajeria.cliente.presentacion.celdas.MensajeCell;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 import universidad.mensajeria.cliente.transversal.records.PaginaHistorialRemota;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 import universidad.mensajeria.cliente.transversal.utilerias.TranscodificadorImagen;
 
 /** Carga, reintenta, cancela y descarga adjuntos de la conversación visible. */
@@ -283,7 +284,7 @@ public final class GestorAdjuntosChat implements InterfazGestorAdjuntos {
             return;
         }
         FileChooser elegidor = new FileChooser();
-        elegidor.setTitle("Guardar archivo");
+        elegidor.setTitle(TextosVentana.GUARDAR_ARCHIVO);
         elegidor.setInitialFileName(item.nombreArchivo() == null
                 ? "archivo.bin" : item.nombreArchivo());
         File destino = elegidor.showSaveDialog(listaMensajes.getScene().getWindow());

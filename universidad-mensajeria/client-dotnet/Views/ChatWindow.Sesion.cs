@@ -48,7 +48,7 @@ namespace Mensajeria.Views
             }
             if (!_cerrando)
             {
-                if (MessageBox.Show("¿Deseas cerrar esta sesión y volver al inicio?", "Confirmar salida",
+                if (MessageBox.Show(TextosVentana.CerrarSesionPregunta, TextosVentana.ConfirmarSalida,
                         MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
                     e.Cancel = true;
@@ -94,7 +94,7 @@ namespace Mensajeria.Views
             try
             {
                 await _fachada.ExpulsarOtrasSesionesAsync();
-                MostrarAvisoInline("Se solicitó cerrar tus otras sesiones", TipoAvisoInline.Informacion);
+                MostrarAvisoInline(TextosVentana.OtrasSesionesEstado, TipoAvisoInline.Informacion);
             }
             catch (Exception ex)
             {
@@ -105,7 +105,7 @@ namespace Mensajeria.Views
 
         private void BtnSalir_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("¿Deseas salir y cerrar esta sesión?", "Confirmar salida",
+            if (MessageBox.Show(TextosVentana.CerrarSesionPregunta, TextosVentana.ConfirmarSalida,
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             if (Enviando)
             {
@@ -122,7 +122,7 @@ namespace Mensajeria.Views
 
         private async void BtnSalirTodos_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("¿Cerrar todas las sesiones de esta cuenta?", "Confirmar salida",
+            if (MessageBox.Show(TextosVentana.SalirTodosPregunta, TextosVentana.ConfirmarSalida,
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
             if (Enviando)
             {

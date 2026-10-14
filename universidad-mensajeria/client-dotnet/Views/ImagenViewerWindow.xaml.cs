@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using Mensajeria.Transversal;
 
 namespace Mensajeria.Views
 {
@@ -18,7 +19,7 @@ namespace Mensajeria.Views
         public ImagenViewerWindow(System.Windows.Media.ImageSource? imagen, string titulo)
         {
             InitializeComponent();
-            Title = string.IsNullOrWhiteSpace(titulo) ? "Imagen" : titulo;
+            Title = string.IsNullOrWhiteSpace(titulo) ? TextosVentana.TituloVisor : titulo;
             imgGrande.Source = imagen;
             imgGrande.RenderTransform = _zoom;
             ActualizarEtiqueta();

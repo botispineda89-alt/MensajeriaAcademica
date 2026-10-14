@@ -54,7 +54,7 @@ namespace Mensajeria.Views
             try
             {
                 new ImagenViewerWindow(vm.Imagen,
-                    string.IsNullOrWhiteSpace(vm.NombreArchivo) ? "Imagen" : vm.NombreArchivo).Show();
+                    string.IsNullOrWhiteSpace(vm.NombreArchivo) ? TextosVentana.TituloVisor : vm.NombreArchivo).Show();
             }
             catch { }
         }
@@ -152,7 +152,7 @@ namespace Mensajeria.Views
                         _fachada.EnviarTextoAsync(destino, cita + texto));
                     txtMensaje.Clear();
                     if (!textoEnRed)
-                        MostrarAvisoInline("Sin red: el texto quedó guardado para reintentar.",
+                        MostrarAvisoInline(TextosVentana.SinRed,
                             TipoAvisoInline.Informacion);
                 }
 

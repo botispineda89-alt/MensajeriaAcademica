@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QAbstractItemView
 
 from transversal import iconos_archivo
 from transversal.fechas import agrupar, clave_dia, etiqueta_dia
+from transversal.textos import VACIO_CHAT
 from transversal.tipo_mensaje import TipoMensaje
 from ui.lista_virtual import ROL_ITEM
 
@@ -22,7 +23,7 @@ class PaginadorHistorialChat:
         if getattr(self, "_cargando_historial", False):
             self.lbl_vacio_chat.setText("Cargando historial…")
         elif self.usuario_seleccionado:
-            self.lbl_vacio_chat.setText("Sin mensajes aún. Escribe el primero.")
+            self.lbl_vacio_chat.setText(VACIO_CHAT)
         else:
             self.lbl_vacio_chat.setText("Elige un contacto para empezar a conversar.")
         self.lbl_vacio_chat.setVisible(True)

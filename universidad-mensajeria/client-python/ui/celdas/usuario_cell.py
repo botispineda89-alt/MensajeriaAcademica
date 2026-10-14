@@ -7,6 +7,8 @@ el texto plano queda para accesibilidad y para las pruebas.
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
 
+from transversal.textos import SIN_MENSAJES_FILA as SIN_MENSAJES
+
 #: Roles de la fila (compartidos con `ContactoDelegate`; no renumerar:
 #: `_limpiar_insignia` y las pruebas los leen por offset desde UserRole).
 ROL_CODIGO = Qt.ItemDataRole.UserRole
@@ -16,10 +18,6 @@ ROL_BASE = Qt.ItemDataRole.UserRole + 3
 ROL_PREVIEW = Qt.ItemDataRole.UserRole + 4
 ROL_CONECTADO = Qt.ItemDataRole.UserRole + 5
 ROL_FECHA = Qt.ItemDataRole.UserRole + 6
-
-#: Literal compartido con Java (`UsuarioCell`): fila sin conversación.
-SIN_MENSAJES = "Sin mensajes aún"
-
 
 class UsuarioCell:
     @staticmethod

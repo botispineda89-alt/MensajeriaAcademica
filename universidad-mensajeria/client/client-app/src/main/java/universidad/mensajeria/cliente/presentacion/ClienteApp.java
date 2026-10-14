@@ -15,6 +15,7 @@ import javafx.stage.Stage;
 import universidad.mensajeria.cliente.composicion.ClienteRuntime;
 import universidad.mensajeria.cliente.composicion.FabricaCliente;
 import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /** Shell JavaFX y composition root de la aplicación del cliente. */
 public final class ClienteApp extends Application implements InterfazNavegacionCliente {
@@ -53,14 +54,14 @@ public final class ClienteApp extends Application implements InterfazNavegacionC
     public void mostrarLogin() throws ExcepcionCliente, IOException {
         FXMLLoader cargador = crearCargador("/vistas/login.fxml");
         Parent raiz = cargador.load();
-        escenario.setTitle("Mensajería Académica | Iniciar sesión");
+        escenario.setTitle(TextosVentana.TITULO_LOGIN);
         Scene escena = new Scene(raiz, 540, 740);
         aplicarTema(escena, true);
         escenario.setScene(escena);
         escenario.setMinWidth(480);
         escenario.setMinHeight(660);
         escenario.setOnCloseRequest(evento -> {
-            if (!confirmar("¿Deseas cerrar el programa?")) {
+            if (!confirmar(TextosVentana.CERRAR_PROGRAMA_PREGUNTA)) {
                 evento.consume();
             }
         });
@@ -82,14 +83,14 @@ public final class ClienteApp extends Application implements InterfazNavegacionC
     public void mostrarChat() throws ExcepcionCliente, IOException {
         FXMLLoader cargador = crearCargador("/vistas/chat.fxml");
         Parent raiz = cargador.load();
-        escenario.setTitle("Mensajería Académica | Chat");
+        escenario.setTitle(TextosVentana.TITULO_CHAT);
         Scene escena = new Scene(raiz, 1100, 700);
         aplicarTema(escena, false);
         escenario.setScene(escena);
         ChatController chat = cargador.getController();
         escenario.setOnCloseRequest(evento -> {
             evento.consume();
-            if (confirmar("¿Deseas cerrar esta sesión y volver al inicio?")) {
+            if (confirmar(TextosVentana.CERRAR_SESION_PREGUNTA)) {
                 chat.salirAlInicio();
             }
         });
@@ -100,7 +101,7 @@ public final class ClienteApp extends Application implements InterfazNavegacionC
         Alert alerta = new Alert(Alert.AlertType.CONFIRMATION, pregunta,
                 ButtonType.YES, ButtonType.NO);
         alerta.initOwner(escenario);
-        alerta.setTitle("Confirmar salida");
+        alerta.setTitle(TextosVentana.CONFIRMAR_SALIDA);
         alerta.setHeaderText(null);
         ((Button) alerta.getDialogPane().lookupButton(ButtonType.NO)).setDefaultButton(true);
         return alerta.showAndWait().orElse(ButtonType.NO) == ButtonType.YES;

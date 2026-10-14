@@ -15,6 +15,10 @@ from pathlib import Path
 
 from PySide6.QtGui import QPixmap
 
+from transversal.textos import (
+    OTRAS_SESIONES_ESTADO,
+    SIN_RED,
+)
 from ui.estado_aviso_inline import TipoAviso
 
 
@@ -89,7 +93,7 @@ class ProcesadorTareasChat:
         self.modelo_vista.enviando = False
         self._ocultar_progreso_envio()
         if any(estado is False for estado in estados.values()):
-            self.lbl_estado_red.setText("Sin red: guardado para reintentar")
+            self.lbl_estado_red.setText(SIN_RED)
         for mid in ids_enviados:
             mensaje = self._mensaje_por_id(mid)
             if mensaje is not None and mensaje.get("raw_state") == "PENDIENTE":
@@ -259,7 +263,7 @@ class ProcesadorTareasChat:
             self._aviso_red(f"No se pudo expulsar: {error}", TipoAviso.ERROR)
             return
 
-        self.lbl_estado_red.setText("Se solicitó cerrar tus otras sesiones")
+        self.lbl_estado_red.setText(OTRAS_SESIONES_ESTADO)
 
     def _entregar_marcar_leidos(self, resultado, error):
         """Marcar como leídos no pinta nada: la insignia la baja el directorio.
