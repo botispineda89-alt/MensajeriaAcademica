@@ -25,7 +25,8 @@ estados de §3.2 están cerrados; la tabla de capacidades desiguales está al fi
 
 > **Actualizado 2026-10-08 — el bloqueante de §0.1 ya está resuelto.** Java envía por el protocolo
 > fragmentado; el trabajo de contrato y tokens de las fases 0.2–0.4 también está implementado.
-> La verificación actual pasa las tres suites y el build WPF. Aún falta el smoke real de 20 MiB y
+> La verificación actual pasa las tres suites y el build WPF. El smoke real de 20 MiB se ejecutó el
+> 2026-10-13 (A→B y B→A byte a byte) y el 2026-10-14 (las 3 direcciones con SHA-256, incluida A→A);
 > las fases 1–6 siguen abiertas según los criterios detallados abajo.
 
 Mientras el contrato esté escrito a mano tres veces, cualquier fase posterior reintroduce deriva.
@@ -38,11 +39,11 @@ Esta sección crea **una sola fuente de verdad** y genera el resto.
 | Tope de trama del protocolo | **16 MiB** | `TramaCodec.TAMANO_MAXIMO_TRAMA`, invariante 2 de `AGENTS.md` §5 |
 | Tope de adjunto que anuncia la UI de Java | **50 MiB** | `TextoCliente.TOPE_ADJUNTO_BYTES` |
 | Base64 infla los bytes | **× 4/3** | — |
-| Transferencia fragmentada en Java | **implementada** | `ConexionCliente.java`, `FachadaCliente.java`; falta el smoke real de aceptación |
+| Transferencia fragmentada en Java | **implementada** | `ConexionCliente.java`, `FachadaCliente.java`; verificada con el smoke real de 20 MiB (2026-10-13/14) |
 
 El defecto inicial ya quedó corregido: Java fragmenta los archivos en bloques de 1 MiB y calcula el
 SHA-256 del archivo completo. La suite cubre archivos de 13 MiB y los metadatos de cada fragmento;
-queda por comprobar el envío real de 20 MiB a través del servidor.
+el envío real de 20 MiB se comprobó contra el servidor el 2026-10-13 y 2026-10-14.
 
 Mientras tanto:
 
@@ -212,7 +213,7 @@ ArchUnit 6/6 sin cambios. `mvn -pl server/servidor-app,client/client-app -am -Ds
 → BUILD SUCCESS; el servidor no se tocó.
 
 **Lo que falta de esta fase:** la prueba recorre un stub con el `TramaCodec` real, no el servidor
-completo. Falta el smoke con un archivo de 20 MiB real de extremo a extremo (§0.1 paso 6).
+completo. Hecho el 2026-10-13/14 con el smoke de 20 MiB de extremo a extremo (§0.1 paso 6).
 
 ### 0.6 Lo que ya se hizo — Fase 0.2 ejecutada el 2026-10-07
 
@@ -358,7 +359,7 @@ de esa fase está resumido en §2.
 Mientras el contrato esté escrito a mano tres veces, cualquier fase posterior reintroduce deriva.
 Esta fase crea **una sola fuente de verdad** y genera el resto.
 
-#### 0.1 Resolver el bloqueante de los adjuntos — **✅ hecho, falta el smoke** (ver §0.5)
+#### 0.1 Resolver el bloqueante de los adjuntos — **✅ hecho** (ver §0.5; smoke de 20 MiB ejecutado 2026-10-13/14)
 
 Implementar en `ConexionCliente` + `FachadaCliente` el envío fragmentado que ya tienen Python y .NET:
 
@@ -499,9 +500,8 @@ UTF-8 para detectar cabeceras calculadas por caracteres.
 **Criterio de salida:** `GUIA_ACEPTACION.md` §"Matriz de interoperabilidad" pasa en las 6 direcciones,
 incluido un adjunto de 20 MiB en las 6.
 
-**Pendiente para cerrar la fase:** no se ejecutó el smoke de aceptación de extremo a extremo con el
-servidor para la matriz de seis direcciones y los adjuntos de 20 MiB. Las suites validan los codecs,
-la fragmentación contra dobles y el handshake TLS de .NET, pero no sustituyen esa matriz real.
+**Cerrado 2026-10-13/14:** matriz de 6 direcciones en verde (smoke del usuario) y adjunto de 20 MiB
+con SHA-256 en A→B, B→A (2026-10-13) y A→A (2026-10-14, tras corregir la carrera del propio smoke).
 
 ---
 
