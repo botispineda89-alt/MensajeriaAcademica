@@ -636,6 +636,22 @@ class PruebasUI(unittest.TestCase):
         # Y el composer debe haberse limpiado de inmediato
         self.assertEqual(self.chat.entry_msg.texto(), "")
 
+    def test_cancelar_envio_devuelve_adjuntos_a_la_bandeja(self):
+        # Fila 4 de la tabla de paridad: al cancelar, lo no enviado vuelve a
+        # la bandeja con el pie al compositor y el progreso se oculta.
+        self.chat.usuario_seleccionado = "B002"
+        self.chat.fila_progreso.setVisible(True)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            ruta = tmp.name
+        self.addCleanup(os.unlink, ruta)
+        self.chat._entregar_envio(
+            ("B002", None, [], [], {},
+             [{"ruta": ruta, "caption": "hola"}]), None)
+
+        self.assertIn(ruta, self.chat.bandeja_adjuntos.rutas)
+        self.assertEqual("hola", self.chat.entry_msg.texto())
+        self.assertFalse(self.chat.fila_progreso.isVisible())
+
     def test_modo_oscuro_por_defecto_y_conmuta(self):
         from ui.tema import MODO_CLARO, MODO_OSCURO
         self.assertEqual(MODO_OSCURO, self.chat.modo)

@@ -901,9 +901,7 @@ tenía casillas `[x]` con resto admitido). Espejo de su §8; el detalle vive all
   cableado de eventos y el programador de flush: no hay lógica de negocio que partir, y Java no
   tiene parciales, así que dividir el fichero sería indirección artificial. La intención de la regla
   (sin god class) se cumple por delegación. Sin cambios de código.
-- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado de las 66 con sus tests; huecos
-  conocidos en Python (montaje multi-imagen, `caption`, selección múltiple, progreso+cancelar,
-  botón guardar, `.webp` como archivo).
+- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado escrito 2026-10-14 (plan §3.4: 15 filas con evidencia por cliente; huecos Python cerrados en código + `test_cancelar_envio_devuelve_adjuntos_a_la_bandeja` nuevo). Queda barrer las celdas `¿test?`.
 - [x] **Deuda A→A (§5.15c).** Cerrada 2026-10-14: no era el servidor (la página trae `archivoId`),
   era una carrera del smoke; ahora la rama A→A reintenta la página, descarga y compara SHA-256.
 - [ ] **Smoke formal Java (§5.9).** Cotejar `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` contra el

@@ -757,6 +757,30 @@ solo para la vista cuando Qt no puede leerlo.
 **Criterio de salida:** las 66 capacidades de JavaFX funcionan en los 3; ninguna regresión en la
 matriz de 6 direcciones.
 
+#### 3.4 Inventario cruzado con evidencia (2026-10-14, resto de Fase 5)
+
+Cada celda cita la prueba que lo fija. `✅+test` = verificado hoy; `✅(código) ¿test?` = el código
+existe pero en este pase no se localizó su prueba (no significa que falte: es el resto por barrer
+de Fase 5).
+
+| Capacidad | JavaFX | Python | .NET |
+|---|---|---|---|
+| Vista previa local multi-imagen | ✅ `MontajeImagenesTest` | ✅ `test_montaje_imagenes` | ✅ `MontajeImagenesTest` |
+| `caption` en la misma burbuja | ✅ `HistorialLocalTest.captionDeImagenYArchivo…` | ✅ `test_caption_imagen_*` (×3) + `test_caption_se_conserva_en_upsert…` | ✅ `PreviewYCitaTests` |
+| Selección múltiple + bandeja | ✅ `AdjuntoEntradaChatTest` | ✅ `test_bandeja_adjuntos_chat` + `test_plan_envio_adjuntos` | ✅ `EnvioMultipleAdjuntosTests` |
+| Progreso por bytes + cancelar | ✅ `AgregadorProgresoTest` + `EnvioLoteCancelacionTest` | ✅ `test_cancelar_envio_devuelve_adjuntos_a_la_bandeja` (nuevo) | ✅ `EnvioMultipleAdjuntosTests` (cancelar + progreso ponderado) |
+| Botón guardar en imágenes | ✅(código) ¿test? (`MensajeCell` pinta `⬇ Guardar archivo`) | ✅(código + accesibilidad) ¿test funcional? (`test_lista_virtual_accesibilidad`) | ✅ `BotonGuardarTests` |
+| Aviso inline con severidad | ✅ `AvisosInlineChatTest` + `EstadoAvisoInlineTest` | ✅ `test_estado_aviso_inline` | ✅ `EstadoAvisoInlineTests` |
+| `Shift+Enter` salto de línea | ✅ `TecladoCompositorTest` | ✅ `test_shift_enter…` | ✅ `AccionesChatWpfTests.ComposerEnviaConEnter…` |
+| `.webp` como imagen | ✅ `TranscodificadorImagenTest` | ✅ `test_webp_se_admite…` + `test_webp_se_decodifica…` | ✅ `CatalogoAdjuntosTests.WebpYFormatosAmplios…` |
+| Preview `origen = yo` + no leídos | ✅ `TextoClientePreviewTest` + `ChatRecorridosTest` | ✅ `test_no_leidos…` + `test_usuario_cell` | ✅ `FormatoPreviewTests` + `PreviewPorContactoTests` |
+| Iconos 48 DIP sin `📎` doble | ✅ `IconoArchivoTest` | ✅ `test_iconos_archivo` | ✅ `IconosArchivoTests` |
+| AVIF/HEIC/SVG como imagen | ✅ `TranscodificadorImagenTest` | ✅ `test_avif_heic_y_svg…` | ✅ `TranscodificadorImagenTests` |
+| Guardia 12 MB trama única | ✅ `ValidacionClienteTest` ("12 MB") | ✅(código) ¿test? | ✅ `CatalogoAdjuntosTests` (`CabeEnTramaUnica`) |
+| Fecha en un solo formato | ✅ `FormatoFechaTest` | ✅ `test_fechas` | ✅ `FormatoFechaTests` + `MigracionFechasTests` |
+| Fondo de chat con imagen | ✅(código) ¿test? | ✅ `test_fondo_chat` | ✅ `FondoChatWpfTests` |
+| Búsqueda en historial | ✅ `FachadaClienteTest.buscarEnHistorial…` | ✅ `test_buscar_en_historial…` | ✅(código) ¿test? |
+
 ---
 
 ### Fase 4 — Paridad visual con capturas (11 j) · el requisito de los PNG
@@ -1046,9 +1070,7 @@ de §5 que lo exige.
 - [x] **Tamaños (§5.4).** Decidido 2026-10-14: regla obsoleta para Java con motivo escrito
   (roadmap §5.25: agrega 13 colaboradores inyectados y solo delega; sin god class que partir).
   Sin cambios de código.
-- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado de las 66 capacidades con sus tests:
-  huecos conocidos en Python (montaje multi-imagen, caption, selección múltiple/bandeja,
-  progreso+cancelar, botón guardar en imágenes, .webp como archivo).
+- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado escrito 2026-10-14 (§3.4: 15 filas con evidencia por cliente; los huecos Python ya están cerrados en código). Queda barrer las celdas marcadas `¿test?` (botón guardar en Java, guardia 12 MB y fondo en Python, búsqueda en .NET, botón guardar funcional en Python): verificar si tienen prueba con otro nombre o añadirla.
 - [x] **Deuda A→A (roadmap §5.15c).** Cerrada 2026-10-14: era carrera del smoke, no del servidor;
   la rama A→A reintenta la página, descarga y compara SHA-256 (20 MiB auto-descargados).
 - [ ] **Smoke formal Java (§5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
