@@ -797,6 +797,46 @@ Pendiente de estos tres ítems, si alguien lo quiere: la interfaz `HistorialLoca
 vista la salta y habla con `fachada.historial`) y la costura `Transporte` en los tres. Ninguna de las
 dos es una avería.
 
+### 5.21 Checklist de cierre: 3 defectos del smoke visual + resto de patrones — ⬜ abierto 2026-10-14
+
+El usuario ya hizo el smoke visual con las 3 apps abiertas y reportó 3 defectos. Esta es la lista
+canónica de lo que falta; nada de aquí está implementado todavía.
+
+**A — Defectos del smoke (los 3 con causa localizada en el código).**
+
+- [ ] **PY-1 · El "visto" (LEÍDO) no se pinta de azul en Python.** Causa probable:
+  `ui/celdas/mensaje_delegate.py:268-270` pide `"Le" in raw_state`, pero el estado real es `"LEIDO"`
+  (todo mayúsculas) y la comparación es sensible a mayúsculas: nunca se cumple y siempre pinta
+  `visto_otro`. Los tokens sí existen (`tick.read` → `visto_leido`). Cierre: comparar contra
+  `"LEIDO"` exacto y comprobar a ojo que el `✓✓ Leído` propio sale azul en los 2 temas y el
+  `✓✓ Entregado` sigue gris.
+- [ ] **JV-1 · La sesión propia sale en la lista de chats (Java).** Python ya filtra
+  (`procesador_tareas_chat.py:201`, `refrescador_contactos_chat.py:81` con `!= self.codigo`); Java no:
+  `SincronizadorDirectorioCliente.sincronizarDirectorio()` guarda el directorio tal cual, con la
+  sesión dentro. Cierre: filtrar en la causa raíz (sincronizador o vista del directorio, no en cada
+  llamada) y comprobar que la propia cuenta no sale en la lista ni se puede abrir auto-chat, sin
+  romper `asegurarEnCache` ni el conteo de conectados.
+- [ ] **PY-2 · Las respuestas no se ven como en .NET.** .NET separa cita/cuerpo con
+  `FormatoCita.Separar` y pinta la cita como bloque (fondo `CitaBgBrush`, borde izquierdo grueso
+  `3,1,1,1`, clicable → `NavegarACitaAsync`); Python pinta la burbuja con el texto crudo
+  `Respuesta a …`. Cierre: portar la misma regla de separación (cita = lo anterior al primer salto
+  doble, igual que `MensajeCell.extraerCita` en Java) y el mismo bloque citado clicable con
+  navegación al mensaje original, incluyendo el caso de la cita con saltos dentro.
+
+**B — Resto de `PLAN_PATRONES_UI.md` (su §9.1).**
+
+- [ ] **Registrar el smoke visual ya hecho (condición 2).** Falta la evidencia escrita: fecha, las 6
+  direcciones probadas y cuentas usadas, en `GUIA_ACEPTACION.md`. Sin eso la casilla no se marca.
+- [ ] **`VIS-02` de ventana/diálogo (condición 3).** Único trabajo real pendiente del plan:
+  centralizar los literales de ventana y diálogo. (La fila "G (cola)" del plan dice `[x]` pero su
+  texto admite que esto falta; corregirla al cerrar.)
+- [ ] **Regla B2 (condición 5).** Si el smoke ya arrancó JavaFX y miró los controles tocados, se
+  cierra con el registro; es control de proceso, no verificable por script.
+- [ ] **Decidir los dos restos opcionales** (ninguno es avería): interfaz `HistorialLocal` en Python
+  y costura `Transporte { Pedir, Enviar }` en los 3. O se hacen o se dejan documentados como
+  descartados.
+- [ ] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones).
+
 ---
 
 ## 6. Patrones de diseño en los clientes
