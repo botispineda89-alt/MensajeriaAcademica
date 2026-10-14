@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 
 /**
  * DESCARGAR_ARCHIVO (§4.2): contenido Base64 bajo demanda (original o
@@ -28,15 +29,25 @@ public final class DescargaCaso {
     private final InterfazProtocoloComunicacion protocolo;
     private final ResponderCaso respuestas;
     private final Path uploadDir;
+    private final Executor poolEntrega;
 
     public DescargaCaso(InterfazMensajes mensajes,
                         InterfazProtocoloComunicacion protocolo,
                         ResponderCaso respuestas,
                         Path uploadDir) {
+        this(mensajes, protocolo, respuestas, uploadDir, Runnable::run);
+    }
+
+    public DescargaCaso(InterfazMensajes mensajes,
+                        InterfazProtocoloComunicacion protocolo,
+                        ResponderCaso respuestas,
+                        Path uploadDir,
+                        Executor poolEntrega) {
         this.mensajes = mensajes;
         this.protocolo = protocolo;
         this.respuestas = respuestas;
         this.uploadDir = uploadDir.toAbsolutePath().normalize();
+        this.poolEntrega = poolEntrega != null ? poolEntrega : Runnable::run;
     }
 
     public void descargar(IdSesion sesion, String archivoIdStr, String idSolicitud) {
@@ -75,7 +86,7 @@ public final class DescargaCaso {
             return;
         }
         if (bytes.length > FragmentoArchivoCaso.PARTE_BYTES) {
-            descargarFragmentado(sesion, archivo, bytes, idSolicitud);
+            poolEntrega.execute(() -> descargarFragmentado(sesion, archivo, bytes, idSolicitud));
             return;
         }
         respuestas.responder(sesion, Mensaje.builder()

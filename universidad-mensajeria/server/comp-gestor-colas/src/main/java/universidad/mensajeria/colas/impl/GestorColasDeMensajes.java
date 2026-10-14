@@ -28,6 +28,12 @@ public final class GestorColasDeMensajes implements InterfazGestorMensajes {
         Mensaje conId = mensaje.id() == null || mensaje.id().isBlank()
                 ? Mensaje.builder().tipo(mensaje.tipo()).id(UUID.randomUUID().toString()).build()
                 : mensaje;
+        if (colaProcesamiento.size() >= 1000) {
+            Mensaje viejo = colaProcesamiento.poll();
+            if (viejo != null && viejo.id() != null) {
+                indice.remove(viejo.id());
+            }
+        }
         indice.put(conId.id(), conId);
         colaProcesamiento.add(conId);
         for (ConsumidorDeMensajes consumidor : consumidores) {

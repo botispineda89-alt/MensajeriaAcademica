@@ -22,7 +22,7 @@
                     <Border Background="{DynamicResource HeaderBrush}" CornerRadius="12,12,0,0" Padding="18,14">
                         <StackPanel>
                             <TextBlock Text="UNIVERSIDAD" Foreground="{DynamicResource EyebrowBrush}" FontSize="11" FontWeight="Bold"/>
-                            <TextBlock Text="Mensajería Académica" Foreground="{DynamicResource TitleBrush}" FontSize="20" FontWeight="Bold"/>
+                            <TextBlock Text="Mensajería Académica" Foreground="{DynamicResource LoginTitleBrush}" FontSize="20" FontWeight="Bold"/>
                             <TextBlock Text="Iniciar sesión"
                                        Foreground="{DynamicResource SubtitleBrush}" FontSize="12" TextWrapping="Wrap"/>
                         </StackPanel>

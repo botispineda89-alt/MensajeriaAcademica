@@ -6,6 +6,7 @@
     <SolidColorBrush x:Key="CardBorderBrush" Color="#00FFFFFF" />
     <SolidColorBrush x:Key="HeaderBrush" Color="#FF1F3A5F" />
     <SolidColorBrush x:Key="TitleBrush" Color="#FF25343B" />
+    <SolidColorBrush x:Key="LoginTitleBrush" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="SubtitleBrush" Color="#FFC9D6E8" />
     <SolidColorBrush x:Key="EyebrowBrush" Color="#FF9FB6D8" />
     <SolidColorBrush x:Key="LabelBrush" Color="#FF202124" />
@@ -22,7 +23,7 @@
     <SolidColorBrush x:Key="VistoLeidoBrush" Color="#FF1E88E5" />
     <!-- UIX-18: el tick no-leido debe ser un gris propio, distinto del cuerpo y del leido azul. -->
     <SolidColorBrush x:Key="VistoOtroBrush" Color="#FF5B6B73" />
-    <SolidColorBrush x:Key="CitaBgBrush" Color="#FFDEE8EC" />
+    <SolidColorBrush x:Key="CitaBgBrush" Color="#FFFAFAFA" />
     <SolidColorBrush x:Key="CitaBorderBrush" Color="#FF267D75" />
     <SolidColorBrush x:Key="CitaTextBrush" Color="#FF267D75" />
     <SolidColorBrush x:Key="SendBrush" Color="#FF2189AD" />

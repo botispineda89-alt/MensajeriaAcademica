@@ -137,18 +137,10 @@ public final class Fabrica {
                 },
                 new ThreadPoolExecutor.CallerRunsPolicy());
 
-        TuberiaFactory tuberias = new TuberiaFactory(p.giroGrados(), p.brilloFactor(),
-                p.reduccionFactor());
-        InterfazMensajes mensajes = new Mensajes(almacenar, tuberias, poolFiltros,
-                etapa -> eventos.registrar(TipoAccion.ETAPA_FILTRADO,
-                        "Etapa %s: %d ms [%s] -> %s".formatted(etapa.etapa(), etapa.ms(),
-                                etapa.hilo(), etapa.rutaSalida()),
-                        null, null, null));
-
         ResponderCaso responder = new ResponderCaso(protocolo);
         EncolarCaso encolar = new EncolarCaso(colas);
         EntregaCaso entrega = new EntregaCaso(protocolo, conexiones);
-        // Pool acotado SOLO para entrega TCP del abanico (broadcast/difusión).
+        // Pool acotado para entrega TCP y tareas I/O asíncronas no críticas.
         // Lo crea la raiz de composicion y lo cierra al apagar; un cliente
         // lento retiene como maximo un hilo de entrega.
         ThreadPoolExecutor poolEntrega = new ThreadPoolExecutor(
@@ -160,6 +152,14 @@ public final class Fabrica {
                     return t;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
+
+        TuberiaFactory tuberias = new TuberiaFactory(p.giroGrados(), p.brilloFactor(),
+                p.reduccionFactor());
+        InterfazMensajes mensajes = new Mensajes(almacenar, tuberias, poolFiltros,
+                etapa -> poolEntrega.execute(() -> eventos.registrar(TipoAccion.ETAPA_FILTRADO,
+                        "Etapa %s: %d ms [%s] -> %s".formatted(etapa.etapa(), etapa.ms(),
+                                etapa.hilo(), etapa.rutaSalida()),
+                        null, null, null)));
         Casos casos = new Casos(
                 new AutenticarCaso(protocolo, servicios, usuarios, conexiones, mensajes,
                         eventos, p.verificador(), p.limites(), responder),
@@ -170,7 +170,7 @@ public final class Fabrica {
                 new FragmentoArchivoCaso(servicios, p.limites(), p.trabajoBase(), encolar,
                         responder, eventos),
                 new HistorialCaso(mensajes, protocolo, responder),
-                new DescargaCaso(mensajes, protocolo, responder, p.uploadDir()),
+                new DescargaCaso(mensajes, protocolo, responder, p.uploadDir(), poolEntrega),
                 new ListarCaso(protocolo, conexiones, usuarios),
                 responder,
                 new ArchivoVistaCaso(mensajes),

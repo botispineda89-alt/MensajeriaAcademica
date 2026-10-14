@@ -46,6 +46,8 @@ public class AlmacenarInformacion implements InterfazAlmacenarInformacion {
      */
     private final java.util.concurrent.ConcurrentHashMap<String, Object> candadosPorRuta =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, Optional<UsuarioDTO>> cacheUsuarios =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     public AlmacenarInformacion(PersistenciaPort persistencia, Path trabajoBase, Path uploadDir) {
         this.persistencia = persistencia;
@@ -57,7 +59,8 @@ public class AlmacenarInformacion implements InterfazAlmacenarInformacion {
 
     @Override
     public boolean existeUsuarioPorCodigo(String codigo) {
-        return persistencia.existeUsuarioPorCodigo(codigo);
+        if (codigo == null || codigo.isBlank()) return false;
+        return buscarUsuario(codigo).isPresent();
     }
 
     @Override
@@ -67,24 +70,36 @@ public class AlmacenarInformacion implements InterfazAlmacenarInformacion {
 
     @Override
     public Optional<UsuarioDTO> buscarUsuario(String codigo) {
-        return persistencia.buscarUsuarioPorCodigo(codigo);
+        if (codigo == null || codigo.isBlank()) return Optional.empty();
+        return cacheUsuarios.computeIfAbsent(codigo.trim().toUpperCase(java.util.Locale.ROOT),
+                k -> persistencia.buscarUsuarioPorCodigo(codigo.trim()));
     }
 
     @Override
     public List<UsuarioDTO> listarUsuarios() {
-        return persistencia.listarUsuarios();
+        List<UsuarioDTO> todos = persistencia.listarUsuarios();
+        for (UsuarioDTO u : todos) {
+            cacheUsuarios.put(u.codigo().trim().toUpperCase(java.util.Locale.ROOT), Optional.of(u));
+        }
+        return todos;
     }
 
     @Override
     public void reconciliarUsuariosDesdeCsv(List<UsuarioDTO> usuariosCsv) {
         persistencia.reconciliarUsuarios(usuariosCsv);
+        cacheUsuarios.clear();
+        for (UsuarioDTO u : usuariosCsv) {
+            cacheUsuarios.put(u.codigo().trim().toUpperCase(java.util.Locale.ROOT), Optional.of(u));
+        }
     }
 
     @Override
     public void registrarUsuarioNuevo(String codigo, String passwordHash, String nombres,
                                       String apellidos, String programa) {
-        persistencia.guardarUsuario(new UsuarioDTO(codigo.trim(), nombres.trim(),
-                apellidos.trim(), programa.trim(), passwordHash, true));
+        UsuarioDTO nuevo = new UsuarioDTO(codigo.trim(), nombres.trim(),
+                apellidos.trim(), programa.trim(), passwordHash, true);
+        persistencia.guardarUsuario(nuevo);
+        cacheUsuarios.put(codigo.trim().toUpperCase(java.util.Locale.ROOT), Optional.of(nuevo));
     }
 
     // ---- mensajes ----

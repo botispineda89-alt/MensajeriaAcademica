@@ -6,6 +6,7 @@
     <SolidColorBrush x:Key="CardBorderBrush" Color="#FF2A3B4D" />
     <SolidColorBrush x:Key="HeaderBrush" Color="#FF1F3A5F" />
     <SolidColorBrush x:Key="TitleBrush" Color="#FFE8EEF2" />
+    <SolidColorBrush x:Key="LoginTitleBrush" Color="#FFFFFFFF" />
     <SolidColorBrush x:Key="SubtitleBrush" Color="#FFC9D6E8" />
     <SolidColorBrush x:Key="EyebrowBrush" Color="#FF9FB6D8" />
     <SolidColorBrush x:Key="LabelBrush" Color="#FFE8EEF2" />

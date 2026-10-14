@@ -162,15 +162,14 @@ public final class FragmentoArchivoCaso {
                                 + "/" + t.totalPartes + " partes");
                 return;
             }
-            byte[] bytes;
             try {
-                bytes = Files.readAllBytes(t.archivo);
-                String hash = sha256(bytes);
+                String hash = sha256(t.archivo);
                 if (!hash.equalsIgnoreCase(hashEsperado)) {
                     responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
                             "sha256 no coincide con el anunciado");
                     return;
                 }
+                byte[] bytes = Files.readAllBytes(t.archivo);
                 encolar.archivo(sesion, t.destinatario, t.nombreArchivo, t.mime,
                         Base64.getEncoder().encodeToString(bytes), t.caption,
                         idTransferencia, ip);
@@ -224,6 +223,24 @@ public final class FragmentoArchivoCaso {
             }
             return false;
         });
+    }
+
+    private static String sha256(Path archivo) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (java.io.InputStream in = Files.newInputStream(archivo)) {
+            byte[] buffer = new byte[65536];
+            int leidos;
+            while ((leidos = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, leidos);
+            }
+        }
+        byte[] hash = digest.digest();
+        StringBuilder hex = new StringBuilder(hash.length * 2);
+        for (byte b : hash) {
+            hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+            hex.append(Character.forDigit(b & 0xF, 16));
+        }
+        return hex.toString();
     }
 
     private static String sha256(byte[] bytes) throws Exception {

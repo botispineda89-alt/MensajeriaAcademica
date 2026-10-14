@@ -6,6 +6,7 @@
     <SolidColorBrush x:Key="CardBorderBrush" Color="{{login.card.border}}" />
     <SolidColorBrush x:Key="HeaderBrush" Color="{{login.header.bg}}" />
     <SolidColorBrush x:Key="TitleBrush" Color="{{title.fg}}" />
+    <SolidColorBrush x:Key="LoginTitleBrush" Color="{{login.title.fg}}" />
     <SolidColorBrush x:Key="SubtitleBrush" Color="{{login.subtitle.fg}}" />
     <SolidColorBrush x:Key="EyebrowBrush" Color="{{login.eyebrow.fg}}" />
     <SolidColorBrush x:Key="LabelBrush" Color="{{login.label.fg}}" />

@@ -168,7 +168,7 @@ TOKENS = {
         "body.out.fg": "#24383D",
         "highlight.fg": "#17635B",
         "quote.fg": "#267d75",
-        "quote.bg": "rgba(38, 125, 117, 0.08)",
+        "quote.bg": "#fafafa",
         "quote.border": "#267d75",
         "caption.fg": "#52636a",
         "caption.out.fg": "#43555c",
