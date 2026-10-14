@@ -123,6 +123,41 @@ namespace Mensajeria.Tests
         }
 
         [Fact]
+        public void LaFachadaNoComponeElAlmacenamientoLocal()
+        {
+            // PAT-01 en .NET: la fachada decide qué usar, no qué construir. El
+            // store por cuenta, el historial y la caché los monta
+            // ProveedorSesionLocal (el composition root). Solo la conexión de red
+            // sigue naciendo aquí, porque su ciclo de vida es el de la fachada.
+            string[] prohibidas =
+            {
+                "new HistorialLocal(", "new CacheUsuarios(", "new ProveedorSesionLocal("
+            };
+
+            foreach (string parcial in Directory.GetFiles(
+                Path.Combine(RutaCliente(), "Fachada"), "FachadaCliente*.cs"))
+            {
+                string fuente = File.ReadAllText(parcial);
+                foreach (string construccion in prohibidas)
+                    Assert.DoesNotContain(construccion, fuente, StringComparison.Ordinal);
+            }
+        }
+
+        [Fact]
+        public void ElAlmacenamientoLocalSeComponeEnElCompositionRoot()
+        {
+            string proveedor = LeerFuenteCliente("Composicion/ProveedorSesionLocal.cs");
+            Assert.Contains("RutaParaCuenta", proveedor, StringComparison.Ordinal);
+            Assert.Contains("MigrarLegadoACuenta", proveedor, StringComparison.Ordinal);
+            Assert.Contains("new HistorialLocal(", proveedor, StringComparison.Ordinal);
+            Assert.Contains("new CacheUsuarios(", proveedor, StringComparison.Ordinal);
+
+            string fabrica = LeerFuenteCliente("Composicion/FabricaCliente.cs");
+            Assert.Contains("namespace Mensajeria.Composicion", fabrica,
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void LaVistaDelChatEstaDivididaPorResponsabilidad()
         {
             // El code-behind del chat no puede volver a crecer como un bloque:

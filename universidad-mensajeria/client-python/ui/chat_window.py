@@ -1,19 +1,23 @@
 from pathlib import Path
 
-from PySide6.QtCore import QSize, QThreadPool, QTimer
+from PySide6.QtCore import QSize, QTimer
 from PySide6.QtWidgets import QMainWindow
 
 from transversal.estado_conexion import CONECTADO
 from ui.busqueda_historial_chat import BusquedaHistorialChat
-from ui.chat_view_model import ChatViewModel
-from ui.componentes_chat import EventosChat as _UiEvents, TareaChat as _Task
+from ui.componentes_chat import TareaChat as _Task
+from ui.composicion_chat import construir_contexto_chat
+# PAT-01: estos dos imports ya no se usan para construir nada aqui, pero siguen
+# en el modulo a proposito: son la costura que los tests sustituyen
+# (``ui.chat_window.PreferenciasChat``). Quitarlos dejaria la ventana sin forma
+# de probarse con dobles.
+from ui.preferencias_chat import PreferenciasChat
 from ui.constructor_vista_chat import ConstructorVistaChat
 from ui.estado_aviso_inline import TipoAviso
 from ui.flujo_conversacion_chat import FlujoConversacionChat
 from ui.gestor_adjuntos_chat import GestorAdjuntosChat
 from ui.gestor_salida_sesion_chat import GestorSalidaSesionChat
 from ui.paginador_historial_chat import PaginadorHistorialChat
-from ui.preferencias_chat import PreferenciasChat
 from ui.procesador_eventos_chat import ProcesadorEventosChat
 from ui.procesador_tareas_chat import ProcesadorTareasChat
 from ui.refrescador_contactos_chat import RefrescadorContactosChat
@@ -33,11 +37,20 @@ from ui.visor_imagen_chat import VisorImagenChat as _VisorImagen
 
 
 class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEventosChat, ProcesadorTareasChat, RefrescadorContactosChat, BusquedaHistorialChat, GestorAdjuntosChat, PaginadorHistorialChat, ConstructorVistaChat, QMainWindow):
-    def __init__(self, fachada, codigo, on_logout):
+    def __init__(self, fachada, codigo, on_logout, contexto=None):
         super().__init__()
         self.fachada = fachada
         self.codigo = codigo
         self.on_logout = on_logout
+        # PAT-01: la ventana recibe sus piezas de por vida desde ``contexto`` en
+        # vez de construirlas. ``main.py`` construye uno y lo pasa; sin contexto
+        # (los tests) se construye aquí, que sigue siendo el único sitio que
+        # decide de qué implementación es cada una. ``PreferenciasChat`` se pasa
+        # explícitamente porque es la costura que los tests sustituyen con unos
+        # ajustes temporales, para que el último chat guardado no se filtre entre
+        # pruebas. Ver ``ui/composicion_chat``.
+        self._ctx = contexto or construir_contexto_chat(
+            parent=self, preferencias=PreferenciasChat())
         self.usuario_seleccionado = None
         self._respuesta_mensaje = None
         self._cerrando = False
@@ -57,8 +70,8 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._timer_recientes.setInterval(400)
         self._timer_recientes.timeout.connect(self._pintar_recientes_desde_cache)
         # UIX-06/UIX-07: búsqueda en el historial con debounce.
-        self.modelo_vista = ChatViewModel()
-        self._preferencias_chat = PreferenciasChat()
+        self.modelo_vista = self._ctx.vista
+        self._preferencias_chat = self._ctx.preferencias
         self._restauracion_ultimo_chat_pendiente = True
         self._timer_buscar = QTimer(self)
         self._timer_buscar.setSingleShot(True)
@@ -80,7 +93,7 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._timer_presencia.setSingleShot(True)
         self._timer_presencia.setInterval(1500)
         self._timer_presencia.timeout.connect(lambda: self.actualizar_usuarios())
-        self._eventos = _UiEvents()
+        self._eventos = self._ctx.eventos
         self._eventos.message.connect(self._procesar_mensaje)
         self._eventos.closure.connect(self._procesar_cierre)
         self._eventos.presence.connect(self._procesar_presencia)
@@ -88,9 +101,8 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._eventos.state.connect(self._procesar_estado_conexion)
         self._eventos.task.connect(self._procesar_tarea)
         self._eventos.progreso.connect(self._procesar_progreso)
-        self._pool = QThreadPool(self)
-        self._pool.setMaxThreadCount(4)
-        self._directorio_imagenes = Path(__file__).resolve().parents[1] / "imagenes"
+        self._pool = self._ctx.pool
+        self._directorio_imagenes = self._ctx.directorio_imagenes()
 
         self.setWindowTitle(f"Mensajería Académica | {codigo}")
         self.setMinimumSize(QSize(900, 600))

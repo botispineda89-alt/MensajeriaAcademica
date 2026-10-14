@@ -339,6 +339,35 @@ class TestPuertosDeLaFaseDos(unittest.TestCase):
 class TestFronterasDeLaFaseDos(unittest.TestCase):
     """Reglas de separación que ya se pueden hacer cumplir en Python."""
 
+    def test_la_ventana_de_chat_no_es_su_propia_raiz_de_composicion(self):
+        """PAT-01: las piezas de por vida llegan en ``ContextoChat``.
+
+        Antes la ventana construía su hub de señales, su pool, su estado de
+        búsqueda y sus preferencias dentro de ``__init__``. Este test no lo
+        prohíbe entero (la ruta sin contexto es justo lo que usan los tests),
+        pero obliga a que exista el contexto y a que exista quien lo use, que es
+        lo que de verdad separa "raíz de composición" de "clase que se arma sola".
+        """
+        raiz = _RAIZ_CLIENTE / "ui" / "composicion_chat.py"
+        self.assertTrue(raiz.exists(),
+                        "falta ui/composicion_chat.py: la ventana debe recibir su contexto")
+        fuente = raiz.read_text(encoding="utf-8")
+        for pieza in ("vista", "eventos", "pool", "preferencias"):
+            with self.subTest(pieza=pieza):
+                self.assertIn(f"{pieza}:", fuente,
+                              f"el contexto no expone {pieza}")
+
+        ventana = _RAIZ_CLIENTE / "ui" / "chat_window.py"
+        texto = ventana.read_text(encoding="utf-8")
+        self.assertIn("contexto=None", texto,
+                      "ChatWindow debe aceptar un contexto inyectado")
+        self.assertIn("construir_contexto_chat", texto,
+                      "ChatWindow debe delegar la construcción, no hacerlo pieza a pieza")
+
+        main = _RAIZ_CLIENTE / "main.py"
+        self.assertIn("construir_contexto_chat", main.read_text(encoding="utf-8"),
+                      "main.py es la raíz de composición y debe construir el contexto")
+
     def test_presentacion_no_importa_socket_ni_persistencia(self):
         prohibidos = {"sqlite3", "socket", "store", "componentes"}
         for ruta in _archivos_python("ui"):

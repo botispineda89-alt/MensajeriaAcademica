@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QApplication
 
 from fachada.fachada_cliente import FachadaCliente
 from ui.chat_window import ChatWindow
+from ui.composicion_chat import construir_contexto_chat
 from ui.login_window import LoginWindow
 from ui.tema import aplicar_tema_fluent, modo_guardado
 
@@ -38,7 +39,11 @@ def iniciar():
             ventana_chat.raise_()
             return
         login.hide()
-        ventana_chat = ChatWindow(fachada, codigo, volver_a_login)
+        # PAT-01: el contexto se construye en la raíz de composición, no dentro
+        # de la vista. Uno por ventana: su estado de búsqueda no debe sobrevivir a
+        # un cambio de cuenta.
+        ventana_chat = ChatWindow(fachada, codigo, volver_a_login,
+                                  contexto=construir_contexto_chat())
         ventana_chat.show()
 
     login.login_succeeded.connect(abrir_chat)

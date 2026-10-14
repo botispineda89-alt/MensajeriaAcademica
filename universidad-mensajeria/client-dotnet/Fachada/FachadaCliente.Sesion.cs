@@ -82,28 +82,6 @@ namespace Mensajeria.Fachada
             }
         }
 
-        /// <summary>
-        /// Resuelve SQLite por cuenta (&lt;base&gt;_&lt;cuenta&gt;.db, misma ruta que Python),
-        /// migra el legado de forma idempotente y conmuta el historial/caché.
-        /// Dos procesos con la misma cuenta comparten archivo (WAL); cuentas
-        /// distintas nunca comparten filas. El legado queda como respaldo.
-        /// </summary>
-        private void CambiarAStorePorCuenta(string codigo)
-        {
-            if (_dependenciasInyectadas) return;
-            try
-            {
-                string legada = LocalStore.RutaLegada(_dbUrl);
-                string porCuenta = LocalStore.RutaParaCuenta(_dbUrl, codigo);
-                if (_store != null && string.Equals(_store.DbPath, porCuenta, StringComparison.OrdinalIgnoreCase))
-                    return;
-                LocalStore.MigrarLegadoACuenta(legada, porCuenta, codigo);
-                LocalStore store = AbrirStore(porCuenta);
-                _historialProd = new HistorialLocal(store);
-                _cacheProd = new CacheUsuarios(store);
-            }
-            catch { }
-        }
 
         /// <summary>Conectados del servidor (array de strings, PROTOCOLO.md §3) + cache.</summary>
         public async Task<List<string>> ListarConectadosAsync()

@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Mensajeria.Componentes;
+using Mensajeria.Composicion;
 using Mensajeria.Store;
 using Mensajeria.Fachada.Servicios;
 using Mensajeria.Transversal;
@@ -41,6 +42,12 @@ namespace Mensajeria.Fachada
         private string _dbUrl = "sqlite:///~/mensajeria_cliente.db";
         private LocalStore? _store;
         private readonly bool _dependenciasInyectadas;
+        /// <summary>
+        /// PAT-01: el almacenamiento local se compone fuera de la fachada. El
+        /// proveedor resuelve la base por cuenta, migra el legado y construye
+        /// historial y caché; aquí solo se le pide la sesión del código que entra.
+        /// </summary>
+        private ProveedorSesionLocal? _sesionLocal;
 
         public event Action<Dictionary<string, JsonElement>>? OnMensajeRecibido;
         public event Action<Dictionary<string, JsonElement>>? OnCierre;
@@ -50,24 +57,26 @@ namespace Mensajeria.Fachada
         public string? UsuarioActual => _autenticacion?.CodigoActual;
 
         /// <summary>Produccion: lee client.properties (mismo formato, §5.2).</summary>
-        public FachadaCliente()
+        public FachadaCliente() : this(new MapeadorDatosServidor(), null)
         {
-            _dependenciasInyectadas = false;
-            _mapeadorDatos = new MapeadorDatosServidor();
-            _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
-            _envioMultipleAdjuntos = new EnvioMultipleAdjuntos(
-                () => _coordinadorMensajeria, () => UsuarioActual
-                    ?? throw new InvalidOperationException("inicia sesion primero"));
-            _reintentadorPendientes = new ReintentadorPendientesCliente(
-                () => Historial, _coordinadorMensajeria);
-            _gestorReconexion = CrearGestorReconexion();
-            CargarPropiedades();
         }
 
         /// <summary>Producción: el composition root inyecta el mapeador del borde JSON.</summary>
         public FachadaCliente(IMapeadorDatos mapeadorDatos)
+            : this(mapeadorDatos, null)
+        {
+        }
+
+        /// <summary>
+        /// Producción: el composition root inyecta el mapeador del borde JSON y
+        /// el proveedor del almacenamiento local (PAT-01). Sin proveedor la
+        /// fachada no compone nada: abrir la base por cuenta es cosa del root.
+        /// </summary>
+        public FachadaCliente(IMapeadorDatos mapeadorDatos,
+            ProveedorSesionLocal? sesionLocal)
         {
             _dependenciasInyectadas = false;
+            _sesionLocal = sesionLocal;
             _mapeadorDatos = mapeadorDatos ?? throw new ArgumentNullException(nameof(mapeadorDatos));
             _coordinadorMensajeria = new CoordinadorMensajeriaCliente(() => Historial);
             _envioMultipleAdjuntos = new EnvioMultipleAdjuntos(

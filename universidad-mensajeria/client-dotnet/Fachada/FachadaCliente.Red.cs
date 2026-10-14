@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Mensajeria.Componentes;
+using Mensajeria.Composicion;
 using Mensajeria.Store;
 using Mensajeria.Fachada.Servicios;
 using Mensajeria.Transversal;
@@ -82,27 +83,46 @@ namespace Mensajeria.Fachada
             _conexion?.Desconectar();
             _conexion = conexion;
             string dbPath = _dbUrl.StartsWith("sqlite:///") ? _dbUrl["sqlite:///".Length..] : _dbUrl;
-            LocalStore store = AbrirStore(dbPath);
-            // Nota: _historial/_cache readonly solo en ctor DI; aqui se asignan una vez.
-            _historialProd = new HistorialLocal(store);
-            _cacheProd = new CacheUsuarios(store);
+            // PAT-01: también la sesión inicial se compone fuera de la fachada.
+            Adoptar(SesionLocalInicial(dbPath));
             _autenticacion = new Autenticacion(conexion);
             SuscribirRed();
         }
 
         /// <summary>
-        /// Abre (o reabre) el store local cerrando el anterior. Antes se
-        /// sobrescribía el campo sin cerrar: cada reconexión dejaba un pool de
-        /// SQLite abierto y el archivo bloqueado para el cliente Python.
+        /// Resuelve SQLite por cuenta y conmuta historial/caché. La composición
+        /// (qué store y qué adaptadores) vive en
+        /// <see cref="ProveedorSesionLocal"/>; aquí solo se le pide la sesión del
+        /// código que acaba de entrar. Es idempotente por ruta: volver a pedir la
+        /// misma cuenta no reabre nada.
         /// </summary>
-        private LocalStore AbrirStore(string dbPath)
+        private void CambiarAStorePorCuenta(string codigo)
         {
-            if (_store != null
-                && string.Equals(_store.DbPath, dbPath, StringComparison.OrdinalIgnoreCase))
-                return _store;
-            _store?.Dispose();
-            _store = new LocalStore(dbPath);
-            return _store;
+            if (_dependenciasInyectadas) return;
+            try
+            {
+                Adoptar(Proveedor().ParaCuenta(_dbUrl, codigo));
+            }
+            catch { }
+        }
+
+        private ProveedorSesionLocal Proveedor() =>
+            _sesionLocal ?? throw new InvalidOperationException(
+                "sin ProveedorSesionLocal: construye la fachada con FabricaCliente");
+
+        private SesionLocal SesionLocalInicial(string dbPath) =>
+            Proveedor().Inicial(_dbUrl, dbPath);
+
+        /// <summary>
+        /// Publica en la fachada la sesión que compuso el proveedor. Los campos
+        /// <c>_historial</c>/<c>_cache</c> son de solo lectura (los del ctor con
+        /// dependencias inyectadas); estos son los de producción.
+        /// </summary>
+        private void Adoptar(SesionLocal sesion)
+        {
+            _store = sesion.Store;
+            _historialProd = sesion.Historial as HistorialLocal;
+            _cacheProd = sesion.Cache as CacheUsuarios;
         }
 
         /// <summary>
