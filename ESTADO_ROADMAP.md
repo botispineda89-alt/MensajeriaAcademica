@@ -738,6 +738,65 @@ división de `FachadaCliente` obligó también a corregir el `.csproj` de los te
 solo `FachadaCliente.cs`: compilaba el núcleo sin sus parciales y la fachada "desaparecía" en
 silencio de los tests.
 
+### 5.19 Segunda tanda del plan de patrones: composición y estado en Python y .NET — ✅ 2026-10-13
+
+Ejecutados `PAT-01` (composición), `PAT-VM` (estado) y la tabla de reparto de Python. Ninguno era una
+avería: eran sitios donde el mismo dato vivía en dos sitios y nadie lo notaba.
+
+| Ítem | Antes | Después |
+|---|---|---|
+| Python: piezas de la vista | `ChatWindow.__init__` construía estado de búsqueda, hub de señales, pool y preferencias | `ui/composicion_chat.py` las construye; `main.py` es la raíz y se las pasa (`ContextoChat`) |
+| .NET: almacenamiento local | `FachadaCliente` hacía `new LocalStore` + `new HistorialLocal` + `new CacheUsuarios`, **también antes del login** | `Composicion/ProveedorSesionLocal` los compone y `FabricaCliente` lo inyecta |
+| Python: estado de conversación | `usuario_seleccionado`, `_offset`, `_cargando_historial`, `_respuesta_mensaje` y `_enviando` de la ventana; el botón se habilitaba con un `if` en 3 sitios | `ui/chat_view_model.py` (`QObject`, 5 señales, `Property`, predicado único `puede_enviar()`); la ventana expone 4 nombres como **accesos** |
+| .NET: estado de conversación | 5 campos privados de `ChatWindow` repartidos en 12 parciales; `IsEnabled` escrito a mano | `ViewModels/ChatViewModel.cs` (`INotifyPropertyChanged`, `PuedeEnviar`); la ventana los expone como accesos |
+| Python: reparto de tareas | dos cadenas `if/elif` de ~18 ramas; un tipo sin pintar no daba ningún aviso | `ProcesadorTareasChat.MANEJADORES` (10 manejadores con nombre) y `KeyError` ante un tipo sin manejador |
+
+Lo que encontró el trabajo, y no se buscaba:
+
+- **`marcar_leidos` no tenía manejador.** Caía al final de la cadena sin hacer nada; con la tabla
+  habría sido un `KeyError` en el hilo de UI. Ahora tiene manejador explícito que no pinta nada (la
+  insignia la baja el directorio) y `test_toda_tarea_lanzada_tiene_manejador` recorre los
+  `_ejecutar("tipo", …)` del paquete `ui/` y comprueba los dos sentidos: que no falte ninguno y que
+  no sobre ninguno.
+- **La costura de los tests de Python era `ui.chat_window.PreferenciasChat`.** `test_ui.py` sustituye
+  ese símbolo por unas preferencias con `QSettings` temporal, a propósito, para que el «último chat
+  guardado» de una prueba no se filtre a la siguiente. Al construir el contexto en otro módulo, ese
+  parche dejó de aplicarse y dos pruebas de no-leídos fallaron. Por eso el import sigue en
+  `chat_window.py` y el contexto acepta una `preferencias` ya construida.
+- **El offset se reinicia al cambiar de destinatario**, ahora en el ViewModel. Antes dependía de que
+  cada parcial se acordara de hacerlo.
+- La regla que prohíbe framework en el ViewModel pasó de «no importar `PySide6`» a «no importar
+  `QtWidgets`/`QtGui`»: el límite real es no **pintar** ni **leer disco** desde el estado, y `QtCore`
+  solo da señales y propiedades.
+- `ProveedorSesionLocal.Dispose()` no vaciaba `Actual` (lo detectó su propio test) y `Dispose` no era
+  idempotente.
+
+Verificación de esta tanda: JavaFX 298/298 (50 clases), Python 297 (5 omitidas), .NET 386/386, build
+WPF Release 0 errores/0 avisos, `contrato/verificar.py` 9/9 con exit 0.
+
+### 5.20 `PAT-04` y `PAT-05`: lo que se hizo y lo que se rechaza, con motivo — 2026-10-13
+
+- **`PAT-04` a medias, a propósito.** Hecho: el SQL del upsert de `historial_local` sale del cuerpo
+  del método a `_GUARDAR_MENSAJE_SQL`, y el de .NET a la constante `INSERTAR_MENSAJE`, que es lo que
+  la fila del plan señalaba (`inline`) y lo que ya hace `HistorialLocal.java`.
+  **Rechazado**: convertirlos al `DELETE + INSERT` de Java. El de Java solo conserva el `estado` y
+  **pisa el resto de columnas**, así que un mensaje que vuelve a llegar sin `archivo_id` ni
+  `hash_sha256` borraría lo ya guardado; Python y .NET usan `COALESCE` y `MAX(descargado)` para
+  exactamente eso. Traducirlos tal cual sería una regresión silenciosa en el hottest path y en el
+  contrato de estados (invariante 12). Y no hay dialecto del que liberarse: por invariante 10 ambos
+  son SQLite.
+- **`PAT-05` con la premisa desfasada.** El fail-fast de TLS **ya era coherente en los tres**:
+  `ValidarTls.java`, `ValidarTls.cs` y `transversal/tls.py` leen `tls.confianza`, fallan antes del
+  handshake con un error accionable y usan las CA del sistema cuando no hay almacén. Queda solo la
+  costura `Transporte { Pedir, Enviar }`, que es refactor sin ningún defecto detrás.
+- **`PAT-CMD` (fase E) auditado y descartado.** Ninguno de los tres clientes usa comandos: Java
+  declara el manejador en el FXML por nombre, Python encadena señales a métodos y .NET usa
+  `Click`/`TextChanged`. Lo que difiere entre ellos es dónde vive el cableado, no el patrón.
+
+Pendiente de estos tres ítems, si alguien lo quiere: la interfaz `HistorialLocal` en Python (hoy la
+vista la salta y habla con `fachada.historial`) y la costura `Transporte` en los tres. Ninguna de las
+dos es una avería.
+
 ---
 
 ## 6. Patrones de diseño en los clientes

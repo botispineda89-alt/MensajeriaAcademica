@@ -13,6 +13,43 @@ from puertos.datos import RecienteChat
 _CONVERSACION_SQL = ",".join("?" * len(CONVERSACION))
 _TIPOS_CONVERSACION = tuple(sorted(CONVERSACION))
 
+#: HISTORIAL_LOCAL.md A1. El upsert de `historial_local`.
+#:
+#: PAT-04: vive aqui y no dentro del metodo para que se pueda leer de un vistazo
+#: (es lo que hace `HistorialLocal.java` con `BORRAR_MENSAJE`/`INSERTAR_MENSAJE`).
+#: **No** se convierte al `DELETE + INSERT` de Java a proposito: Java solo
+#: conserva el `estado` y el resto de columnas las pisa, mientras que aqui cada
+#: columna opcional usa `COALESCE` para no borrar lo ya guardado. Traducirlo tal
+#: cual perderia el `archivo_id` y el `hash_sha256` de un mensaje que vuelve a
+#: llegar sin ellos, y con el `MAX(descargado)` y el `estado` monotonico esta es
+#: ya la version fuerte. Python y .NET son SQLite por invariante 10, asi que
+#: `ON CONFLICT` no les ata a ningun motor.
+_GUARDAR_MENSAJE_SQL = """
+    INSERT INTO historial_local
+    (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
+     num_caracteres, num_palabras, nombre_archivo, archivo_id,
+     ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
+     etapas_filtrado, caption)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id_mensaje) DO UPDATE SET
+        contenido = excluded.contenido,
+        hash_sha256 = COALESCE(excluded.hash_sha256, historial_local.hash_sha256),
+        num_caracteres = COALESCE(excluded.num_caracteres, historial_local.num_caracteres),
+        num_palabras = COALESCE(excluded.num_palabras, historial_local.num_palabras),
+        nombre_archivo = COALESCE(excluded.nombre_archivo, historial_local.nombre_archivo),
+        archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
+        ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
+        tamano_archivo = COALESCE(excluded.tamano_archivo, historial_local.tamano_archivo),
+        etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
+        caption = COALESCE(excluded.caption, historial_local.caption),
+        descargado = MAX(excluded.descargado, historial_local.descargado),
+        estado = CASE
+            WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
+            WHEN historial_local.estado = 'ENTREGADO' AND excluded.estado IN ('PENDIENTE', 'ENVIADO') THEN 'ENTREGADO'
+            WHEN historial_local.estado = 'ENVIADO' AND excluded.estado = 'PENDIENTE' THEN 'ENVIADO'
+            ELSE excluded.estado END
+"""
+
 
 class HistorialLocal:
     def __init__(self, db):
@@ -29,34 +66,11 @@ class HistorialLocal:
         # comparten Python y .NET, y `fecha_envio` se ordena como TEXTO.
         fecha_envio = a_utc(fecha_envio)
         with self.db.conexion() as conn:
-            conn.execute("""
-                INSERT INTO historial_local 
-                (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
-                 num_caracteres, num_palabras, nombre_archivo, archivo_id,
-                 ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
-                 etapas_filtrado, caption)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id_mensaje) DO UPDATE SET
-                    contenido = excluded.contenido,
-                    hash_sha256 = COALESCE(excluded.hash_sha256, historial_local.hash_sha256),
-                    num_caracteres = COALESCE(excluded.num_caracteres, historial_local.num_caracteres),
-                    num_palabras = COALESCE(excluded.num_palabras, historial_local.num_palabras),
-                    nombre_archivo = COALESCE(excluded.nombre_archivo, historial_local.nombre_archivo),
-                    archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
-                    ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
-                    tamano_archivo = COALESCE(excluded.tamano_archivo, historial_local.tamano_archivo),
-                    etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
-                    caption = COALESCE(excluded.caption, historial_local.caption),
-                    descargado = MAX(excluded.descargado, historial_local.descargado),
-                    estado = CASE
-                        WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
-                        WHEN historial_local.estado = 'ENTREGADO' AND excluded.estado IN ('PENDIENTE', 'ENVIADO') THEN 'ENTREGADO'
-                        WHEN historial_local.estado = 'ENVIADO' AND excluded.estado = 'PENDIENTE' THEN 'ENVIADO'
-                        ELSE excluded.estado END
-            """, (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
-                  num_caracteres, num_palabras, nombre_archivo, archivo_id,
-                  ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
-                  etapas_filtrado, caption))
+            conn.execute(_GUARDAR_MENSAJE_SQL,
+                         (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
+                          num_caracteres, num_palabras, nombre_archivo, archivo_id,
+                          ruta_archivo, tamano_archivo, fecha_envio, enviado, descargado, estado,
+                          etapas_filtrado, caption))
             
     def obtener_conversacion(self, user1, user2, limit=50, offset=0):
         with self.db.conexion() as conn:

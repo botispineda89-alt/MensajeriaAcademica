@@ -266,7 +266,25 @@ de una línea imperativa. Las 3 implementaciones de "puedo enviar" quedan en **1
 
 | ID | Patrón | Qué | Por qué ahora |
 |---|---|---|---|
-| **PAT-04** | Adapter del almacén local | Un contrato `HistorialLocal` con `H2HistorialLocal` + `SqliteHistorialLocal`, y el **upsert portable** `DELETE + INSERT` que ya está documentado (`HistorialLocal.java:17`) pero se usa solo en Java | Python **no tiene interfaz**: la vista la salta y llama `fachada.historial` (`chat_window.py:521-523`), y el SQL `ON CONFLICT` está *inline*. El `DELETE + INSERT` elimina la dependencia de dialecto de los 3 |
+| **PAT-04** | Adapter del almacén local | Un contrato `HistorialLocal` con `H2HistorialLocal` + `SqliteHistorialLocal`, y el **upsert portable** `DELETE + INSERT` que ya está documentado (`HistorialLocal.java:17`) pero se usa solo en Java | Python **no tiene interfaz**: la vista la salta y llama `fachada.historial` (`chat_window.py:521-523`), y el SQL `ON CONFLICT` está *inline*. El `DELETE + INSERT` elimina la dependencia de dialecto de los 3 — **parcialmente rechazado, ver nota PAT-04** |
+
+> **PAT-04 · nota de ejecución (2026-10-13).** Hecho: el SQL del upsert sale del
+> cuerpo del método a una constante con nombre en los dos clientes afectados
+> (`_GUARDAR_MENSAJE_SQL` en Python, `INSERTAR_MENSAJE` en `LocalStore.cs`), que es
+> exactamente lo que la fila señalaba (`inline`) y lo que ya hace Java.
+>
+> **Rechazado: convertir `ON CONFLICT` a `DELETE + INSERT`.** El `DELETE + INSERT`
+> de `HistorialLocal.java:175` solo conserva el `estado` (`conservarEstado`) y **pisa el
+> resto de columnas**: un mensaje que vuelve a llegar sin `archivo_id` ni
+> `hash_sha256` borraría los valores ya guardados. Python y .NET usan `COALESCE`
+> para eso, y `MAX(descargado)` para no perder una descarga. Traducirlos tal cual
+> sería una regresión silenciosa en el hottest path y en el contrato de estados
+> (invariante 12). Y no hay dialecto del que liberarse: por invariante 10 Python y
+> .NET son SQLite, y `ON CONFLICT` no ata a ningún motor.
+>
+> Lo que **sí** queda pendiente de esta fila es la interfaz `HistorialLocal` en
+> Python (la vista la salta y habla con `fachada.historial`): es una costura de
+> mientras tanto, no una avería, y no se ha abierto.
 | **PAT-05** | Adapter de transporte | Un `Transporte { Pedir, Enviar }` con `TcpTransporte` y `TlsTransporte` | 3 implementaciones con 3 estrategias, y **validación TLS inconsistente**: Python valida fail-fast (`tls.py:17-45`), Java no valida, .NET sustituye el puerto en silencio (`ConexionRed.cs:43`) y nunca lee `tls.confianza`. Se cierra `SEG-01` al mismo tiempo |
 | **PAT-06** | Repository con cobertura del esquema | Test de equivalencia del `schema-local.sql` en .NET | `test_schema_distribuible.py:34` protege la copia Python; **la .NET no tiene equivalente** y puede divergir en silencio |
 
@@ -384,12 +402,34 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
 - [x] **C — cimientos.** `PAT-01` en Java (composition root + inyección por constructor;
   re-verificado en `FabricaControladores`), `PAT-03` en los 3 clientes y `PAT-02`/`SEC-05`
   cerrados.
-- [ ] **C (cola).** `PAT-01` en Python/.NET: composición pendiente en sus UIs.
-- [ ] **D — MVVM.** Parcial en los 3: Java `ChatController` 545 (objetivo ≤ 350), Python ya
-  dividido en 31 módulos de `ui/` (queda tipar el presentador) y .NET 1 858 (objetivo ≤ 400).
-- [ ] **E — Command.** `PAT-CMD` sin empezar (habilitación imperativa; .NET con 0 `ICommand`).
-- [ ] **F — adaptadores.** `PAT-04` sin empezar; `PAT-05` con el fail-fast TLS cableado y solo la
-  matriz de handshake pendiente; `PAT-06` cerrado por otra vía (`MUERTE-5`).
+- [x] **C (cola).** `PAT-01` en Python y .NET (2026-10-13): `ui/composicion_chat.py`
+  construye el contexto de la ventana y `main.py` lo pasa; `ProveedorSesionLocal`
+  compone el almacenamiento local y lo inyecta `FabricaCliente`, de modo que
+  `FachadaCliente` ya no hace `new LocalStore`/`HistorialLocal`/`CacheUsuarios`
+  ni en la ruta previa al login. 4 reglas de arquitectura nuevas lo bloquean.
+- [x] **D — MVVM.** Cerrada en Python y .NET (2026-10-13) y ya cerrada en Java:
+  `ChatViewModel` (Python, `QObject` con `Property`/`Signal`, predicado único
+  `puede_enviar`) y `ChatViewModel` (.NET, `INotifyPropertyChanged`, predicado
+  único `PuedeEnviar`); las ventanas exponen el estado como accesos, no copias.
+  `ChatController.java` quedó en 220 líneas y `ChatWindow.*.cs` en 12 parciales
+  de ≤ 309.
+- [ ] **E — Command.** `PAT-CMD` **auditado y no se va a hacer** (2026-10-13): los 3
+  clientes usan manejadores de evento, no comandos —Java declara el handler en el
+  FXML por nombre (`onAction="#..."`), Python encadena señales a métodos
+  (`clicked.connect(self.algo)`, ~24 conexiones en `constructor_vista_chat.py` y
+  `chat_window.py`) y .NET usa `Click`/`TextChanged` repartidos en 12 parciales. Lo
+  que difiere no es el patrón sino **dónde vive el cableado** (XAML por nombre
+  frente a código). Introducir `ICommand`/`Command` en los tres es reescribir cada
+  botón sin ningún defecto detrás. Lo que sí se hizo en Python es la tabla de
+  reparto por tipo de tarea (`ProcesadorTareasChat.MANEJADORES`), que es la parte
+  de este ítem que estaba fallando en silencio.
+- [ ] **F — adaptadores.** `PAT-04` **hecho a medias y con motivo** (nota PAT-04
+  arriba: el SQL sale del cuerpo a una constante; el `DELETE + INSERT` de Java se
+  rechaza porque perdería columnas); queda la interfaz `HistorialLocal` en Python.
+  `PAT-05`: el fail-fast TLS **ya era coherente en los 3** (`ValidarTls.java`,
+  `ValidarTls.cs`, `tls.py` leen `tls.confianza` y fallan antes del handshake), la
+  fila del plan estaba desfasada; queda solo la costura `Transporte`, que es
+  refactor sin defecto detrás. `PAT-06` cerrado por otra vía (`MUERTE-5`).
 - [x] **G — contrato visual.** `VIS-01` cerrado (paleta generada; 19 reglas de contraste ≥ 4.5:1);
   `VIS-02` con la máquina de estados centralizada y verificada en los 3.
 - [ ] **G (cola).** `VIS-02` de ventana/diálogo por centralizar; `UIX-*` restantes según roadmap
@@ -397,8 +437,16 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
 
 **Definición de terminado (§9), condición por condición**
 
-- [x] **1.** Suites de los 3 clientes sin modificar tests: JavaFX **280** (47 clases), Python
-  **278** (5 omitidas), .NET **366**; build WPF 0/0 (`verificar.py` 9/9, 2026-10-11).
+- [x] **1.** Suites de los 3 clientes sin modificar tests existentes: JavaFX **298** (50 clases),
+  Python **297** (5 omitidas), .NET **386**; build WPF Release 0 errores/0 avisos
+  (`verificar.py` **9/9, exit 0**, 2026-10-13, segunda tanda).
+  *Las únicas pruebas tocadas son las nuevas: `ProveedorSesionLocalTests` (5),
+  `ChatViewModelTests` (9), `ElEstadoDeConversacionNoViveEnLaVentana`,
+  `LaFachadaNoComponeElAlmacenamientoLocal`, `ElAlmacenamientoLocalSeComponeEnElCompositionRoot`,
+  `test_la_ventana_de_chat_no_es_su_propia_raiz_de_composicion`,
+  `test_toda_tarea_lanzada_tiene_manejador` y
+  `test_el_view_model_es_un_qobject_con_un_solo_predicado_de_envio`. Ninguna prueba existente
+  cambió de aserción.*
 - [X] **2.** Matriz de interoperabilidad de las 6 direcciones: smoke manual pendiente
   (`GUIA_ACEPTACION.md`).
 - [ ] **3.** Literales nuevos al sitio de tokens: `VIS-01` cerrado; el pendiente es `VIS-02`
@@ -407,7 +455,11 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   escrita (exclusiones y `MUERTE-6` en roadmap §4).
 - [ ] **5.** Regla B2 (ninguna clase de JavaFX eliminada sin verla en la app): control de proceso,
   no verificable por script.
-- [ ] **6.** Tabla de tamaños §4.2: Java 545 > 350 y .NET 1 858 > 400; pendientes de `PAT-VM`.
+- [x] **6.** Tabla de tamaños §4.2 **cumplida en los 3** (2026-10-13), medido:
+  `ChatController.java` **181** (≤ 350), `ChatWindow.*.cs` 12 parciales, el mayor **291** (≤ 400), y
+  `FachadaCliente.*.cs` 7 parciales, el mayor **212** (≤ 400). Lo que queda fuera de la regla por no
+  entrar en el objetivo: `ui/refrescador_contactos_chat.py` (215) y
+  `ui/procesador_tareas_chat.py`.
 
 ## 10. Referencias
 

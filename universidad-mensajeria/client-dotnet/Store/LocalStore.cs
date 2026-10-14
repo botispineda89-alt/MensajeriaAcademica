@@ -13,6 +13,36 @@ namespace Mensajeria.Store
         // usan este candado común para serializar cualquier acceso al handle.
         public object SyncRoot { get; } = new();
 
+        /// <summary>
+        /// HISTORIAL_LOCAL.md A1: inserta idempotente con enviado recalculado y
+        /// estado monotónico. Vive fuera del método (PAT-04) para poder leerlo de
+        /// un vistazo, igual que <c>BORRAR_MENSAJE</c>/<c>INSERTAR_MENSAJE</c> en
+        /// el <c>HistorialLocal.java</c>.
+        /// <para>
+        /// No se traduce al <c>DELETE + INSERT</c> de Java: allí solo se conserva
+        /// el <c>estado</c> y el resto de columnas se pisan; aquí cada columna
+        /// opcional usa <c>COALESCE</c> para no borrar lo ya guardado, y
+        /// <c>descargado</c> es un <c>MAX</c>. Esta es la versión fuerte. .NET es
+        /// SQLite por invariante 10, así que <c>ON CONFLICT</c> no le ata a ningún
+        /// motor.
+        /// </para>
+        /// </summary>
+        private const string INSERTAR_MENSAJE = @"
+INSERT INTO historial_local (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
+    num_caracteres, num_palabras, nombre_archivo, ruta_archivo, tamano_archivo,
+    fecha_envio, enviado, descargado, estado, archivo_id, etapas_filtrado)
+VALUES (@id,@ori,@des,@tip,@con,@has,@nca,@npa,@nar,@rar,@tar,@fen,@env,@desca,@est,@aid,@etapas)
+ON CONFLICT(id_mensaje) DO UPDATE SET
+    descargado = MAX(excluded.descargado, historial_local.descargado),
+    archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
+    etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
+    ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
+    estado = CASE
+        WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
+        WHEN historial_local.estado = 'ENTREGADO' AND excluded.estado IN ('PENDIENTE','ENVIADO') THEN 'ENTREGADO'
+        WHEN historial_local.estado = 'ENVIADO' AND excluded.estado = 'PENDIENTE' THEN 'ENVIADO'
+        ELSE excluded.estado END";
+
         public LocalStore(string dbPath)
         {
             string expandedPath = ExpandirRuta(dbPath);
@@ -148,21 +178,7 @@ namespace Mensajeria.Store
                 string origen = f["origen"]?.ToString() ?? "";
                 int enviado = origen == cuenta ? 1 : 0;
                 using var cmd = connCta.CreateCommand();
-                cmd.CommandText = @"
-INSERT INTO historial_local (id_mensaje, origen, destino, tipo, contenido, hash_sha256,
-    num_caracteres, num_palabras, nombre_archivo, ruta_archivo, tamano_archivo,
-    fecha_envio, enviado, descargado, estado, archivo_id, etapas_filtrado)
-VALUES (@id,@ori,@des,@tip,@con,@has,@nca,@npa,@nar,@rar,@tar,@fen,@env,@desca,@est,@aid,@etapas)
-ON CONFLICT(id_mensaje) DO UPDATE SET
-    descargado = MAX(excluded.descargado, historial_local.descargado),
-    archivo_id = COALESCE(excluded.archivo_id, historial_local.archivo_id),
-    etapas_filtrado = COALESCE(excluded.etapas_filtrado, historial_local.etapas_filtrado),
-    ruta_archivo = COALESCE(excluded.ruta_archivo, historial_local.ruta_archivo),
-    estado = CASE
-        WHEN historial_local.estado = 'LEIDO' OR excluded.estado = 'LEIDO' THEN 'LEIDO'
-        WHEN historial_local.estado = 'ENTREGADO' AND excluded.estado IN ('PENDIENTE','ENVIADO') THEN 'ENTREGADO'
-        WHEN historial_local.estado = 'ENVIADO' AND excluded.estado = 'PENDIENTE' THEN 'ENVIADO'
-        ELSE excluded.estado END";
+                cmd.CommandText = INSERTAR_MENSAJE;
                 cmd.Parameters.AddWithValue("@id", id);
                 cmd.Parameters.AddWithValue("@ori", origen);
                 cmd.Parameters.AddWithValue("@des", f["destino"]?.ToString() ?? "");

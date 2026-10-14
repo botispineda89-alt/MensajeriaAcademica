@@ -119,10 +119,15 @@ Notas que se adivinan mal:
   relativo al directorio de trabajo (Python) o a la carpeta del ejecutable (.NET).
 - Tests WPF requieren **SDK 10** aunque la app sea `net8.0-windows`. No hay CI workflows en
   `.github/`; la verificación es local (`contrato/verificar.py`).
-- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-13):
-  JavaFX **299/299** (50 clases, ArchUnit incluida), Python **294** (5 omitidas) y .NET **368/368**
-  en verde; build WPF Release 0/0; `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
-  **`contrato/verificar.py` pasó 9/9** y sirve como puerta de calidad.
+- **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-13,
+  segunda tanda del plan de patrones UI): JavaFX **298/298** (50 clases, ArchUnit incluida),
+  Python **297** (5 omitidas) y .NET **386/386** en verde; build WPF Release 0/0;
+  `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
+  **`contrato/verificar.py` pasó 9/9 (exit 0)** y sirve como puerta de calidad.
+  *(Corrección: la nota anterior decía JavaFX 299 y .NET 368; el 299 no se reproduce —
+  `mvn -pl client/client-app -am test` agrega 298 en 50 clases. Los 386 de .NET y los 297 de
+  Python incluyen lo añadido en esa tanda: `ProveedorSesionLocalTests` + reglas de arquitectura,
+  y `test_toda_tarea_lanzada_tiene_manejador`.)*
 - `servidor-app` solo ejecutó `EntregaCasoPayloadGrandeTest` (4/4) el 2026-10-13; **la suite completa
   no se re-ejecutó**: su último registro fechado es el del 2026-10-08, 106 casos, **102 en verde y
   4 fallos preexistentes** (2 umbrales temporales de `CargaMixtaTest` + 2 de `MensajesTest`), ajenos
@@ -172,6 +177,8 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 | 18 | **El icono por tipo de archivo es el MISMO dibujo en los 3 clientes** (`iconos/{pdf,xlsx,csv,json,docs}.png` en los recursos de JavaFX, `ui/iconos/` de Python y `Iconos/` de WPF; el catálogo extensión→icono vive en `IconoArchivo.java`, `transversal/iconos_archivo.py` y `Transversal/IconosArchivo.cs`) y el MISMO tamaño: 48 DIP en burbuja y bandeja, estilo tarjeta de archivo de Telegram Web. Cuando el tipo tiene icono propio, el `📎` genérico del texto **se quita** (doble icono); solo queda para extensiones sin catálogo | Cada distribuidor es independiente y ninguno lee los recursos del otro: cambiar un PNG o una extensión en un solo cliente deja el mismo PDF distinto según quién lo mire, y ninguna suite se entera. `contrato/verificar_iconos.py` compara las 3 copias byte a byte y los 3 catálogos. Trampa WPF: esos lados los consume el XAML con `x:Static` sobre `Width`/`Height`; declarados `int`, WPF no convierte y revienta con `InvalidCastException (Int32→Double)` en `MinMax..ctor` — van como `double` (IconosArchivo.cs) |
 | 19 | **La entrega de un adjunto NO lleva los bytes dentro de la trama.** El servidor manda el `MENSAJE_ARCHIVO` con los bytes en base64 y, si no cabe en 16 MiB (todo lo de más de ~12 MiB), reintenta con la **versión ligera**: mismo mensaje sin `contenidoImagen`, conservando `archivoId`, `nombreArchivo`, `tamanoArchivo`, `hashSha256` y el pie. El receptor baja con `DESCARGAR_ARCHIVO` | Sin el reintento, el codec rechaza la trama y el servidor **expulsa la sesión del destinatario**: un archivo de 20 MiB cerraba la sesión de quien lo recibía. Un cliente no puede asumir que los bytes vienen en línea (`PROTOCOLO.md` §5, roadmap §5.15) |
 | 20 | **Toda descarga tiene que saber reensamblar.** El servidor responde con una trama única si el archivo cabe y con `ARCHIVO_INICIO` + `ARCHIVO_PARTE`\* + `ARCHIVO_FIN` si pasa de 1 MiB; la primera trama completa la espera de la petición y las partes llegan **fuera** de ella. Cada cliente necesita su colector: `ColectorFragmentos` (.NET), el recolector de `GestorAdjuntosChat` (JavaFX) y `fachada/servicios/colector_fragmentos.py` (Python) | Sin colector se escribe un archivo de **0 bytes sin ningún error**: la peor forma de fallar, porque el usuario cree que tiene el archivo (roadmap §5.15) |
+| 21 | **La costura de inyección de Python es el símbolo del módulo, no el parámetro.** `test_ui.py` sustituye `ui.chat_window.PreferenciasChat` con unas preferencias de `QSettings` temporal; por eso ese import sigue aunque la ventana ya no construya nada con él, y `construir_contexto_chat` acepta una `preferencias` ya construida | Quitar el import «por limpieza» deja la ventana sin forma de probarse con dobles y hace que el «último chat guardado» de una prueba se filtre a la siguiente: falla sin error de código, solo con datos cruzados (roadmap §5.19) |
+| 22 | **El estado de conversación tiene un solo dueño en cada cliente:** `ui/chat_view_model.py` (Python, `QObject`), `ViewModels/ChatViewModel.cs` (.NET, `INotifyPropertyChanged`) y el `ChatViewModel` de JavaFX. Las ventanas lo exponen como **accesos**, no como copias | Una copia puede quedar desincronizada y el síntoma es un botón de enviar que se habilita sin destinatario, o un offset de la conversación anterior aplicado a la nueva. Lo bloquean `test_arquitectura.py` y `ArquitecturaTests.ElEstadoDeConversacionNoViveEnLaVentana` |
 
 ## 6. Trampas verificadas en el código
 
