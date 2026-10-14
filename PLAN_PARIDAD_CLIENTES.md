@@ -1064,9 +1064,7 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
 Canónica para archivar este plan: todo lo demás de §7 está cerrado. Cada ítem cita la condición
 de §5 que lo exige.
 
-- [ ] **Fase 4 visual (§5.3).** contrato/guion-capturas.md + contrato/comparar_capturas.py +
-  ~90 PNG en DIAGRAMAS/capturas/ + informe.html en verde + mockups actualizados. Exige sesión
-  con los 3 clientes a la vez; no lo cierra ninguna suite.
+- [ ] **Fase 4 visual (§5.3).** Guion escrito 2026-10-14 (`contrato/guion-capturas.md`: 12 escenarios × 2 temas × 3 clientes) y vía de captura probada (K1 login Python con `pyside6-mcp`). Falta: `comparar_capturas.py` + ~90 PNG + `informe.html` + mockups, flag `--capturar` en JavaFX (Monocle) y la pasada WPF con `netwright`.
 - [x] **Tamaños (§5.4).** Decidido 2026-10-14: regla obsoleta para Java con motivo escrito
   (roadmap §5.25: agrega 13 colaboradores inyectados y solo delega; sin god class que partir).
   Sin cambios de código.
