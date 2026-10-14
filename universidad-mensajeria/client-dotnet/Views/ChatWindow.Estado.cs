@@ -49,8 +49,8 @@ namespace Mensajeria.Views
                 if (_cerrando) return;
                 LimpiarAvisoInline();
                 CargarUsuarios();
-                if (_usuarioDestino != null)
-                    CargarHistorialRemoto(_usuarioDestino, 0);
+                if (UsuarioDestino != null)
+                    CargarHistorialRemoto(UsuarioDestino, 0);
             });
         }
 
@@ -66,7 +66,7 @@ namespace Mensajeria.Views
             else if (txtEstado.Text == EstadoConexionTexto.Texto(EstadoConexion.SinRed)
                 || txtEstado.Text == EstadoConexionTexto.Texto(EstadoConexion.SesionCerrada))
             {
-                txtEstado.Text = _usuarios.FirstOrDefault(u => u.Codigo == _usuarioDestino)?.Presencia ?? "";
+                txtEstado.Text = _usuarios.FirstOrDefault(u => u.Codigo == UsuarioDestino)?.Presencia ?? "";
             }
         }
 

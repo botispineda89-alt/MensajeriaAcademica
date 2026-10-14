@@ -80,7 +80,7 @@ namespace Mensajeria.Views
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded,
                 new Action(() =>
                 {
-                    if (_usuarioDestino != codigo || version != _versionCargaHistorial
+                    if (UsuarioDestino != codigo || version != _versionCargaHistorial
                         || !_mensajes.Contains(anclaje.Mensaje)) return;
                     lstMensajes.UpdateLayout();
                     var scroll = EncontrarScroll(lstMensajes);
@@ -119,7 +119,7 @@ namespace Mensajeria.Views
         {
             _nuevosPendientes = 0;
             btnNuevos.Visibility = Visibility.Collapsed;
-            if (_usuarioDestino != null) CargarHistorial(_usuarioDestino);
+            if (UsuarioDestino != null) CargarHistorial(UsuarioDestino);
         }
 
         private void AvisarNuevo()
@@ -136,9 +136,9 @@ namespace Mensajeria.Views
             txtVacioChat.Visibility = hay ? Visibility.Collapsed : Visibility.Visible;
             if (!hay)
             {
-                txtVacioChat.Text = _usuarioDestino == null
+                txtVacioChat.Text = UsuarioDestino == null
                     ? "Elige un contacto para empezar a conversar."
-                    : _cargandoHistorial ? "Cargando conversación…"
+                    : CargandoHistorial ? "Cargando conversación…"
                     : _errorCargaHistorial ? "No se pudo cargar el historial. Revisa la conexión e inténtalo de nuevo."
                     : "Sin mensajes aún. Escribe el primero.";
             }

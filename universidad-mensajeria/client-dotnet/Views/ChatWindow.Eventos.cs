@@ -39,7 +39,7 @@ namespace Mensajeria.Views
             {
                 Dispatcher.BeginInvoke(() =>
                 {
-                    if (_usuarioDestino != null) CargarHistorial(_usuarioDestino);
+                    if (UsuarioDestino != null) CargarHistorial(UsuarioDestino);
                 });
                 return;
             }
@@ -58,13 +58,13 @@ namespace Mensajeria.Views
             Dispatcher.BeginInvoke(() =>
             {
                 MarcarConversacionReciente(contacto);
-                if (_usuarioDestino != contacto) return;
+                if (UsuarioDestino != contacto) return;
                 // UIX-16: solo baja solo si ya se estaba abajo; si no, avisa.
                 bool avisar = !EstaAbajo();
                 CargarHistorial(contacto);
                 if (avisar) AvisarNuevo();
                 if (!string.Equals(remitente, _fachada.UsuarioActual, StringComparison.OrdinalIgnoreCase)
-                    && _usuarioDestino == remitente)
+                    && UsuarioDestino == remitente)
                     _ = Task.Run(() => _fachada.MarcarLeidosAsync(remitente));
             });
         }

@@ -34,7 +34,7 @@ namespace Mensajeria.Views
             try { lista = await _fachada.ListarUsuariosAsync(); }
             catch { lista = await Task.Run(() => _fachada.DirectorioLocal()); }
             await ActualizarFechasRecientesAsync();
-            string? seleccionado = (lstUsuarios.SelectedItem as UsuarioVM)?.Codigo ?? _usuarioDestino;
+            string? seleccionado = (lstUsuarios.SelectedItem as UsuarioVM)?.Codigo ?? UsuarioDestino;
             // Encabezado de sesión con nombre completo + código cuando está disponible.
             var propia = lista.FirstOrDefault(u => u.TryGetValue("codigo", out var c) && c is string s && s == _fachada.UsuarioActual);
             if (propia != null)
@@ -113,7 +113,7 @@ namespace Mensajeria.Views
                 [codigo] = DateTimeOffset.UtcNow
             };
             _ultimosMensajes = fechas;
-            AplicarFiltro(_usuarioDestino);
+            AplicarFiltro(UsuarioDestino);
         }
 
         private void AplicarFiltro(string? seleccionado = null)
@@ -153,15 +153,15 @@ namespace Mensajeria.Views
             // El evento se dispara durante InitializeComponent (IsSelected en XAML)
             // cuando txtEstado/lstUsuarios aun no existen: ignorar ese disparo inicial.
             if (txtEstado == null || lstUsuarios == null || txtBuscar == null) return;
-            AplicarFiltro(_usuarioDestino);
+            AplicarFiltro(UsuarioDestino);
         }
 
         private void BtnActualizar_Click(object sender, RoutedEventArgs e) => CargarUsuarios();
         private void LstUsuarios_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (lstUsuarios.SelectedItem is not UsuarioVM usuario
-                || string.Equals(_usuarioDestino, usuario.Codigo, StringComparison.OrdinalIgnoreCase)) return;
-            if (_adjuntos.HayAdjuntos && !_enviando)
+                || string.Equals(UsuarioDestino, usuario.Codigo, StringComparison.OrdinalIgnoreCase)) return;
+            if (_adjuntos.HayAdjuntos && !Enviando)
             {
                 int cantidad = _adjuntos.Adjuntos.Count;
                 _adjuntos.Limpiar();
@@ -170,7 +170,7 @@ namespace Mensajeria.Views
             }
             ActualizarPanelAdjuntos();
             Interlocked.Increment(ref _versionNavegacionCita);
-            _usuarioDestino = usuario.Codigo;
+            UsuarioDestino = usuario.Codigo;
             ActualizarEstadoEnvio();
             Transversal.PreferenciasChat.GuardarUltimoChat(
                 _fachada.UsuarioActual, usuario.Codigo);
@@ -184,9 +184,9 @@ namespace Mensajeria.Views
             if (barraBuscar.Visibility == Visibility.Visible) CerrarBuscar();
             // UIX-09: las descargas del chat anterior ya no pintan aquí.
             CancelarTodasLasCargas();
-            _offsetActual = 0;
+            OffsetActual = 0;
             _mensajes.Clear();
-            _cargandoHistorial = true;
+            CargandoHistorial = true;
             _errorCargaHistorial = false;
             ActualizarVacioChat();
             LimpiarCita();
@@ -238,7 +238,7 @@ namespace Mensajeria.Views
                         u.PropioPreview = false;
                     }
                 }
-                AplicarFiltro(_usuarioDestino);
+                AplicarFiltro(UsuarioDestino);
             }
             catch (Exception error)
             {

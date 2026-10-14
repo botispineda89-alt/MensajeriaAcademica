@@ -44,7 +44,7 @@ namespace Mensajeria.Views
             {
                 System.Diagnostics.Trace.TraceError(
                     "No se pudo pintar el historial de {0}: {1}", codigo, error);
-                if (_usuarioDestino == codigo)
+                if (UsuarioDestino == codigo)
                     barraProgreso.Visibility = Visibility.Collapsed;
                 MostrarAvisoInline("No se pudo mostrar esta conversacion. Intenta actualizar.",
                     TipoAvisoInline.Error);
@@ -70,10 +70,10 @@ namespace Mensajeria.Views
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.TraceError("No se pudo cargar el historial de {0}: {1}", codigo, ex);
-                if (_usuarioDestino == codigo && version == _versionCargaHistorial)
+                if (UsuarioDestino == codigo && version == _versionCargaHistorial)
                 {
                     barraProgreso.Visibility = Visibility.Collapsed;
-                    _cargandoHistorial = false;
+                    CargandoHistorial = false;
                     _errorCargaHistorial = true;
                     ActualizarVacioChat();
                     MostrarAvisoInline("No se pudo cargar el historial de esta conversación. Intenta actualizar los contactos.",
@@ -81,11 +81,11 @@ namespace Mensajeria.Views
                 }
                 return;
             }
-            if (_usuarioDestino != codigo || version != _versionCargaHistorial) return;
+            if (UsuarioDestino != codigo || version != _versionCargaHistorial) return;
             barraProgreso.Visibility = Visibility.Collapsed;
-            _cargandoHistorial = false;
+            CargandoHistorial = false;
             _errorCargaHistorial = false;
-            if (!prepend) _offsetActual = offset;
+            if (!prepend) OffsetActual = offset;
             if (!prepend) _mensajes.Clear();
             // Fachada ordena por instante real de más antiguo a más nuevo.
             // La colección conserva ese orden para que lo reciente quede abajo.
@@ -239,15 +239,15 @@ namespace Mensajeria.Views
                 if (pagina == 0)
                 {
                     await ActualizarFechasRecientesAsync();
-                    if (_usuarioDestino != null) AplicarFiltro(_usuarioDestino);
+                    if (UsuarioDestino != null) AplicarFiltro(UsuarioDestino);
                 }
-                if (_usuarioDestino == codigo)
-                    CargarHistorial(codigo, olderPage ? _offsetActual : 0, olderPage);
+                if (UsuarioDestino == codigo)
+                    CargarHistorial(codigo, olderPage ? OffsetActual : 0, olderPage);
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Trace.TraceError("No se pudo sincronizar el historial de {0}: {1}", codigo, ex);
-                if (_usuarioDestino == codigo && pagina == 0)
+                if (UsuarioDestino == codigo && pagina == 0)
                 {
                     txtEstado.Text = "No se pudo sincronizar; mostrando el historial guardado en este equipo.";
                     MostrarAvisoInline(MensajesUsuario.Accion(ex, "sincronizar el historial"),
@@ -258,19 +258,19 @@ namespace Mensajeria.Views
 
         private void BtnAnteriores_Click(object sender, RoutedEventArgs e)
         {
-            if (_usuarioDestino == null) return;
-            string codigo = _usuarioDestino;
+            if (UsuarioDestino == null) return;
+            string codigo = UsuarioDestino;
             int totalLocal = _fachada.ContarConversacion(codigo);
-            if (_offsetActual + 50 < totalLocal)
+            if (OffsetActual + 50 < totalLocal)
             {
-                _offsetActual += 50;
-                CargarHistorial(codigo, _offsetActual, true);
+                OffsetActual += 50;
+                CargarHistorial(codigo, OffsetActual, true);
                 return;
             }
             int siguiente = _paginaRemota.GetValueOrDefault(codigo) + 1;
             if (siguiente < _totalPaginasRemotas.GetValueOrDefault(codigo))
             {
-                _offsetActual = totalLocal;
+                OffsetActual = totalLocal;
                 CargarHistorialRemoto(codigo, siguiente, true);
             }
         }

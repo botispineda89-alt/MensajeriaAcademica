@@ -32,7 +32,7 @@ namespace Mensajeria.Views
 
         private void MostrarBuscar()
         {
-            if (_usuarioDestino == null)
+            if (UsuarioDestino == null)
             {
                 txtEstado.Text = "Elige una conversación para buscar en su historial.";
                 return;
@@ -86,7 +86,7 @@ namespace Mensajeria.Views
 
         private void EjecutarBusqueda()
         {
-            string? codigo = _usuarioDestino;
+            string? codigo = UsuarioDestino;
             string patron = (txtBuscarHistorial.Text ?? "").Trim();
             if (codigo == null || patron.Length == 0)
             {
@@ -135,7 +135,7 @@ namespace Mensajeria.Views
         /// </summary>
         private void SaltarA(string id, int intentos)
         {
-            if (_usuarioDestino == null) return;
+            if (UsuarioDestino == null) return;
             var vm = _mensajes.FirstOrDefault(m => !m.EsCabeceraDia && m.Id == id);
             if (vm != null)
             {

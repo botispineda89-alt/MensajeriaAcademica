@@ -32,6 +32,12 @@
     <Compile Include="..\client-dotnet\Transversal\Dtos\*.cs" />
     <Compile Include="..\client-dotnet\Store\*.cs" />
     <Compile Include="..\client-dotnet\Composicion\*.cs" />
+    <!-- PAT-VM: el ChatViewModel va fichero a fichero y no con el glob de la
+         carpeta a proposito. Los otros VMs de ViewModels/ usan
+         System.Windows.Media y no compilan en net10.0; este no depende de WPF
+         precisamente para que se pueda probar. Si algun dia todos se desligan
+         de WPF, esto pasa a ser el glob de la carpeta. -->
+    <Compile Include="..\client-dotnet\ViewModels\ChatViewModel.cs" />
     <Compile Include="..\client-dotnet\Fachada\Servicios\*.cs" />
     <!-- Fase 2: la fachada se reparte en parciales (Red, Sesion, Envio,
          Historial, Mensajes, Soporte). El glob es a proposito: nombrar un solo

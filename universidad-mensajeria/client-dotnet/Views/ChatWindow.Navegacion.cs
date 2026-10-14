@@ -51,7 +51,7 @@ namespace Mensajeria.Views
 
         private async Task NavegarACitaAsync(string cita)
         {
-            string? codigo = _usuarioDestino;
+            string? codigo = UsuarioDestino;
             if (codigo == null) return;
             int version = Interlocked.Increment(ref _versionNavegacionCita);
             var cargado = _mensajes.FirstOrDefault(m => !m.EsCabeceraDia
@@ -72,7 +72,7 @@ namespace Mensajeria.Views
             {
                 UbicacionCita? ubicacion = await BuscarCitaEnHistorialAsync(
                     codigo, cita, version, identidades);
-                if (version != _versionNavegacionCita || codigo != _usuarioDestino) return;
+                if (version != _versionNavegacionCita || codigo != UsuarioDestino) return;
                 if (ubicacion == null)
                 {
                     MostrarAvisoInline("El mensaje citado no está disponible en este historial.",
@@ -85,7 +85,7 @@ namespace Mensajeria.Views
                 cargaDestinoIniciada = true;
                 CargarHistorial(codigo, offset, false, () =>
                 {
-                    if (version != _versionNavegacionCita || codigo != _usuarioDestino) return;
+                    if (version != _versionNavegacionCita || codigo != UsuarioDestino) return;
                     MensajeVM? destino = _mensajes.FirstOrDefault(m =>
                         !m.EsCabeceraDia && m.Id == ubicacion.Id);
                     if (destino == null)
@@ -101,7 +101,7 @@ namespace Mensajeria.Views
             {
                 System.Diagnostics.Trace.TraceError(
                     "No se pudo navegar al mensaje citado de {0}: {1}", codigo, ex);
-                if (version == _versionNavegacionCita && codigo == _usuarioDestino)
+                if (version == _versionNavegacionCita && codigo == UsuarioDestino)
                     MostrarAvisoInline(MensajesUsuario.Accion(ex, "buscar el mensaje citado"),
                         TipoAvisoInline.Error);
             }
@@ -126,7 +126,7 @@ namespace Mensajeria.Views
             int totalPaginas = _totalPaginasRemotas.GetValueOrDefault(codigo);
             do
             {
-                if (version != _versionNavegacionCita || codigo != _usuarioDestino)
+                if (version != _versionNavegacionCita || codigo != UsuarioDestino)
                     return null;
 
                 int totalAnterior = totalLocal;

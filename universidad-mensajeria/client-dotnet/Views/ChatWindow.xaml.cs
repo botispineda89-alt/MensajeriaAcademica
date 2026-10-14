@@ -25,24 +25,22 @@ namespace Mensajeria.Views
     public partial class ChatWindow : Window
     {
         private readonly IFachadaCliente _fachada;
+        /// <summary>Estado de conversación (PAT-VM).</summary>
+        private readonly ChatViewModel _vm = new();
         private readonly EstadoAvisoInline _estadoAvisoInline = new();
         private readonly ObservableCollection<UsuarioVM> _usuarios = new();
         private readonly ObservableCollection<MensajeVM> _mensajes = new();
         private List<UsuarioVM> _directorio = new();
         private IReadOnlyDictionary<string, DateTimeOffset> _ultimosMensajes =
             new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
-        private string? _usuarioDestino;
         private readonly AdjuntosPanelVM _adjuntos = new();
         private CancellationTokenSource? _ctsEnvio;
-        private bool _enviando;
         private bool _cerrarTrasCancelar;
         private bool _cerrarSesionTrasCancelar;
         private int _versionCargaHistorial;
         private int _versionNavegacionCita;
-        private bool _cargandoHistorial;
         private bool _errorCargaHistorial;
         private bool _cerrando;
-        private int _offsetActual;
         // UIX-06/UIX-07: búsqueda en el historial con debounce.
         private readonly List<string> _idsBusqueda = new();
         private int _indiceBusqueda = -1;
@@ -97,7 +95,7 @@ namespace Mensajeria.Views
             _timerBuscar.Interval = TimeSpan.FromMilliseconds(300);
             _timerBuscar.Tick += (_, _) => { _timerBuscar.Stop(); EjecutarBusqueda(); };
             _timerFiltro.Interval = TimeSpan.FromMilliseconds(300);
-            _timerFiltro.Tick += (_, _) => { _timerFiltro.Stop(); AplicarFiltro(_usuarioDestino); };
+            _timerFiltro.Tick += (_, _) => { _timerFiltro.Stop(); AplicarFiltro(UsuarioDestino); };
             // UIX-26: el aviso de éxito/información se cierra solo; los de error
             // y atención no (quedan hasta que el usuario los cierre).
             _timerAviso.Tick += TimerAviso_Tick;
@@ -130,8 +128,43 @@ namespace Mensajeria.Views
             ActualizarEstadoEnvio();
         }
 
+        /// <summary>
+        /// PAT-VM: el estado de la conversación no es de la ventana. Estas cinco
+        /// propiedades son accesos a <see cref="ChatViewModel"/>, no copias: por
+        /// eso «¿puedo enviar?» se deriva del mismo dato que la vista pinta.
+        /// Espejo de <c>ui/chat_view_model.py</c> (Python) y
+        /// <c>presentacion/ChatViewModel.java</c> (JavaFX).
+        /// </summary>
+        private string? UsuarioDestino
+        {
+            get => _vm.Usuario;
+            set => _vm.Usuario = value;
+        }
+
+        private bool Enviando
+        {
+            get => _vm.Enviando;
+            set => _vm.Enviando = value;
+        }
+
+        private bool CargandoHistorial
+        {
+            get => _vm.Cargando;
+            set => _vm.Cargando = value;
+        }
+
+        private int OffsetActual
+        {
+            get => _vm.Offset;
+            set => _vm.Offset = value;
+        }
+
         /// <summary>Prefijo completo de la respuesta en curso ("" si no hay).</summary>
-        private string _cita = "";
+        private string Cita
+        {
+            get => _vm.Cita;
+            set => _vm.Cita = value;
+        }
 
         private string Identidad(string codigo)
         {

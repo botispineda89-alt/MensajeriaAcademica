@@ -158,6 +158,44 @@ namespace Mensajeria.Tests
         }
 
         [Fact]
+        public void ElEstadoDeConversacionNoViveEnLaVentana()
+        {
+            // PAT-VM: la ventana guarda estado de UI (listas, temporizadores,
+            // versiones de carga), no de conversación. Destinatario, si se está
+            // enviando, offset, carga y cita son de ChatViewModel, igual que en
+            // Python (ui/chat_view_model.py) y en JavaFX (ChatViewModel.java).
+            string[] prohibidos =
+            {
+                "private string? UsuarioDestino =",
+                "private bool Enviando =",
+                "private bool Enviando;",
+                "private int OffsetActual =",
+                "private bool CargandoHistorial =",
+                "private string Cita ="
+            };
+            foreach (string parcial in Directory.GetFiles(
+                Path.Combine(RutaCliente(), "Views"), "ChatWindow.*.cs"))
+            {
+                string fuente = File.ReadAllText(parcial);
+                foreach (string prohibido in prohibidos)
+                    Assert.DoesNotContain(prohibido, fuente, StringComparison.Ordinal);
+            }
+
+            string ventana = LeerFuenteCliente("Views/ChatWindow.Envio.cs");
+            // Un solo sitio decide si se habilita el botón.
+            Assert.Contains("_vm.PuedeEnviar", ventana, StringComparison.Ordinal);
+            Assert.DoesNotContain("btnEnviar.IsEnabled = !Enviando", ventana,
+                StringComparison.Ordinal);
+
+            // Y el ViewModel es demostrable: no depende de WPF. Se busca el
+            // `using`, no el texto, porque el propio ViewModel explica en su
+            // documentación por qué se desligó de System.Windows.Media.
+            string vm = LeerFuenteCliente("ViewModels/ChatViewModel.cs");
+            Assert.DoesNotContain("using System.Windows", vm, StringComparison.Ordinal);
+            Assert.Contains("INotifyPropertyChanged", vm, StringComparison.Ordinal);
+        }
+
+        [Fact]
         public void LaVistaDelChatEstaDivididaPorResponsabilidad()
         {
             // El code-behind del chat no puede volver a crecer como un bloque:

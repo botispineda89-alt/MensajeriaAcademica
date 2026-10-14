@@ -187,7 +187,7 @@ namespace Mensajeria.Views
 
         private void BtnAdjuntar_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
+            if (string.IsNullOrEmpty(UsuarioDestino) || Enviando) return;
             var dlg = new OpenFileDialog
             {
                 Multiselect = true,
@@ -206,7 +206,7 @@ namespace Mensajeria.Views
 
         private void ZonaEnvio_Drop(object sender, DragEventArgs e)
         {
-            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
+            if (string.IsNullOrEmpty(UsuarioDestino) || Enviando) return;
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
             var archivos = (string[]?)e.Data.GetData(DataFormats.FileDrop);
             if (archivos is not { Length: > 0 }) return;
@@ -257,7 +257,7 @@ namespace Mensajeria.Views
 
         private void BtnQuitarTodosAdjuntos_Click(object sender, RoutedEventArgs e)
         {
-            if (_enviando) return;
+            if (Enviando) return;
             _adjuntos.Limpiar();
             ActualizarPanelAdjuntos();
         }

@@ -66,8 +66,8 @@ namespace Mensajeria.Views
             // Paridad con Java (FormatoRespuesta): el extracto se colapsa a una
             // sola linea y el prefijo termina en "\n\n". Sin esto un original
             // con saltos hacia que el cuerpo quedara pegado a la cita.
-            _cita = Transversal.FormatoCita.Prefijo(autor, vm.Contenido, vm.EsImagen, vm.NombreArchivo);
-            txtRespuesta.Text = _cita.TrimEnd('\n');
+            Cita = Transversal.FormatoCita.Prefijo(autor, vm.Contenido, vm.EsImagen, vm.NombreArchivo);
+            txtRespuesta.Text = Cita.TrimEnd('\n');
             bordeRespuesta.Visibility = Visibility.Visible;
             txtMensaje.Focus();
             ActualizarEstadoEnvio();
@@ -77,7 +77,7 @@ namespace Mensajeria.Views
 
         private void LimpiarCita()
         {
-            _cita = "";
+            Cita = "";
             txtRespuesta.Text = "";
             bordeRespuesta.Visibility = Visibility.Collapsed;
         }
@@ -94,7 +94,7 @@ namespace Mensajeria.Views
         {
             if (e.Key == System.Windows.Input.Key.Escape)
             {
-                if (_enviando)
+                if (Enviando)
                     _ctsEnvio?.Cancel();
                 else
                 {
@@ -121,12 +121,12 @@ namespace Mensajeria.Views
         /// </summary>
         private async void EnviarMensajeActual()
         {
-            if (string.IsNullOrEmpty(_usuarioDestino) || _enviando) return;
+            if (string.IsNullOrEmpty(UsuarioDestino) || Enviando) return;
             string texto = (txtMensaje.Text ?? "").Trim();
             IReadOnlyList<AdjuntoPendiente> adjuntos = _adjuntos.Snapshot();
             if (texto.Length == 0 && adjuntos.Count == 0) return;
             LimpiarAvisoInline();
-            _enviando = true;
+            Enviando = true;
             _ctsEnvio = new CancellationTokenSource();
             btnEnviar.IsEnabled = false;
             panelAdjuntos.IsEnabled = false;
@@ -137,8 +137,8 @@ namespace Mensajeria.Views
             ActualizarEstadoEnvio();
             try
             {
-                string destino = _usuarioDestino;
-                string cita = _cita;
+                string destino = UsuarioDestino;
+                string cita = Cita;
                 // PLAN_AMBOS FASE 5: el texto va pegado a los adjuntos SOLO si
                 // estos forman una única burbuja (uno suelto, o varias imágenes
                 // montadas). Si van en varias burbujas se manda antes suelto: un
@@ -187,7 +187,7 @@ namespace Mensajeria.Views
                     txtMensaje.Clear();
                 }
                 LimpiarCita();
-                if (_usuarioDestino == destino)
+                if (UsuarioDestino == destino)
                 {
                     CargarHistorial(destino);
                     MarcarConversacionReciente(destino);
@@ -206,7 +206,7 @@ namespace Mensajeria.Views
             }
             finally
             {
-                _enviando = false;
+                Enviando = false;
                 _ctsEnvio?.Dispose();
                 _ctsEnvio = null;
                 panelProgresoEnvio.Visibility = Visibility.Collapsed;
@@ -228,9 +228,17 @@ namespace Mensajeria.Views
         /// <summary>
         private void TxtMensaje_TextChanged(object sender, TextChangedEventArgs e) => ActualizarEstadoEnvio();
 
-        private void ActualizarEstadoEnvio() =>
-            btnEnviar.IsEnabled = !_enviando && _usuarioDestino != null
-                && (!string.IsNullOrWhiteSpace(txtMensaje.Text) || _adjuntos.HayAdjuntos);
+        /// <summary>
+        /// PAT-VM: refleja el estado del ViewModel en el botón. El predicado
+        /// («¿hay destinatario, algo escrito o adjunto, y no se está enviando?»)
+        /// vive allí; aquí solo se le pide y se aplica.
+        /// </summary>
+        private void ActualizarEstadoEnvio()
+        {
+            _vm.Texto = txtMensaje.Text;
+            _vm.HayAdjuntos = _adjuntos.HayAdjuntos;
+            btnEnviar.IsEnabled = _vm.PuedeEnviar;
+        }
 
         private void BtnCancelarEnvio_Click(object sender, RoutedEventArgs e)
         {

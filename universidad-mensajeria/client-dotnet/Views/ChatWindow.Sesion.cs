@@ -37,7 +37,7 @@ namespace Mensajeria.Views
         }
         protected override void OnClosing(CancelEventArgs e)
         {
-            if (_enviando)
+            if (Enviando)
             {
                 e.Cancel = true;
                 _ctsEnvio?.Cancel();
@@ -107,7 +107,7 @@ namespace Mensajeria.Views
         {
             if (MessageBox.Show("¿Deseas salir y cerrar esta sesión?", "Confirmar salida",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            if (_enviando)
+            if (Enviando)
             {
                 _cerrarTrasCancelar = true;
                 _cerrarSesionTrasCancelar = true;
@@ -124,7 +124,7 @@ namespace Mensajeria.Views
         {
             if (MessageBox.Show("¿Cerrar todas las sesiones de esta cuenta?", "Confirmar salida",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
-            if (_enviando)
+            if (Enviando)
             {
                 _cerrarTrasCancelar = true;
                 _cerrarSesionTrasCancelar = true;

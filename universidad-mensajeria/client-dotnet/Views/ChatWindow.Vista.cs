@@ -36,7 +36,7 @@ namespace Mensajeria.Views
             Temas.Tema.Aplicar(modo);
             AplicarFondoChat(modo);
             // Las burbujas guardan su pincel: se reconstruyen con el modo nuevo.
-            if (_usuarioDestino != null) CargarHistorial(_usuarioDestino);
+            if (UsuarioDestino != null) CargarHistorial(UsuarioDestino);
         }
 
         private void AplicarFondoChat(string modo)
