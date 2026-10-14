@@ -37,6 +37,43 @@ from ui.visor_imagen_chat import VisorImagenChat as _VisorImagen
 
 
 class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEventosChat, ProcesadorTareasChat, RefrescadorContactosChat, BusquedaHistorialChat, GestorAdjuntosChat, PaginadorHistorialChat, ConstructorVistaChat, QMainWindow):
+    """PAT-VM: ``usuario_seleccionado``, la respuesta citada y el estado de carga
+    son del :class:`ChatViewModel`. Aquí son accesos, no copias: por eso la vista
+    no puede quedar desincronizada del estado que habilita el botón de enviar.
+    """
+
+    @property
+    def usuario_seleccionado(self):
+        return self.modelo_vista.usuario_seleccionado
+
+    @usuario_seleccionado.setter
+    def usuario_seleccionado(self, valor):
+        self.modelo_vista.usuario_seleccionado = valor
+
+    @property
+    def _respuesta_mensaje(self):
+        return self.modelo_vista._respuesta_mensaje
+
+    @_respuesta_mensaje.setter
+    def _respuesta_mensaje(self, valor):
+        self.modelo_vista._respuesta_mensaje = valor
+
+    @property
+    def _offset(self):
+        return self.modelo_vista.offset
+
+    @_offset.setter
+    def _offset(self, valor):
+        self.modelo_vista.offset = valor
+
+    @property
+    def _cargando_historial(self):
+        return self.modelo_vista._cargando_historial
+
+    @_cargando_historial.setter
+    def _cargando_historial(self, valor):
+        self.modelo_vista._cargando_historial = valor
+
     def __init__(self, fachada, codigo, on_logout, contexto=None):
         super().__init__()
         self.fachada = fachada
@@ -51,10 +88,9 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         # pruebas. Ver ``ui/composicion_chat``.
         self._ctx = contexto or construir_contexto_chat(
             parent=self, preferencias=PreferenciasChat())
-        self.usuario_seleccionado = None
-        self._respuesta_mensaje = None
+        # El estado de conversación ya no se duplica aquí: vive en el ViewModel
+        # (propiedades de arriba). Solo lo que es de la ventana se queda.
         self._cerrando = False
-        self._offset = 0
         self._pagina_remota = {}
         self._total_remoto = {}
         self._historial_ids = set()

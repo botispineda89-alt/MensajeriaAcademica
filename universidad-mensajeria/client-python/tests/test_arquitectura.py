@@ -395,14 +395,70 @@ class TestFronterasDeLaFaseDos(unittest.TestCase):
                                         f"{ruta.relative_to(_RAIZ_CLIENTE)} importa la fachada concreta")
                     self.assertNotEqual(nombre, "FachadaCliente")
 
-    def test_view_model_no_depende_de_framework_ni_adaptadores(self):
+    def test_view_model_no_depende_de_widgets_ni_adaptadores(self):
+        """El ViewModel es un ``QObject`` (fase D: señales y ``Property``), pero
+        nunca toca widgets ni E/S.
+
+        El límite no es «no usar Qt»: es no poder **pintar** ni **leer disco**
+        desde el estado. ``QtCore`` da señales y propiedades; ``QtWidgets`` y
+        ``QtGui`` ya son pintar, y ``sqlite3``/``socket``/``fachada`` son E/S.
+        """
         ruta = _RAIZ_CLIENTE / "ui" / "chat_view_model.py"
-        prohibidos = ("PySide6", "qfluentwidgets", "sqlite3", "socket",
-                      "fachada", "componentes", "store", "transversal")
+        prohibidos = ("PySide6.QtWidgets", "PySide6.QtGui", "qfluentwidgets",
+                      "sqlite3", "socket", "fachada", "componentes", "store",
+                      "transversal")
         for modulo, linea, _ in _importaciones(ruta):
             with self.subTest(linea=linea):
                 self.assertFalse(modulo.startswith(prohibidos),
                                  f"chat_view_model.py importa {modulo}")
+
+    def test_el_view_model_es_un_qobject_con_un_solo_predicado_de_envio(self):
+        """«¿puedo enviar?» vive en un sitio y se deriva del estado.
+
+        Es la fase E en Python: el botón consulta al ViewModel en vez de que
+        alguien le escriba el ``setEnabled`` a mano en tres lugares distintos.
+        """
+        ruta = _RAIZ_CLIENTE / "ui" / "chat_view_model.py"
+        texto = ruta.read_text(encoding="utf-8")
+        self.assertIn("QObject", texto)
+        for senal in ("usuarioCambiado", "envioCambiado", "adjuntosCambiados"):
+            with self.subTest(senal=senal):
+                self.assertIn(senal, texto)
+        self.assertIn("def puede_enviar", texto)
+
+    def test_toda_tarea_lanzada_tiene_manejador(self):
+        """PAT-VM: el reparto por tipo es una tabla cerrada.
+
+        ``_procesar_tarea`` lanza ``KeyError`` ante un tipo sin manejador, para
+        que añadir una tarea y olvidarse de pintarla no pase en silencio. Eso
+        solo es seguro si la tabla cubre todo lo que se lanza: este test recorre
+        los ``_ejecutar("tipo", ...)`` de ``ui/`` y lo comprueba en los dos
+        sentidos (que no falte ninguno, ni sobre ninguno).
+        """
+        from ui.procesador_tareas_chat import ProcesadorTareasChat
+
+        registrados = set(ProcesadorTareasChat.MANEJADORES)
+        lanzados: dict[str, str] = {}
+        for ruta in _archivos_python("ui"):
+            arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=str(ruta))
+            for nodo in ast.walk(arbol):
+                if not (isinstance(nodo, ast.Call)
+                        and isinstance(nodo.func, ast.Attribute)
+                        and nodo.func.attr == "_ejecutar"
+                        and nodo.args
+                        and isinstance(nodo.args[0], ast.Constant)
+                        and isinstance(nodo.args[0].value, str)):
+                    continue
+                lanzados.setdefault(nodo.args[0].value, ruta.name)
+
+        self.assertTrue(lanzados, "no se encontró ningún _ejecutar('tipo', ...)")
+        for tipo, fichero in sorted(lanzados.items()):
+            with self.subTest(tipo=tipo):
+                self.assertIn(tipo, registrados,
+                              f"{fichero} lanza la tarea {tipo!r} sin manejador")
+        for tipo in sorted(registrados - set(lanzados)):
+            with self.subTest(tipo=tipo):
+                self.fail(f"manejador {tipo!r} sin ninguna tarea que lo use")
 
     def test_archivos_de_presentacion_y_fachada_no_superan_350_lineas(self):
         for paquete in ("ui", "fachada"):

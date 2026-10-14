@@ -84,6 +84,13 @@ class FlujoConversacionChat:
             texto_envio, rutas, self._EXTENSIONES_IMAGEN)
         if not plan:
             return
+        # PAT-VM: «puedo enviar» y el «enviando» son del ViewModel; el botón se
+        # habilita solo a partir de ahí, no con un setEnabled escrito a mano.
+        self.modelo_vista.texto = self.entry_msg.texto()
+        self.modelo_vista.hay_adjuntos = bool(rutas)
+        if not self.modelo_vista.puede_enviar():
+            return
+        self.modelo_vista.enviando = True
         self.btn_enviar.setEnabled(False)
         self._cancelacion_envio = threading.Event()
         self._mostrar_envio_optimista(plan)
@@ -220,8 +227,17 @@ class FlujoConversacionChat:
             self._ejecutar("marcar_leidos", lambda: self.fachada.marcar_leidos(codigo))
 
     def _actualizar_envio(self):
-        hay_adjuntos = bool(self.bandeja_adjuntos.rutas)
+        """Habilita el botón desde el estado, no desde un ``if`` repartido.
+
+        PAT-VM: el estado (destinatario, texto, adjuntos, enviando) vive en
+        ``ChatViewModel`` y «puedo enviar» se decide allí una sola vez. Aquí solo
+        se refleja: antes este mismo predicado estaba escrito en tres sitios y
+        cambiarlo en uno dejaba el botón desincronizado.
+        """
+        vm = self.modelo_vista
+        vm.texto = self.entry_msg.texto()
+        vm.hay_adjuntos = bool(self.bandeja_adjuntos.rutas)
+        hay_adjuntos = vm.hay_adjuntos
         self.preview_container.setVisible(hay_adjuntos)
         self.btn_quitar_adjunto.setVisible(hay_adjuntos)
-        self.btn_enviar.setEnabled(bool(self.usuario_seleccionado)
-                                   and bool(self.entry_msg.texto().strip() or hay_adjuntos))
+        self.btn_enviar.setEnabled(vm.puede_enviar())
