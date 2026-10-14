@@ -887,6 +887,24 @@ TLS ya es coherente y cada cliente programa contra su puerto (`InterfazConexionR
 `IInterfazConexionRed`, `IConexionRed`); el split sería reescribir 3 transportes sin ningún
 defecto detrás. Si algún día hace falta (p. ej. proxy), se reabre con defecto.
 
+### 5.25 Checklist de cierre del plan de paridad — ⬜ abierta 2026-10-14
+
+Canónica para archivar `PLAN_PARIDAD_CLIENTES.md` (su §5 pide 9 condiciones; su §7 era la lista y
+tenía casillas `[x]` con resto admitido). Espejo de su §8; el detalle vive allí.
+
+- [ ] **Fase 4 visual (§5.3).** Guion + comparador + ~90 PNG + `informe.html` + mockups. Nada existe;
+  exige sesión con los 3 clientes a la vez.
+- [ ] **Tamaños (§5.4).** `FachadaCliente.java` mide 529 líneas contra fachada ≤ 250: decidir si se
+  parte o se declara obsoleta la regla para Java con motivo.
+- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado de las 66 con sus tests; huecos
+  conocidos en Python (montaje multi-imagen, `caption`, selección múltiple, progreso+cancelar,
+  botón guardar, `.webp` como archivo).
+- [ ] **Deuda A→A (§5.15c).** El historial remoto no devuelve `archivoId` propios: el auto-adjunto
+  no se puede descargar.
+- [ ] **Smoke formal Java (§5.9).** Cotejar `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` contra el
+  smoke del 2026-10-14 y marcar.
+- [ ] **Higiene del plan (resto Fase 6).** Barrer las notas "falta el smoke" de sus §§0–1.
+
 ---
 
 ## 6. Patrones de diseño en los clientes

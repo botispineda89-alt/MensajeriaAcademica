@@ -104,6 +104,13 @@ Anota sistema operativo y versiones, commit/versión desplegada, IP y puerto (si
 pareja/dirección, caso probado, resultado, hora e ID del mensaje. Si falla, conserva el log
 pertinente de cliente y servidor y revisa el mismo ID y tipo de trama en ambos extremos.
 
+### Smoke visual del 2026-10-14 (matriz 6/6)
+
+El usuario abrió los 3 clientes y probó las 6 direcciones (Java ↔ Python, Java ↔ .NET,
+Python ↔ .NET, en ambos sentidos): **todo llegó bien**. Con este smoke se encontraron 3 defectos,
+ya corregidos (roadmap §5.21: visto azul en Python, auto-chat en Java, cita como bloque en
+Python). Registrado por confirmación directa; sin IDs de mensaje anotados.
+
 ## Smoke de los cambios 2026-10-04 (cita, login, descarga, difusión)
 
 - **Cita en tarjeta (3 clientes):** responder muestra la cita en tarjeta

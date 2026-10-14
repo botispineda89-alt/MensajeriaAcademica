@@ -937,7 +937,7 @@ El objetivo del proyecto se cumple cuando **todo** lo siguiente es cierto:
 
 ## 7. Pendientes consolidados (checkbox)
 
-Estado auditado el 2026-10-13 contra las tres suites (JavaFX 299, .NET 368, Python 294). Ordenado
+Estado auditado el 2026-10-14 contra las tres suites (JavaFX 299, .NET 386, Python 308). Ordenado
 por impacto. Cada casilla dice **qu√©**, **d√≥nde** y **c√≥mo se verifica**.
 
 ### Python
@@ -964,9 +964,11 @@ por impacto. Cada casilla dice **qu√©**, **d√≥nde** y **c√≥mo se verifica**.
   6 vectores + 5 rechazos: byte a byte contra `trama_hex`, ida y vuelta por stream, los 5 rechazos
   en `decodificar` y por stream, tope de trama del contrato y control negativo del bug de
   caracteres. 6 pruebas (15 literales hex fuera del c√≥digo). Roadmap ¬ß5.14 cerrado.
-- [x] Smoke visual formal del plan de arquitectura archivado: falta ejecutar y marcar
+- [ ] Smoke visual formal del plan de arquitectura archivado: ejecutar y marcar
   `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` (creado el 2026-10-11, espejo del de Python).
-  Requiere una sesi√≥n con el cliente abierto; no se puede cerrar desde la suite.
+  Requiere una sesi√≥n con el cliente abierto; no se puede cerrar desde la suite. (Estaba marcado
+  `[x]` con el texto admitiendo que faltaba ejecutarlo; corregido 2026-10-14. El smoke del usuario
+  del 2026-10-14 pudo cubrirlo: cotejar contra la checklist formal antes de marcar.)
 - [x] ArchUnit reglas 4‚Äì5: a√±adir los 5 colaboradores de presentaci√≥n nacidos en octubre
   (`PlanEnvioAdjuntos`, `EstadoAvisoInline`, `TecladoCompositor`, `NavegadorCitaChat`,
   `MontajeImagenes`). **Hecho el 2026-10-11** (las reglas enumeran ya las 13 clases; ArchUnit 6/6).
@@ -1013,13 +1015,43 @@ por impacto. Cada casilla dice **qu√©**, **d√≥nde** y **c√≥mo se verifica**.
 - [x] Reempaquetar y **reiniciar el servidor**: el jar en `target` es anterior al Informe 3 DESC
   (roadmap ¬ß5.12) y a los guardias de cliente. **2026-10-13**: reempaquetado otra vez con la entrega
   ligera (¬ß5.15) y arrancado para el smoke; el jar es el que se distribuye.
-- [x] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
-  paleta). **Sigue abierta**: no existen ni el guion ni el comparador, y capturing exige una sesi√≥n
-  con los tres clientes a la vez (2 temas √ó 12 escenarios √ó 3 clientes). Es trabajo de sesi√≥n, no de
-  suite; conviene abordarlo con `pyside6.launch_app` para Python y a mano para JavaFX y WPF.
-- [x] Fase 5: paridad de pruebas (Python ‚â• 174 y .NET ‚â• 174 casos ya se superan de facto: 294 y
-  368; falta el inventario cruzado de capacidades sin test).
+- [ ] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
+  paleta). **Abierta**: no existen ni el guion (`contrato/guion-capturas.md`) ni el comparador, ni hay
+  PNG en `DIAGRAMAS/capturas/`. Exige una sesi√≥n con los tres clientes a la vez (2 temas √ó 12
+  escenarios √ó 3 clientes). Es trabajo de sesi√≥n, no de suite; conviene abordarlo con
+  `pyside6.launch_app` para Python y a mano para JavaFX y WPF. (Antes marcada `[x]` por error con
+  el texto admitiendo que segu√≠a abierta; corregido 2026-10-14.)
+- [ ] Fase 5: paridad de pruebas (Python y .NET superan de facto los 174 casos: 308 y 386 el
+  2026-10-14; **falta el inventario cruzado de capacidades sin test**). (Antes marcada `[x]` por
+  error con el resto admitido en el texto; corregido 2026-10-14.)
 - [x] Fase 6: `distribuir-todos.cmd` creado ‚úÖ 2026-10-11 (universidad-mensajeria/distribuir-todos.cmd), con los assets id√©nticos (fondos, `schema-local.sql`,
-  `client.properties`, `iconos/`) y actualizar los documentos cruzados.
-- [x] `contrato/verificar.py` en cada cierre de lote ‚úÖ **2026-10-13**: **9/9 pasos, exit 0**
-  (JavaFX 299 en 50 clases, Python 294 con 5 omitidas, .NET 368, build WPF limpio).
+  `client.properties`, `iconos/`).
+- [ ] Fase 6 (resto): actualizar los documentos cruzados. Hecho en parte el 2026-10-14 (archivado del
+  plan de patrones con sus referencias); queda alinear este plan con la realidad (cifras, casillas
+  y notas "falta el smoke" anteriores al smoke real del 2026-10-13).
+- [x] `contrato/verificar.py` en cada cierre de lote ‚úÖ **2026-10-14**: **10/10 pasos, exit 0**
+  (JavaFX 299 en 50 clases, Python 308 con 5 omitidas, .NET 386, build WPF limpio; el paso 6 es
+  nuevo: `verificar_textos_ui.py`).
+
+---
+
+## 8. Checklist de cierre (2026-10-14) ó solo lo abierto
+
+CanÛnica para archivar este plan: todo lo dem·s de ß7 est· cerrado. Cada Ìtem cita la condiciÛn
+de ß5 que lo exige.
+
+- [ ] **Fase 4 visual (ß5.3).** contrato/guion-capturas.md + contrato/comparar_capturas.py +
+  ~90 PNG en DIAGRAMAS/capturas/ + informe.html en verde + mockups actualizados. Exige sesiÛn
+  con los 3 clientes a la vez; no lo cierra ninguna suite.
+- [ ] **TamaÒos (ß5.4).** FachadaCliente.java mide 529 lÌneas y la regla pide fachada = 250.
+  Decidir: partirla (Java no tiene parciales; ya delega en servicios) o declarar la regla obsoleta
+  para Java con motivo escrito.
+- [ ] **Capacidades (ß5.2 + resto Fase 5).** Inventario cruzado de las 66 capacidades con sus tests:
+  huecos conocidos en Python (montaje multi-imagen, caption, selecciÛn m˙ltiple/bandeja,
+  progreso+cancelar, botÛn guardar en im·genes, .webp como archivo).
+- [ ] **Deuda A?A (roadmap ß5.15c).** El historial remoto no devuelve rchivoId de los mensajes
+  propios: un adjunto auto-enviado no se puede descargar.
+- [ ] **Smoke formal Java (ß5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
+  smoke del usuario del 2026-10-14 y marcar (o ejecutar lo que falte).
+- [ ] **Higiene del documento (resto Fase 6).** Barrer las notas "falta el smoke" de ßß0ñ1,
+  anteriores al smoke real del 2026-10-13.
