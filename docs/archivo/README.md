@@ -7,7 +7,8 @@ Documentos conservados solo por trazabilidad. No son normativa vigente.
 | `REQ-original.md` | Brief original del enunciado | `../../REQUERIMIENTOS.md` |
 | `PLAN_MEJORAS-historico.md` | Diario de ejecución 2026-10-04/05 | `../../ESTADO_ROADMAP.md` |
 | `PLAN_CLIENTES-2026-10-historico.md` | Diario del lote de clientes JavaFX/WPF de 2026-10-10/11 (envío múltiple en WPF, seis fallos de JavaFX y .NET, WebP) | `../../ESTADO_ROADMAP.md` |
-| `PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` | Plan y auditoría de arquitectura del cliente Java (fases 1–4 verificadas el 2026-10-11: puertos, ViewModel, fachada fina, ArchUnit; framing data-driven §5.14) | `../../ESTADO_ROADMAP.md` §6 (`PAT-ARQ-JAVA`) y `../../PLAN_PATRONES_UI.md` §4 |
+| `PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` | Plan y auditoría de arquitectura del cliente Java (fases 1–4 verificadas el 2026-10-11: puertos, ViewModel, fachada fina, ArchUnit; framing data-driven §5.14) | `../../ESTADO_ROADMAP.md` §6 (`PAT-ARQ-JAVA`) y `PLAN_PATRONES_UI-historico.md` §4 |
+| `PLAN_PATRONES_UI-historico.md` | Plan de patrones UI 2026-10-06/14 (fases A–G cerradas, §9.1 6/6; incluye reglas de borrado B1–B6 y tabla de tamaños §4.2) | `../../ESTADO_ROADMAP.md` §5.16–5.24 y §6 |
 | `ANALISIS_TECNICO-historico.md` | Auditoría técnica inicial (2026-10-05/06): seguridad, código muerto, bugs UI, patrones, contrato visual, diagramas. Hallazgos volcados a `ESTADO_ROADMAP.md`, `PLAN_PATRONES_UI.md`, `PLAN_PARIDAD_CLIENTES.md` | `../../ESTADO_ROADMAP.md` (tabla §2–§6), `../../PLAN_PATRONES_UI.md` (fases), `../../PLAN_PARIDAD_CLIENTES.md` (pendientes) |
 
 Checklists de verificación visual activos (fuera del archivo):

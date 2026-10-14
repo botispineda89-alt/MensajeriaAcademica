@@ -10,6 +10,7 @@ Espejo de FachadaCliente Java (Fase 5):
 from componentes.conexion_red import ConexionRed
 from componentes.autenticacion import Autenticacion
 from componentes.historial_local import HistorialLocal
+from puertos.historial import IInterfazHistorialLocal
 from fachada.servicios.coordinador_mensajeria import CoordinadorMensajeriaCliente
 from fachada.servicios.coordinador_mensajeria import (
     ARCHIVO_MAX_BYTES as _ARCHIVO_MAX_BYTES,
@@ -35,7 +36,9 @@ class FachadaCliente:
                  autenticacion=None, historial=None, on_presencia_ui=None):
         self.config = config or Config()
         self.db = db or Database(self.config.get("db.url", "sqlite:///~/mensajeria_cliente.db"))
-        self.historial = historial or HistorialLocal(self.db)
+        # PAT-04: la vista y los servicios programan contra el puerto, no contra
+        # el concreto (`test_arquitectura.py` fija que HistorialLocal lo cumple).
+        self.historial: IInterfazHistorialLocal = historial or HistorialLocal(self.db)
         self.on_mensaje_recibido_ui = on_mensaje_recibido_ui
         self.on_cierre_ui = on_cierre_ui
         self.on_desconexion_ui = on_desconexion_ui

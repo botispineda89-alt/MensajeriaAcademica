@@ -856,7 +856,7 @@ Unificar a `net8.0-windows` en la Fase 0.
 1. Los 3 `distribuir*.cmd` / `dotnet publish` producen paquetes con los **mismos assets**: fondos,
    `schema-local.sql`, `client.properties`.
 2. Un `distribuir-todos.cmd` que produce las 4 distribuciones (servidor + 3 clientes).
-3. Actualizar `AGENTS.md` §2 y §6.4, `PLAN.md`, `ESTADO_ROADMAP.md` §6 y §7, `PLAN_PATRONES_UI.md`,
+3. Actualizar `AGENTS.md` §2 y §6.4, `PLAN.md`, `ESTADO_ROADMAP.md` §6 y §7, `docs/archivo/PLAN_PATRONES_UI-historico.md`,
    `docs/archivo/ANALISIS_TECNICO-historico.md`, `DESPLIEGUE.md`, `GUIA_ACEPTACION.md`, `DIAGRAMAS/README.md`.
 4. Los 3 `README.md` de cliente con la misma estructura de secciones.
 5. Marcar `VIS-01`, `VIS-02`, `SEG-01`, `SEG-02`, `PAT-01`, `PAT-04`, `PAT-05`, `PAT-VM`, `PAT-CMD`,

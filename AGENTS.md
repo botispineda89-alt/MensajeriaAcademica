@@ -18,7 +18,7 @@ UTF-8** (`universidad-mensajeria/common-protocol/PROTOCOLO.md`, `TramaCodec`).
 ```
 <raíz>/
 ├── AGENTS.md, README.md, REQUERIMIENTOS.md (QUÉ, RF-*), PLAN.md (CÓMO), ESTADO_ROADMAP.md (qué falta)
-├── ANALISIS_TECNICO.md (auditoría histórica) → `docs/archivo/ANALISIS_TECNICO-historico.md`, PLAN_PATRONES_UI.md, PLAN_PARIDAD_CLIENTES.md
+├── ANALISIS_TECNICO.md (auditoría histórica) → `docs/archivo/ANALISIS_TECNICO-historico.md`, PLAN_PATRONES_UI.md (archivado el 2026-10-14 → `docs/archivo/PLAN_PATRONES_UI-historico.md`), PLAN_PARIDAD_CLIENTES.md
 ├── GUIA_ACEPTACION.md, DESPLIEGUE.md, INSTALACION.md
 ├── contrato/          ← fuente ÚNICA de lo compartido: tokens JSON + generadores y verificadores
 ├── DIAGRAMAS/         ← fuentes/renders canónicos (ver DIAGRAMAS/README.md); incluye legados migrados
@@ -121,7 +121,7 @@ Notas que se adivinan mal:
   `.github/`; la verificación es local (`contrato/verificar.py`).
 - **No afirmes que las suites están en verde sin fecharlo.** Última ejecución real (2026-10-14,
   tercera tanda: checklist 5.21 + VIS-02): JavaFX **299/299** (50 clases, ArchUnit incluida),
-  Python **307** (5 omitidas) y .NET **386/386** en verde; build WPF Release 0/0;
+  Python **308** (5 omitidas) y .NET **386/386** en verde; build WPF Release 0/0;
   `server/utilerias` 15/15 y `codec` 7/7 (2026-10-10).
   **`contrato/verificar.py` pasó 10/10 (exit 0)** y sirve como puerta de calidad (el paso 6 es
   nuevo: `verificar_textos_ui.py`, literales de ventana/diálogo una vez por cliente).
@@ -185,7 +185,7 @@ Rompes algo que funciona aunque las suites sigan en verde si tocas:
 `PasswordConfig` / `FlywayMigrationAdapter` / `JpaPersistenciaAdapter` / `DataSourceAdapter`
 (anotaciones Spring), los 5 `Proveedor*` (ServiceLoader), clases de estilo JavaFX en CSS
 (`.split-pane`, `.list-cell`, `.combo-box`), `FabricaDelDespachador.NULA` (contrato SPI),
-`FiltroMain` (CLI usada por su test). Reglas B1–B6 en `PLAN_PATRONES_UI.md` §2.1.
+`FiltroMain` (CLI usada por su test). Reglas B1–B6 en `docs/archivo/PLAN_PATRONES_UI-historico.md` §2.1.
 
 ### 6.2 Lo que SÍ es código muerto
 
@@ -265,10 +265,10 @@ Python valida TLS fail-fast (`transversal/tls.py`). Python partió su chat en co
 | Servidor | `PLAN.md` §2 y §9 | `DIAGRAMAS/clases/arq-vista-general.mmd`; regla 3 de §5 |
 | Trama TCP | `universidad-mensajeria/common-protocol/PROTOCOLO.md` + `commands/Comandos.java` | Nada de `comp-*` en `servidor-app` |
 | Un cliente | `DIAGRAMAS/clases/clases-client-{java,dotnet,python}.mmd` | §6.4: **replicar en los 3** |
-| UI | `DIAGRAMAS/textos-ui.md` + mockups | `PLAN_PATRONES_UI.md` antes de añadir |
+| UI | `DIAGRAMAS/textos-ui.md` + mockups | `ESTADO_ROADMAP.md` §5 (el plan de patrones cerró el 2026-10-14 y se archivó) |
 | Arquitectura JavaFX | `docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` (fases 1–4 verificadas 2026-10-11; **archivado**; falta su smoke visual formal — no declarar Clean completa) | `ESTADO_ROADMAP.md` §6 |
 | Color/medida UI | `contrato/tokens-diseno.json` y regenerar | **Nunca editar CSS/`.xaml` generados** (`contrato/README.md`) |
-| Igualar clientes | `PLAN_PARIDAD_CLIENTES.md` | `contrato/verificar.py` (9 pasos; verde el 2026-10-11 — la corrección de §5.8 ya está aplicada) |
+| Igualar clientes | `PLAN_PARIDAD_CLIENTES.md` | `contrato/verificar.py` (10 pasos; verde el 2026-10-14) |
 | Esquema servidor | `server/servidor-app/src/main/resources/db/migration/{mysql,postgres,oracle}/` (**los 3**) | `DIAGRAMAS/modelo-relacional/er-modelo-servidor.mmd` |
 | Filtro imagen | `server/utilerias/` + `TuberiaFactory` | Regla 6 de §5; formatos en invariante 17 |
 | Saber **qué se decidió y por qué** | `docs/archivo/PLAN_CLIENTES-2026-10-historico.md` y `docs/archivo/PLAN_MEJORAS-historico.md` | Son diarios, no normativa: el estado vigente manda en el roadmap |

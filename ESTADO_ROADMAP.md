@@ -3,7 +3,7 @@
 Actualizado: **2026-10-11** (dos bugs del smoke Python cerrados, ver §5.10; el 2026-10-10: cierre del lote de clientes JavaFX/WPF, consolidación documental y
 verificación fresca de las tres suites; ver §1 y §5.4–§5.7). Este es el tablero de estado; la arquitectura está en
 [`PLAN.md`](PLAN.md), el plan de refactor de clientes en
-[`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md), la evidencia de la auditoría en
+[`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md), la evidencia de la auditoría en
 [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md), los requisitos en
 [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) y las instrucciones para instalar cada proceso en
 [`DESPLIEGUE.md`](DESPLIEGUE.md).
@@ -227,7 +227,7 @@ Esto **NO** es código por escribir. Es el smoke que las suites automáticas no 
 | SMOKE-05 | Smoke cambios 2026-10-04 (7 casos) | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Smoke 2026-10-04 |
 | **SMOKE-06** | **Matriz manual de transición de conexión × 4 estados × 3 clientes** (`Conectando`/`Conectado`/`SinRed`/`SesionCerrada`), con textos y tiempos medidos. `PAT-03` está implementado; falta la matriz manual completa. | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Estados de conexión |
 | **SMOKE-07** | **Capturas lado a lado de la misma conversación** en los 3 clientes, tema oscuro y claro; comparar después de implementar `VIS-01` | ⬜ Por hacer; captura de línea base si se ejecuta antes | `DIAGRAMAS/mockups/` |
-| **SMOKE-08** | **Comprobación de contrastes WCAG AA** de los tokens de tema claro en los 3 clientes | ⬜ Por hacer | `PLAN_PATRONES_UI.md` §7.4 |
+| **SMOKE-08** | **Comprobación de contrastes WCAG AA** de los tokens de tema claro en los 3 clientes | ⬜ Por hacer | `docs/archivo/PLAN_PATRONES_UI-historico.md` §7.4 |
 | **SMOKE-09** | **Vista administrativa del servidor**: estados vacíos/activos, doble clic y ficha paginada, IP y contadores, detalle de informe, espacio de Logs/Pool, cierre X sin parar TCP/JLine y recorrido JLine | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Consola administrativa |
 
 Criterio para dar por aceptada la paridad: SMOKE-01 a SMOKE-09 en verde con SO/versión/commit
@@ -240,7 +240,7 @@ anotados. Hasta entonces nada de lo de §5 se considera «aceptado».
 38 items, agrupados en 6 lotes. Detalle con `archivo:línea` y conteo de referencias en
 [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) §2.
 
-**Reglas de borrado** (están en [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) §2.1 y son la parte
+**Reglas de borrado** (están en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) §2.1 y son la parte
 importante de esta sección):
 
 - **B1** — 0 referencias fuera de la definición **y** sin anotación de framework/reflexión/SPI.
@@ -295,7 +295,7 @@ importante de esta sección):
 
 ## 5. Bugs y mejoras de interfaz
 
-Plan por fases en [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md). Evidencia completa en
+Plan por fases en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md). Evidencia completa en
 [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md) §3.
 
 ### 5.1 Fase A — 6 bugs P0 (funciones rotas, no estilo) — ✅ aplicada 2026-10-05
@@ -818,19 +818,18 @@ implementados y verificados (esta era la lista canónica; ya no hay nada abierto
   con `_saltar_a`; mismo aviso que .NET si no aparece). El delegado solo delega para no superar
   su tope de 350 líneas (queda en 350 exactas).
 
-**B — Resto de `PLAN_PATRONES_UI.md` (su §9.1).**
+**B — Resto del plan de patrones (su §9.1, archivado en `docs/archivo/PLAN_PATRONES_UI-historico.md`).**
 
-- [ ] **Registrar el smoke visual ya hecho (condición 2).** Falta la evidencia escrita: fecha, las 6
-  direcciones probadas y cuentas usadas, en `GUIA_ACEPTACION.md`. Sin eso la casilla no se marca.
-- [ ] **`VIS-02` de ventana/diálogo (condición 3).** Único trabajo real pendiente del plan:
-  centralizar los literales de ventana y diálogo. (La fila "G (cola)" del plan dice `[x]` pero su
-  texto admite que esto falta; corregirla al cerrar.)
-- [ ] **Regla B2 (condición 5).** Si el smoke ya arrancó JavaFX y miró los controles tocados, se
-  cierra con el registro; es control de proceso, no verificable por script.
-- [ ] **Decidir los dos restos opcionales** (ninguno es avería): interfaz `HistorialLocal` en Python
-  y costura `Transporte { Pedir, Enviar }` en los 3. O se hacen o se dejan documentados como
-  descartados.
-- [ ] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones).
+- [x] **Smoke visual del usuario (condición 2).** El usuario probó las 6 direcciones entre los 3
+  clientes el 2026-10-14: todo llegó bien. Registrado aquí por confirmación directa.
+- [x] **`VIS-02` de ventana/diálogo (condición 3).** Cerrado en §5.22.
+- [x] **Regla B2 (condición 5).** En esta tanda no se eliminó ninguna clase JavaFX (solo ediciones
+  + `TextosVentana.java` añadida) y el usuario vio en la app los controles tocados (bloque de
+  cita, ticks, lista sin auto-chat, diálogos). Cerrada con su confirmación el 2026-10-14.
+- [x] **Los dos restos opcionales**: interfaz `HistorialLocal` en Python → hecha (§5.23);
+  costura `Transporte` → matriz de handshake (§5.24, sin split: no hay defecto detrás).
+- [ ] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones;
+  se transfieren aquí al archivar el plan, no se cierran).
 
 ### 5.22 `VIS-02`: literales de ventana/diálogo, una vez por cliente — ✅ cerrado 2026-10-14
 
@@ -848,14 +847,51 @@ cosa al salir en todas, y .NET tenía otro texto de `¿Deseas salir…?` y otro 
 difiere a propósito se conserva y el contrato lo fija para que no derive más (título del chat con
 la cuenta en Python, `Guardar archivo` sin título en .NET, avisos de un solo cliente).
 
-Verificación de esta tanda: JavaFX 299/299 (50 clases), Python 307 (5 omitidas), .NET 386/386, build
+Verificación de esta tanda: JavaFX 299/299 (50 clases), Python 308 (5 omitidas), .NET 386/386, build
 WPF Release 0 errores/0 avisos, `contrato/verificar.py` 10/10 con exit 0.
+
+### 5.23 PAT-04: la interfaz `HistorialLocal` en Python ya es real — ✅ cerrado 2026-10-14
+
+El puerto `IInterfazHistorialLocal` existía con forma Java sin nadie que lo cumpliera, y el
+concreto hablaba con sus propios nombres. En vez de renombrar 24 métodos en fachada, servicios y
+tests (riesgo sin ganancia: el contrato `puertos.json` fija la forma y `verificar_puertos.py` la
+exige en Java), el concreto ahora **cumple el puerto**: 7 métodos ya coincidían y el resto delega
+o traduce fila↔record (`guardar`, `pagina`, `contar`, `buscar`, `marcar_leidos_de`, `blob_por_id`,
+`archivo_id_por_id`, `actualizar_contenido`, `pendientes`, `registrar_pendiente`, `pendiente_por_id`,
+`preparar_cuenta`). `FachadaCliente.historial` va anotado con el puerto y la vista lo usa por él
+(`_navegar_cita` va por `buscar`, que devuelve records). `test_arquitectura.py` fija las dos
+direcciones: miembros del puerto sin concreto, y métodos nuevos del concreto sin entrar al puerto
+ni declararse legado (la caché y los nombres internos quedan como legado explícito: en Java viven
+en otro puerto).
+
+### 5.24 PAT-05: matriz de handshake TLS en los 3 — ✅ cerrado 2026-10-14
+
+La divergencia original (cada cliente validaba a su manera) ya estaba cerrada: los tres leen
+`tls.confianza` y fallan antes de conectar con error accionable. Lo pendiente era la matriz, que
+queda aquí con su evidencia (cada cliente la verifica en su suite):
+
+| Caso | Python (`test_tls.py`, 12) | Java (`ValidarTlsTest`, 8) | .NET (`ValidarTlsTests`, 12+) |
+|---|---|---|---|
+| TLS apagado | no valida nada | `sinTlsNoHayQueValidar` | `ApagadoNoValidaNada…` |
+| TLS on sin almacén | CA del sistema | `caminoPorDefectoSinAlmacen` | `CaminoPorDefecto…` |
+| TLS on, almacén ausente | fail-fast antes de conectar | `rechazaAlmacenAusente` | `RechazaAlmacenAusente` |
+| TLS on, colisión de puertos | fail-fast | `rechazaColisionDePuertos` | `RechazaColisionDePuertosFijos` |
+| Valor malformado | no se convierte a `false` en silencio | `rechazaValoresMalFormados` | `RechazaHabilitadoMalFormado` |
+| Handshake real contra CA emitida | `test_handshake_valida_cadena_y_hostname` ⚠️ | — (validación vía JDK) | `ValidadorAceptaLaCaPropia…` |
+
+⚠️ Los 5 tests de handshake Python se omiten sin el paquete `cryptography` instalado (tooling de
+tests): la política fail-fast sí se verifica siempre, el handshake completo solo donde haya tooling.
+
+Lo que **no** se hace: partir cada `ConexionRed` en `TcpTransporte`/`TlsTransporte`. La política
+TLS ya es coherente y cada cliente programa contra su puerto (`InterfazConexionRed`,
+`IInterfazConexionRed`, `IConexionRed`); el split sería reescribir 3 transportes sin ningún
+defecto detrás. Si algún día hace falta (p. ej. proxy), se reabre con defecto.
 
 ---
 
 ## 6. Patrones de diseño en los clientes
 
-Detalle, riesgos y criterios medibles en [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) §3–6.
+Detalle, riesgos y criterios medibles en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) §3–6.
 
 | ID | Patrón | Qué resuelve | Prioridad | Estado |
 |---|---|---|---|---|
@@ -1044,7 +1080,7 @@ para nuevos estados de producto, no de instalación del renderizador Mermaid.
 4. **`DIAG-09` y cierre de `DIAG-07`** — actualizar mockups de estados/avisos y conciliar el
    contenido de los diagramas legados; la conciliación está en `DIAGRAMAS/README.md` §3.
 5. Continuar los refactors aún abiertos: `PAT-01` en Python/.NET, `PAT-VM`, `PAT-CMD`, `PAT-04`
-   y `PAT-05`, según dependencias y riesgos descritos en `PLAN_PATRONES_UI.md`.
+   y `PAT-05`, según dependencias y riesgos descritos en `docs/archivo/PLAN_PATRONES_UI-historico.md`.
 6. Completar tareas de interfaz y accesibilidad todavía abiertas (`UIX-*`, `VIS-*`) según los
    criterios vigentes de §5 y `GUIA_ACEPTACION.md`.
 7. Resolver `MUERTE-6` y `PROD-*` solo cuando las decisiones de producto indicadas en §10 estén
@@ -1097,7 +1133,7 @@ Nada instalado sin URL verificada ni prueba de funcionamiento. OJO técnico: no 
 ## Índice documental
 
 - [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) — auditoría técnica inicial (2026-10-05/06); hallazgos volcados al roadmap y planes de patrones/paridad.
-- [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) — fases, orden y criterios de aceptación.
+- [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) — fases, orden y criterios de aceptación.
 - [`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md) — qué debe ser igual en los 3 clientes.
 - [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) — contrato funcional y no funcional.
 - [`PLAN.md`](PLAN.md) — arquitectura y decisiones de diseño.

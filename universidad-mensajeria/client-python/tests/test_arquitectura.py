@@ -264,6 +264,111 @@ class TestPuertosDeLaFaseDos(unittest.TestCase):
             with self.subTest(protocolo=protocolo.__name__):
                 self.assertTrue(getattr(protocolo, "_is_protocol", False))
 
+    def test_historial_concreto_cumple_su_puerto(self):
+        """PAT-04: el SQLite implementa `IInterfazHistorialLocal`.
+
+        Hasta el 2026-10-14 el puerto tenía forma Java sin nadie que lo
+        cumpliera y la vista hablaba con el concreto por sus propios nombres.
+        Ahora el concreto delega/traduce a la forma del contrato y la vista
+        usa el puerto (`_navegar_cita` va por `buscar`). Las dos direcciones
+        se fijan: miembros del puerto que falten en el concreto, y métodos
+        públicos del concreto que no estén en el puerto.
+        """
+        import sqlite3
+        import tempfile
+
+        from componentes.historial_local import HistorialLocal
+
+        def miembros(clase):
+            return {nombre for nombre, valor in vars(clase).items()
+                    if callable(valor) and not nombre.startswith("_")}
+
+        puerto = miembros(IInterfazHistorialLocal)
+        self.assertTrue(puerto, "el puerto no declara nada")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = str(Path(tmp) / "puerto.db")
+            conn = sqlite3.connect(db_path)
+            conn.execute("CREATE TABLE historial_local (id_mensaje TEXT PRIMARY KEY,"
+                         " origen TEXT, destino TEXT, tipo TEXT, contenido TEXT,"
+                         " hash_sha256 TEXT, num_caracteres INTEGER,"
+                         " num_palabras INTEGER, nombre_archivo TEXT,"
+                         " archivo_id TEXT, ruta_archivo TEXT,"
+                         " tamano_archivo INTEGER, fecha_envio TEXT, enviado INTEGER,"
+                         " descargado INTEGER, estado TEXT, etapas_filtrado TEXT,"
+                         " caption TEXT)")
+            conn.execute("CREATE TABLE pendientes_envio (id TEXT PRIMARY KEY,"
+                         " tipo TEXT, origen TEXT, destino TEXT, contenido TEXT,"
+                         " nombre_archivo TEXT, payload BLOB, fecha_creado TEXT,"
+                         " intentos INTEGER DEFAULT 0, ultimo_error TEXT)")
+            conn.commit()
+            conn.close()
+
+            class _Db:
+                def __init__(self, ruta):
+                    self._ruta = ruta
+
+                def conexion(self):
+                    import contextlib
+
+                    @contextlib.contextmanager
+                    def _abrir():
+                        c = sqlite3.connect(self._ruta)
+                        c.row_factory = sqlite3.Row
+                        try:
+                            yield c
+                            c.commit()
+                        finally:
+                            c.close()
+                    return _abrir()
+
+            concreto = HistorialLocal(_Db(db_path))
+            self.assertIsInstance(concreto, IInterfazHistorialLocal)
+
+            # Ida y vuelta por el puerto: guardar → pagina → buscar → marcar.
+            from puertos.datos import MensajeLocal
+
+            concreto.guardar(MensajeLocal(
+                "puerto-1", "A001", "B002", "MENSAJE_TEXTO", "hola puerto",
+                None, None, None, None, None, None, "2026-10-14T10:00:00",
+                True, False, "ENVIADO", None, None, None))
+            pagina = concreto.pagina("A001", "B002", 50, 0)
+            self.assertEqual(1, len(pagina))
+            self.assertEqual("puerto-1", pagina[0].id_mensaje)
+            self.assertTrue(pagina[0].enviado)
+            self.assertEqual(1, concreto.contar("A001", "B002"))
+            hallados = concreto.buscar("A001", "B002", "puerto", 200)
+            self.assertEqual(["puerto-1"], [m.id_mensaje for m in hallados])
+            concreto.marcar_leidos_de("B002", "A001")
+            self.assertEqual([], concreto.ids_no_leidos("B002", "A001"))
+            self.assertIsNone(concreto.blob_por_id("inexistente"))
+            self.assertIsNone(concreto.archivo_id_por_id("puerto-1"))
+            self.assertIsNone(concreto.pendiente_por_id("inexistente"))
+
+        reales = {m for m in dir(HistorialLocal) if not m.startswith("_")}
+        for miembro in sorted(puerto):
+            with self.subTest(miembro=miembro):
+                self.assertIn(miembro, reales,
+                              f"el puerto declara {miembro} sin concreto que lo cumpla")
+        # Al revés: lo que no está en el puerto es legado con nombre propio
+        # (lo usan los caminos internos de fachada/servicios) o caché, que en
+        # Java vive en otro puerto (`ICacheUsuarios`). Un método NUEVO en el
+        # concreto sin entrar aquí ni en el puerto falla: hay que decidir de
+        # qué lado vive.
+        legado = {"guardar_mensaje", "obtener_conversacion", "obtener_por_id",
+                  "contar_no_leidos_por_contacto",
+                  "marcar_estado_de_conversacion", "buscar_en_conversacion",
+                  "buscar_equivalente", "actualizar_metadatos_remotos",
+                  "contar_conversacion", "actualizar_hash",
+                  "guardar_pendiente", "obtener_pendientes",
+                  "actualizar_cache_usuario", "actualizar_cache_usuarios",
+                  "listar_cache_usuarios", "marcar_conectados"}
+        for miembro in sorted(reales):
+            with self.subTest(miembro=miembro):
+                self.assertTrue(miembro in puerto or miembro in legado,
+                                f"HistorialLocal.{miembro} es nuevo: "
+                                f"entra al puerto o se declara legado")
+
     def test_nombres_de_metodo_coinciden_con_el_contrato_compartido(self):
         contrato = _contrato()
         clases = {

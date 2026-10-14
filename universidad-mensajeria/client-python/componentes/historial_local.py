@@ -6,7 +6,7 @@ Los tipos de trama NO se escriben a mano ni aqui ni en el SQL: salen de
 from transversal.fechas import a_utc
 from transversal.tipo_mensaje import CONVERSACION, TipoMensaje
 from transversal.etapas_filtrado import mapear_etapas_filtrado
-from puertos.datos import RecienteChat
+from puertos.datos import MensajeLocal, PendienteEnvio, RecienteChat
 
 #: Marcadores `?` en el mismo orden que `CONVERSACION` (el SQL los lleva
 #: parametrizados para que anadir un tipo no obligue a editar tres consultas).
@@ -49,6 +49,44 @@ _GUARDAR_MENSAJE_SQL = """
             WHEN historial_local.estado = 'ENVIADO' AND excluded.estado = 'PENDIENTE' THEN 'ENVIADO'
             ELSE excluded.estado END
 """
+
+
+def _mensaje_desde_fila(fila):
+    """Traduce una fila dict al record del puerto (PAT-04)."""
+    return MensajeLocal(
+        id_mensaje=fila.get("id_mensaje", ""),
+        origen=fila.get("origen", ""),
+        destino=fila.get("destino", ""),
+        tipo=fila.get("tipo", ""),
+        contenido=fila.get("contenido"),
+        hash_sha256=fila.get("hash_sha256"),
+        num_caracteres=fila.get("num_caracteres"),
+        num_palabras=fila.get("num_palabras"),
+        nombre_archivo=fila.get("nombre_archivo"),
+        ruta_archivo=fila.get("ruta_archivo"),
+        tamano_archivo=fila.get("tamano_archivo"),
+        fecha_envio=fila.get("fecha_envio", ""),
+        enviado=bool(fila.get("enviado", 0)),
+        descargado=bool(fila.get("descargado", 0)),
+        estado=fila.get("estado", "ENVIADO"),
+        archivo_id=fila.get("archivo_id"),
+        etapas_filtrado=fila.get("etapas_filtrado"),
+        caption=fila.get("caption"))
+
+
+def _pendiente_desde_fila(fila):
+    """Traduce una fila dict al record del puerto (PAT-04)."""
+    return PendienteEnvio(
+        id=fila.get("id", ""),
+        tipo=fila.get("tipo", ""),
+        origen=fila.get("origen", ""),
+        destino=fila.get("destino", ""),
+        contenido=fila.get("contenido"),
+        nombre_archivo=fila.get("nombre_archivo"),
+        payload=fila.get("payload"),
+        fecha_creado=fila.get("fecha_creado", ""),
+        intentos=int(fila.get("intentos", 0) or 0),
+        ultimo_error=fila.get("ultimo_error"))
 
 
 class HistorialLocal:
@@ -375,3 +413,71 @@ class HistorialLocal:
             for codigo in codigos:
                 cursor.execute("UPDATE cache_usuarios SET conectado = 1 WHERE codigo = ?", (codigo,))
             conn.commit()
+
+    # ------------------------------------------------- Puerto (PAT-04) ----
+    # `IInterfazHistorialLocal` (`puertos/historial.py`, forma del contrato
+    # `contrato/puertos.json`): la misma que `InterfazHistorialLocal` en Java.
+    # Los métodos con otro nombre delegan en los de arriba; los que faltaban
+    # (`preparar_cuenta`, `blob_por_id`, `archivo_id_por_id`,
+    # `actualizar_contenido`, `pendiente_por_id`, `registrar_pendiente`,
+    # `marcar_leidos_de`) se implementan aquí, no en cada llamador. La vista
+    # programa contra el puerto (`fachada.historial` va anotado con él) y
+    # `test_arquitectura.py` fija que el concreto lo cumple (`isinstance`).
+    def preparar_cuenta(self, codigo):
+        # Como `store.prepararCuenta` en Java: conmuta la base en el sitio.
+        if hasattr(self.db, "para_cuenta"):
+            self.db = self.db.para_cuenta(codigo)
+
+    def guardar(self, mensaje):
+        self.guardar_mensaje(
+            mensaje.id_mensaje, mensaje.origen, mensaje.destino,
+            mensaje.tipo, mensaje.contenido or "",
+            mensaje.fecha_envio, mensaje.hash_sha256 or "",
+            mensaje.num_caracteres or 0, mensaje.num_palabras or 0,
+            mensaje.nombre_archivo or "", mensaje.ruta_archivo or "",
+            mensaje.tamano_archivo or 0, 1 if mensaje.enviado else 0,
+            1 if mensaje.descargado else 0, mensaje.archivo_id,
+            mensaje.estado, mensaje.etapas_filtrado, mensaje.caption)
+
+    def pagina(self, remitente, destinatario, limite, offset):
+        return [_mensaje_desde_fila(fila) for fila in self.obtener_conversacion(
+            remitente, destinatario, limite, offset)]
+
+    def contar(self, remitente, destinatario):
+        return self.contar_conversacion(remitente, destinatario)
+
+    def buscar(self, remitente, destinatario, patron, limite):
+        return [_mensaje_desde_fila(fila) for fila in self.buscar_en_conversacion(
+            remitente, destinatario, patron, limite)]
+
+    def marcar_leidos_de(self, yo, otro):
+        self.marcar_estado_de_conversacion(yo, otro, "LEIDO")
+
+    def blob_por_id(self, id_mensaje):
+        fila = self.obtener_por_id(id_mensaje)
+        return fila.get("contenido") if fila else None
+
+    def archivo_id_por_id(self, id_mensaje):
+        fila = self.obtener_por_id(id_mensaje)
+        return fila.get("archivo_id") if fila else None
+
+    def actualizar_contenido(self, id_mensaje, base64):
+        with self.db.conexion() as conn:
+            conn.execute("UPDATE historial_local SET contenido = ? WHERE id_mensaje = ?",
+                         (base64, id_mensaje))
+
+    def pendientes(self):
+        return [_pendiente_desde_fila(fila) for fila in self.obtener_pendientes()]
+
+    def registrar_pendiente(self, pendiente):
+        self.guardar_pendiente(
+            pendiente.id, pendiente.tipo, pendiente.origen,
+            pendiente.destino, pendiente.contenido or "",
+            pendiente.nombre_archivo or "", pendiente.payload,
+            pendiente.fecha_creado)
+
+    def pendiente_por_id(self, id):
+        for fila in self.obtener_pendientes():
+            if fila.get("id") == id:
+                return _pendiente_desde_fila(fila)
+        return None

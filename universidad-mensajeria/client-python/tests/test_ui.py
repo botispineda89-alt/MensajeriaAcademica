@@ -514,7 +514,10 @@ class PruebasUI(unittest.TestCase):
 
     def test_clic_en_cita_salta_al_mensaje_original(self):
         # PY-2/UIX-24: el bloque citado es clicable y salta al original,
-        # como `Cita_MouseLeftButtonUp` en .NET.
+        # como `Cita_MouseLeftButtonUp` en .NET. Habla por el puerto
+        # (`buscar`), no por el concreto (PAT-04).
+        from puertos.datos import MensajeLocal
+
         self.chat.usuario_seleccionado = "B002"
         self.chat._agregar_fila({
             "id": "orig-1", "sender": "Bea", "is_own": False,
@@ -523,9 +526,12 @@ class PruebasUI(unittest.TestCase):
         })
 
         class HistorialFalso:
-            def buscar_en_conversacion(self, yo, otro, patron, limite=200):
+            def buscar(self, yo, otro, patron, limite=200):
                 self.visto = (yo, otro, patron)
-                return [{"id_mensaje": "orig-1"}]
+                return [MensajeLocal(
+                    "orig-1", "B002", "A001", "MENSAJE_TEXTO", "hola", None,
+                    None, None, None, None, None, "2026-10-01T10:00:00",
+                    False, False, "ENVIADO", None, None, None)]
 
         falso = HistorialFalso()
         self.fachada.historial = falso
@@ -542,7 +548,7 @@ class PruebasUI(unittest.TestCase):
         self.chat.usuario_seleccionado = "B002"
 
         class HistorialVacio:
-            def buscar_en_conversacion(self, yo, otro, patron, limite=200):
+            def buscar(self, yo, otro, patron, limite=200):
                 return []
 
         self.fachada.historial = HistorialVacio()

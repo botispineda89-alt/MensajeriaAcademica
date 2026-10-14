@@ -266,9 +266,9 @@ de una línea imperativa. Las 3 implementaciones de "puedo enviar" quedan en **1
 
 | ID | Patrón | Qué | Por qué ahora |
 |---|---|---|---|
-| **PAT-04** | Adapter del almacén local | Un contrato `HistorialLocal` con `H2HistorialLocal` + `SqliteHistorialLocal`, y el **upsert portable** `DELETE + INSERT` que ya está documentado (`HistorialLocal.java:17`) pero se usa solo en Java | Python **no tiene interfaz**: la vista la salta y llama `fachada.historial` (`chat_window.py:521-523`), y el SQL `ON CONFLICT` está *inline*. El `DELETE + INSERT` elimina la dependencia de dialecto de los 3 — **parcialmente rechazado, ver nota PAT-04** |
+| **PAT-04** | Adapter del almacén local | Un contrato `HistorialLocal` con `H2HistorialLocal` + `SqliteHistorialLocal`, y el **upsert portable** `DELETE + INSERT` que ya está documentado (`HistorialLocal.java:17`) pero se usa solo en Java | Python **no tiene interfaz**: la vista la salta y llama `fachada.historial` (`chat_window.py:521-523`), y el SQL `ON CONFLICT` está *inline*. El `DELETE + INSERT` elimina la dependencia de dialecto de los 3 — **cerrado 2026-10-13/14, ver notas PAT-04a y PAT-04b** |
 
-> **PAT-04 · nota de ejecución (2026-10-13).** Hecho: el SQL del upsert sale del
+> **PAT-04a · nota de ejecución (2026-10-13).** Hecho: el SQL del upsert sale del
 > cuerpo del método a una constante con nombre en los dos clientes afectados
 > (`_GUARDAR_MENSAJE_SQL` en Python, `INSERTAR_MENSAJE` en `LocalStore.cs`), que es
 > exactamente lo que la fila señalaba (`inline`) y lo que ya hace Java.
@@ -282,9 +282,13 @@ de una línea imperativa. Las 3 implementaciones de "puedo enviar" quedan en **1
 > (invariante 12). Y no hay dialecto del que liberarse: por invariante 10 Python y
 > .NET son SQLite, y `ON CONFLICT` no ata a ningún motor.
 >
-> Lo que **sí** queda pendiente de esta fila es la interfaz `HistorialLocal` en
-> Python (la vista la salta y habla con `fachada.historial`): es una costura de
-> mientras tanto, no una avería, y no se ha abierto.
+> **PAT-04b · nota de ejecución (2026-10-14).** Hecho: la interfaz en Python. El puerto
+> `IInterfazHistorialLocal` existía con forma Java sin nadie que lo cumpliera; en vez de
+> renombrar 24 métodos (el contrato `puertos.json` fija la forma y `verificar_puertos.py` la
+> exige en Java), el concreto ahora cumple el puerto por delegación y traducción fila↔record,
+> `FachadaCliente.historial` va anotado con él y la vista lo usa (`_navegar_cita` va por
+> `buscar`). `test_arquitectura.py` fija las dos direcciones (puerto sin concreto, y método
+> nuevo sin entrar al puerto ni declararse legado). Detalle en roadmap §5.23.
 | **PAT-05** | Adapter de transporte | Un `Transporte { Pedir, Enviar }` con `TcpTransporte` y `TlsTransporte` | 3 implementaciones con 3 estrategias, y **validación TLS inconsistente**: Python valida fail-fast (`tls.py:17-45`), Java no valida, .NET sustituye el puerto en silencio (`ConexionRed.cs:43`) y nunca lee `tls.confianza`. Se cierra `SEG-01` al mismo tiempo |
 | **PAT-06** | Repository con cobertura del esquema | Test de equivalencia del `schema-local.sql` en .NET | `test_schema_distribuible.py:34` protege la copia Python; **la .NET no tiene equivalente** y puede divergir en silencio |
 
@@ -423,13 +427,12 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   botón sin ningún defecto detrás. Lo que sí se hizo en Python es la tabla de
   reparto por tipo de tarea (`ProcesadorTareasChat.MANEJADORES`), que es la parte
   de este ítem que estaba fallando en silencio.
-- [x] **F — adaptadores.** `PAT-04` **hecho a medias y con motivo** (nota PAT-04
-  arriba: el SQL sale del cuerpo a una constante; el `DELETE + INSERT` de Java se
-  rechaza porque perdería columnas); queda la interfaz `HistorialLocal` en Python.
-  `PAT-05`: el fail-fast TLS **ya era coherente en los 3** (`ValidarTls.java`,
-  `ValidarTls.cs`, `tls.py` leen `tls.confianza` y fallan antes del handshake), la
-  fila del plan estaba desfasada; queda solo la costura `Transporte`, que es
-  refactor sin defecto detrás. `PAT-06` cerrado por otra vía (`MUERTE-5`).
+- [x] **F — adaptadores.** `PAT-04` cerrado en dos tandas: SQL a constantes (2026-10-13, con
+  el `DELETE + INSERT` de Java rechazado por pérdida de columnas) e interfaz `HistorialLocal`
+  en Python (2026-10-14, el concreto cumple el puerto por delegación; roadmap §5.23).
+  `PAT-05`: fail-fast TLS coherente en los 3 y matriz de handshake fijada (roadmap §5.24);
+  el split `TcpTransporte`/`TlsTransporte` no se hace (sin defecto detrás).
+  `PAT-06` cerrado por otra vía (`MUERTE-5`).
 - [x] **G — contrato visual.** `VIS-01` cerrado (paleta generada; 19 reglas de contraste ≥ 4.5:1);
   `VIS-02` con la máquina de estados centralizada y verificada en los 3.
 - [x] **G (cola).** `VIS-02` cerrado (2026-10-14): `contrato/textos-ui.json` fija 20
@@ -445,17 +448,19 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
 **Definición de terminado (§9), condición por condición**
 
 - [x] **1.** Suites de los 3 clientes sin modificar tests existentes: JavaFX **299** (50 clases),
-  Python **307** (5 omitidas), .NET **386**; build WPF Release 0 errores/0 avisos
+  Python **308** (5 omitidas), .NET **386**; build WPF Release 0 errores/0 avisos
   (`verificar.py` **10/10, exit 0**, 2026-10-14, tercera tanda).
   *Las únicas pruebas tocadas son las nuevas: `test_tick_azul_solo_cuando_el_crudo_es_leido`,
   `test_respuesta_se_reparte_en_cita_y_cuerpo`, `test_clic_en_cita_salta_al_mensaje_original`,
   `test_cita_sin_original_muestra_el_aviso_de_dotnet`, `test_formato_cita.py` (6),
-  `filtrarExcluyeLaSesionPropiaAunqueTengaFilaEnElHistorial` y el paso
+  `filtrarExcluyeLaSesionPropiaAunqueTengaFilaEnElHistorial`,
+  `test_historial_concreto_cumple_su_puerto` y el paso
   `verificar_textos_ui.py`. Ninguna prueba existente cambió de aserción
   (el intento de filtrar en `ConstructorRecientes` se revirtió justo por eso:
   `recientesIncluyeChatConUnoMismo` fija el dato A→A).*
-- [X] **2.** Matriz de interoperabilidad de las 6 direcciones: smoke manual pendiente
-  (`GUIA_ACEPTACION.md`).
+- [x] **2.** Matriz de interoperabilidad de las 6 direcciones: smoke del usuario el 2026-10-14,
+  las 6 direcciones entre los 3 clientes en verde (registrado por confirmación directa en
+  roadmap §5.21).
 - [x] **3.** Literales nuevos al sitio de tokens: `VIS-01` cerrado y `VIS-02` cerrado
   (2026-10-14): ventana/diálogo en `contrato/textos-ui.json` + módulo único por
   cliente + paso 6 de la puerta. El contenido de botones y etiquetas sigue en el
@@ -463,8 +468,9 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   los títulos sí van al módulo (en .NET con `x:Static`).
 - [x] **4.** `docs/archivo/ANALISIS_TECNICO-historico.md` §2: `MUERTE-1..5` aplicados y lo restante con justificación
   escrita (exclusiones y `MUERTE-6` en roadmap §4).
-- [ ] **5.** Regla B2 (ninguna clase de JavaFX eliminada sin verla en la app): control de proceso,
-  no verificable por script.
+- [x] **5.** Regla B2: en esta tanda no se eliminó ninguna clase JavaFX (solo ediciones +
+  `TextosVentana.java` añadida) y el usuario vio en la app los controles tocados; cerrada con
+  su confirmación el 2026-10-14 (roadmap §5.21).
 - [x] **6.** Tabla de tamaños §4.2 **cumplida en los 3** (2026-10-13), medido:
   `ChatController.java` **181** (≤ 350), `ChatWindow.*.cs` 12 parciales, el mayor **291** (≤ 400), y
   `FachadaCliente.*.cs` 7 parciales, el mayor **212** (≤ 400). Lo que queda fuera de la regla por no

@@ -89,7 +89,9 @@ class BusquedaHistorialChat:
 
         La cita no lleva el id, solo un extracto de 120 caracteres como mucho:
         se busca en el historial local y se salta con lo mismo que usa la
-        búsqueda (`_saltar_a`, que trae páginas si no está cargado). Espejo de
+        búsqueda (`_saltar_a`, que trae páginas si no está cargado). Habla por
+        el puerto (`buscar`), no por el concreto: es el camino que demuestra
+        que la vista programa contra la interfaz (PAT-04). Espejo de
         `NavegarACitaAsync` en .NET, con su mismo aviso cuando no aparece.
         """
         from transversal.formato_cita import extracto
@@ -99,12 +101,12 @@ class BusquedaHistorialChat:
         if not texto or not self.usuario_seleccionado:
             return
         try:
-            hallados = self.fachada.historial.buscar_en_conversacion(
-                self.codigo, self.usuario_seleccionado, texto)
+            hallados = self.fachada.historial.buscar(
+                self.codigo, self.usuario_seleccionado, texto, 200)
         except Exception:
             hallados = []
         if hallados:
-            self._saltar_a(hallados[0].get("id_mensaje"), intentos=5)
+            self._saltar_a(hallados[0].id_mensaje, intentos=5)
         else:
             self.aviso_inline.mostrar(
                 CITA_NO_DISPONIBLE,

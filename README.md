@@ -32,7 +32,7 @@ El contrato de red es TCP con una cabecera big-endian de 4 bytes y un cuerpo JSO
 | [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) | Comportamiento acordado del sistema. |
 | [`PLAN.md`](PLAN.md) | Arquitectura y decisiones técnicas. |
 | [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) | Auditoría histórica con ubicación de hallazgos; consultar el roadmap para saber si siguen abiertos. |
-| [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) | Plan e historial de mejoras de las interfaces. |
+| [`docs/archivo/PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) | Plan e historial de mejoras de las interfaces (cerrado el 2026-10-14). |
 | [`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md) | Qué debe ser igual en los tres clientes y qué falta. |
 | [`docs/archivo/README.md`](docs/archivo/README.md) | Qué se archivó/fusionó y dónde está lo único que tenía. |
 | [`DIAGRAMAS/README.md`](DIAGRAMAS/README.md) | Índice de fuentes/renderes de diagramas (incluye legados migrados). |
