@@ -9,3 +9,4 @@ client-dotnet/obj/
 uploads/
 logs/
 config/keystore.p12
+.engram/

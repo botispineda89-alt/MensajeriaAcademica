@@ -1035,23 +1035,23 @@ por impacto. Cada casilla dice **quÃ©**, **dÃ³nde** y **cÃ³mo se verifica**.
 
 ---
 
-## 8. Checklist de cierre (2026-10-14) — solo lo abierto
+## 8. Checklist de cierre (2026-10-14) â€” solo lo abierto
 
-Canónica para archivar este plan: todo lo demás de §7 está cerrado. Cada ítem cita la condición
-de §5 que lo exige.
+CanÃ³nica para archivar este plan: todo lo demÃ¡s de Â§7 estÃ¡ cerrado. Cada Ã­tem cita la condiciÃ³n
+de Â§5 que lo exige.
 
-- [ ] **Fase 4 visual (§5.3).** contrato/guion-capturas.md + contrato/comparar_capturas.py +
-  ~90 PNG en DIAGRAMAS/capturas/ + informe.html en verde + mockups actualizados. Exige sesión
+- [ ] **Fase 4 visual (Â§5.3).** contrato/guion-capturas.md + contrato/comparar_capturas.py +
+  ~90 PNG en DIAGRAMAS/capturas/ + informe.html en verde + mockups actualizados. Exige sesiÃ³n
   con los 3 clientes a la vez; no lo cierra ninguna suite.
-- [ ] **Tamaños (§5.4).** FachadaCliente.java mide 529 líneas y la regla pide fachada = 250.
-  Decidir: partirla (Java no tiene parciales; ya delega en servicios) o declarar la regla obsoleta
-  para Java con motivo escrito.
-- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado de las 66 capacidades con sus tests:
-  huecos conocidos en Python (montaje multi-imagen, caption, selección múltiple/bandeja,
-  progreso+cancelar, botón guardar en imágenes, .webp como archivo).
-- [ ] **Deuda A?A (roadmap §5.15c).** El historial remoto no devuelve rchivoId de los mensajes
-  propios: un adjunto auto-enviado no se puede descargar.
-- [ ] **Smoke formal Java (§5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
+- [x] **TamaÃ±os (Â§5.4).** Decidido 2026-10-14: regla obsoleta para Java con motivo escrito
+  (roadmap Â§5.25: agrega 13 colaboradores inyectados y solo delega; sin god class que partir).
+  Sin cambios de cÃ³digo.
+- [ ] **Capacidades (Â§5.2 + resto Fase 5).** Inventario cruzado de las 66 capacidades con sus tests:
+  huecos conocidos en Python (montaje multi-imagen, caption, selecciÃ³n mÃºltiple/bandeja,
+  progreso+cancelar, botÃ³n guardar en imÃ¡genes, .webp como archivo).
+- [x] **Deuda Aâ†’A (roadmap Â§5.15c).** Cerrada 2026-10-14: era carrera del smoke, no del servidor;
+  la rama Aâ†’A reintenta la pÃ¡gina, descarga y compara SHA-256 (20 MiB auto-descargados).
+- [ ] **Smoke formal Java (Â§5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
   smoke del usuario del 2026-10-14 y marcar (o ejecutar lo que falte).
-- [ ] **Higiene del documento (resto Fase 6).** Barrer las notas "falta el smoke" de §§0–1,
+- [ ] **Higiene del documento (resto Fase 6).** Barrer las notas "falta el smoke" de Â§Â§0â€“1,
   anteriores al smoke real del 2026-10-13.

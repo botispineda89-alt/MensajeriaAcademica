@@ -88,6 +88,26 @@ def esperar_archivo(fachada: FachadaCliente, otro: str, id_msg: str, segundos: f
     raise TimeoutError(f"el adjunto {id_msg} no llegó a {otro} en {segundos:g} s")
 
 
+def esperar_archivo_propio(fachada: FachadaCliente, otro: str, id_msg: str,
+                           segundos: float = 120):
+    """Variante A→A: la fila optimista existe sin archivo_id desde el envío.
+
+    Sin eco del servidor, el archivoId solo llega con la página remota, y una
+    sola lectura pierde la carrera con el pipeline async (filtros + SHA +
+    persistencia). Se relee la página hasta que la fila trae archivo_id.
+    """
+    limite = time.time() + segundos
+    while time.time() < limite:
+        fachada.traer_historial(otro, 0)
+        pagina = fachada.obtener_conversacion(otro, limit=50, offset=0)
+        for fila in pagina:
+            if fila.get("id_mensaje") == id_msg and fila.get("tipo") == TipoMensaje.MENSAJE_ARCHIVO:
+                if fila.get("archivo_id"):
+                    return fila
+        time.sleep(5)
+    raise TimeoutError(f"el adjunto propio {id_msg} no trajo archivoId en {segundos:g} s")
+
+
 def enviar_y_recibir(origen: str, destino: str, directorio: Path, plantilla: Path,
                      sha_esperado: str, recibidos: list) -> None:
     # El nombre es el que viaja por el protocolo: cada direccion usa uno propio
@@ -118,19 +138,28 @@ def enviar_y_recibir(origen: str, destino: str, directorio: Path, plantilla: Pat
         if origen == destino:
             # A -> A: el servidor NO hace eco a la sesion que origina (ella ya
             # correlaciona su ACK), asi que el adjunto propio llega por la pagina
-            # remota, que es el camino que usa la UI al reconectar.
-            recibir.traer_historial(origen, 0)
-            fila = esperar_archivo(recibir, origen, id_msg, segundos=20)
-            if fila.get("archivo_id"):
-                print(f"  OK {origen} -> {destino}: 20 MiB en el historial propio, "
-                      f"archivoId {fila.get('archivo_id')}")
-                return
-            # Deuda conocida (ESTADO_ROADMAP.md): el historial remoto no devuelve
-            # archivoId de los mensajes propios, asi que quien se envia un adjunto
-            # a si mismo no puede descargarlo. No se rompe el smoke por eso: lo
-            # importante de la matriz es que el destinatario reciba los bytes.
-            print(f"  DEUDA {origen} -> {destino}: el historial propio no trae archivoId, "
-                  "el adjunto propio no se puede descargar (ver roadmap)")
+            # remota, que es el camino que usa la UI al reconectar. OJO: leer la
+            # pagina una sola vez es una carrera con el pipeline async del
+            # servidor (filtros + SHA + persistencia): la fila optimista local
+            # existe desde el envio pero sin archivo_id. Se reintenta la pagina
+            # hasta que el servidor la sirva con archivoId (2026-10-14: llega).
+            fila = esperar_archivo_propio(recibir, origen, id_msg, segundos=120)
+            archivo_id = fila.get("archivo_id")
+            if not archivo_id:
+                raise RuntimeError(
+                    f"{origen} -> {destino}: sin archivoId tras 120 s")
+            with tempfile.TemporaryDirectory() as temporal:
+                destino_local = Path(temporal) / nombre
+                recibir.descargar_archivo(archivo_id, str(destino_local))
+                sha_recibido = hashlib.sha256(destino_local.read_bytes()).hexdigest()
+                bytes_recibidos = destino_local.stat().st_size
+            if bytes_recibidos != ruta.stat().st_size:
+                raise RuntimeError(
+                    f"{origen} -> {destino}: llegaron {bytes_recibidos} B de {ruta.stat().st_size} B")
+            if sha_recibido != sha_esperado:
+                raise RuntimeError(f"{origen} -> {destino}: el SHA-256 no coincide")
+            print(f"  OK {origen} -> {destino}: 20 MiB auto-descargados, "
+                  f"archivoId {archivo_id}")
             return
 
         fila = esperar_archivo(recibir, origen, id_msg)
@@ -183,7 +212,7 @@ def main() -> int:
     if fallos:
         print(f"\nSmoke 20 MiB: {len(fallos)} fallo(s).")
         return 1
-    print("\nSmoke 20 MiB: A->B y B->A cuadran byte a byte (SHA-256).")
+    print("\nSmoke 20 MiB: A->B, B->A y A->A cuadran byte a byte (SHA-256).")
     return 0
 
 

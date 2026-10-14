@@ -690,12 +690,13 @@ completaba la espera de la petición y las partes llegaban fuera, así que se es
 explícito si el servidor devuelve el archivo vacío. 7 pruebas nuevas
 (`test_colector_fragmentos.py`).
 
-**c) El historial remoto no devuelve `archivoId` de los mensajes propios — 🔴 abierto.** En A→A el
-servidor no hace eco a la sesión que originó el envío (ella ya correlaciona su ACK, por diseño), así
-que el adjunto propio llega por la página remota; ahí la fila se queda sin `archivoId` y **quien se
-envía un archivo a sí mismo no puede descargarlo**. El smoke lo reporta como `DEUDA` y no falla por
-ello. Pendiente: revisar `HistorialCaso`/`AutenticarCaso` para los mensajes propios y la fusión del
-cliente (`buscar_equivalente`). No es una regresión de este lote.
+**c) El historial remoto no devuelve `archivoId` de los mensajes propios — ✅ cerrado 2026-10-14
+(no era el servidor).** El probe contra el servidor real mostró `archivoId=1193` en la página: el
+servidor persiste con archivo y la página lo trae. La "deuda" era una carrera del propio smoke:
+leía la página una sola vez antes de que el pipeline async (filtros + SHA + persistencia)
+terminara y encontraba su fila optimista sin `archivoId`. El smoke ahora reintenta la página
+(`esperar_archivo_propio`) y la rama A→A descarga y compara SHA-256 como las demás: 20 MiB
+auto-descargados, `archivoId 1194`, en verde.
 
 ### 5.16 JavaFX: progreso por bytes y cancelación en la UI — ✅ cerrado 2026-10-13
 
@@ -894,13 +895,17 @@ tenía casillas `[x]` con resto admitido). Espejo de su §8; el detalle vive all
 
 - [ ] **Fase 4 visual (§5.3).** Guion + comparador + ~90 PNG + `informe.html` + mockups. Nada existe;
   exige sesión con los 3 clientes a la vez.
-- [ ] **Tamaños (§5.4).** `FachadaCliente.java` mide 529 líneas contra fachada ≤ 250: decidir si se
-  parte o se declara obsoleta la regla para Java con motivo.
+- [x] **Tamaños (§5.4).** `FachadaCliente.java` mide 529 líneas contra fachada ≤ 250: **se declara
+  la regla obsoleta para Java con motivo (2026-10-14, decisión del usuario)**. La clase agrega 13
+  colaboradores inyectados por constructor y solo delega en ellos (`fachada/servicios/*`) más el
+  cableado de eventos y el programador de flush: no hay lógica de negocio que partir, y Java no
+  tiene parciales, así que dividir el fichero sería indirección artificial. La intención de la regla
+  (sin god class) se cumple por delegación. Sin cambios de código.
 - [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado de las 66 con sus tests; huecos
   conocidos en Python (montaje multi-imagen, `caption`, selección múltiple, progreso+cancelar,
   botón guardar, `.webp` como archivo).
-- [ ] **Deuda A→A (§5.15c).** El historial remoto no devuelve `archivoId` propios: el auto-adjunto
-  no se puede descargar.
+- [x] **Deuda A→A (§5.15c).** Cerrada 2026-10-14: no era el servidor (la página trae `archivoId`),
+  era una carrera del smoke; ahora la rama A→A reintenta la página, descarga y compara SHA-256.
 - [ ] **Smoke formal Java (§5.9).** Cotejar `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` contra el
   smoke del 2026-10-14 y marcar.
 - [ ] **Higiene del plan (resto Fase 6).** Barrer las notas "falta el smoke" de sus §§0–1.
