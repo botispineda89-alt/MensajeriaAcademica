@@ -14,7 +14,9 @@ from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QLabel
 
 from ui.chat_window import ChatWindow
+from ui.estado_aviso_inline import TipoAviso
 from ui.lista_virtual import ROL_ITEM
+from ui.tema import color_tick
 from ui.login_window import LoginWindow
 from ui.preferencias_chat import PreferenciasChat
 from ui.tema import tokens
@@ -480,6 +482,77 @@ class PruebasUI(unittest.TestCase):
         # El visto azul vive en los tokens que usa el delegado al pintar.
         from ui.tema import MODO_OSCURO as _OSCURO
         self.assertEqual("#5EB1FF", tokens(_OSCURO)["visto_leido"])
+
+    def test_tick_azul_solo_cuando_el_crudo_es_leido(self):
+        # PY-1: el "visto" se quedaba gris porque la condición era
+        # `"Le" in raw_state` y el crudo viaja en mayúsculas ("LEIDO").
+        from ui.tema import MODO_OSCURO as _OSCURO
+        t = tokens(_OSCURO)
+
+        self.assertEqual(t["visto_leido"], color_tick(t, "LEIDO"))
+        for crudo in ("ENTREGADO", "ENVIADO", "PENDIENTE", "ERROR", "", None):
+            with self.subTest(crudo=crudo):
+                self.assertEqual(t["visto_otro"], color_tick(t, crudo))
+
+    def test_respuesta_se_reparte_en_cita_y_cuerpo(self):
+        # PY-2/UIX-24: la burbuja separa el bloque citado del cuerpo, como
+        # .NET (`FormatoCita.Separar`) y Java (`MensajeCell.extraerCita`).
+        lay = self.chat._delegado_mensajes.distribuir(
+            {"text": 'Respuesta a Bea Dos [B002]: "hola"\n\n¿qué tal?',
+             "is_own": False},
+            600, tokens(self.chat.modo))
+
+        self.assertIn("cita", lay)
+        self.assertEqual('Respuesta a Bea Dos [B002]: "hola"', lay["_cita"])
+        self.assertIn("cuerpo", lay)
+
+        lay_plano = self.chat._delegado_mensajes.distribuir(
+            {"text": "hola\n\n¿qué tal?", "is_own": False},
+            600, tokens(self.chat.modo))
+        self.assertNotIn("cita", lay_plano)
+        self.assertIn("cuerpo", lay_plano)
+
+    def test_clic_en_cita_salta_al_mensaje_original(self):
+        # PY-2/UIX-24: el bloque citado es clicable y salta al original,
+        # como `Cita_MouseLeftButtonUp` en .NET.
+        self.chat.usuario_seleccionado = "B002"
+        self.chat._agregar_fila({
+            "id": "orig-1", "sender": "Bea", "is_own": False,
+            "text": "hola", "is_image": False,
+            "date": "2026-10-01T10:00:00",
+        })
+
+        class HistorialFalso:
+            def buscar_en_conversacion(self, yo, otro, patron, limite=200):
+                self.visto = (yo, otro, patron)
+                return [{"id_mensaje": "orig-1"}]
+
+        falso = HistorialFalso()
+        self.fachada.historial = falso
+        self.chat._navegar_cita(
+            {}, 'Respuesta a Bea Dos [B002]: "hola"')
+
+        self.assertEqual(("A001", "B002", "hola"), falso.visto)
+        actual = self.chat._modelo_mensajes.data(
+            self.chat.lista_mensajes.currentIndex(), ROL_ITEM)
+        self.assertEqual("orig-1", actual["id"])
+
+    def test_cita_sin_original_muestra_el_aviso_de_dotnet(self):
+        # Mismo texto que .NET cuando la cita no está en el historial.
+        self.chat.usuario_seleccionado = "B002"
+
+        class HistorialVacio:
+            def buscar_en_conversacion(self, yo, otro, patron, limite=200):
+                return []
+
+        self.fachada.historial = HistorialVacio()
+        with patch.object(self.chat.aviso_inline, "mostrar") as mostrar:
+            self.chat._navegar_cita(
+                {}, 'Respuesta a Bea Dos [B002]: "hola"')
+
+        mostrar.assert_called_once_with(
+            "El mensaje citado no está disponible en este historial.",
+            TipoAviso.INFORMACION)
 
     def test_acuse_leido_actualiza_la_burbuja_por_id(self):
         self.chat.lista_usuarios.setCurrentRow(0)

@@ -196,8 +196,16 @@ public class ChatViewModel implements InterfazChatViewModel {
 
     public List<RecienteChat> filtrar(List<RecienteChat> lista, String query, String filtro) {
         String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        String yo = codigoActual();
         List<RecienteChat> resultado = new ArrayList<>();
         for (RecienteChat r : lista) {
+            // JV-1: la sesión no conversa consigo misma. El historial devuelve
+            // `otro = yo` cuando hay filas propias (el servidor acepta A→A y el
+            // dato se conserva: `recientesIncluyeChatConUnoMismo` lo fija); lo
+            // que no existe es la tarjeta. Python filtra en la entrega igual.
+            if (yo != null && yo.equals(r.otro())) {
+                continue;
+            }
             UsuarioLocal u = directorio.get(r.otro());
             String nombre = u == null ? "" : (u.nombres() + " " + u.apellidos());
             String preview = r.ultimoContenido() == null ? "" : r.ultimoContenido();

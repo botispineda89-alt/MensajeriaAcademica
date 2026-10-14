@@ -81,3 +81,29 @@ class BusquedaHistorialChat:
             return
         self.modelo_vista.programar_salto(id_mensaje, intentos - 1)
         self._cargar_anteriores()
+
+    def _navegar_cita(self, item, cita):
+        """UIX-24: clic en el bloque citado → salta al mensaje original.
+
+        La cita no lleva el id, solo un extracto de 120 caracteres como mucho:
+        se busca en el historial local y se salta con lo mismo que usa la
+        búsqueda (`_saltar_a`, que trae páginas si no está cargado). Espejo de
+        `NavegarACitaAsync` en .NET, con su mismo aviso cuando no aparece.
+        """
+        from transversal.formato_cita import extracto
+        from ui.estado_aviso_inline import TipoAviso
+
+        texto = extracto(cita)
+        if not texto or not self.usuario_seleccionado:
+            return
+        try:
+            hallados = self.fachada.historial.buscar_en_conversacion(
+                self.codigo, self.usuario_seleccionado, texto)
+        except Exception:
+            hallados = []
+        if hallados:
+            self._saltar_a(hallados[0].get("id_mensaje"), intentos=5)
+        else:
+            self.aviso_inline.mostrar(
+                "El mensaje citado no está disponible en este historial.",
+                TipoAviso.INFORMACION)

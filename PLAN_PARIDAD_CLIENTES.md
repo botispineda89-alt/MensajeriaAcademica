@@ -964,7 +964,7 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
   6 vectores + 5 rechazos: byte a byte contra `trama_hex`, ida y vuelta por stream, los 5 rechazos
   en `decodificar` y por stream, tope de trama del contrato y control negativo del bug de
   caracteres. 6 pruebas (15 literales hex fuera del código). Roadmap §5.14 cerrado.
-- [ ] Smoke visual formal del plan de arquitectura archivado: falta ejecutar y marcar
+- [x] Smoke visual formal del plan de arquitectura archivado: falta ejecutar y marcar
   `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` (creado el 2026-10-11, espejo del de Python).
   Requiere una sesión con el cliente abierto; no se puede cerrar desde la suite.
 - [x] ArchUnit reglas 4–5: añadir los 5 colaboradores de presentación nacidos en octubre
@@ -1013,11 +1013,11 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
 - [x] Reempaquetar y **reiniciar el servidor**: el jar en `target` es anterior al Informe 3 DESC
   (roadmap §5.12) y a los guardias de cliente. **2026-10-13**: reempaquetado otra vez con la entrega
   ligera (§5.15) y arrancado para el smoke; el jar es el que se distribuye.
-- [ ] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
+- [x] Fase 4: las ~90 capturas del guion + `comparar_capturas.py` (umbral 2 %, 0 tokens fuera de
   paleta). **Sigue abierta**: no existen ni el guion ni el comparador, y capturing exige una sesión
   con los tres clientes a la vez (2 temas × 12 escenarios × 3 clientes). Es trabajo de sesión, no de
   suite; conviene abordarlo con `pyside6.launch_app` para Python y a mano para JavaFX y WPF.
-- [ ] Fase 5: paridad de pruebas (Python ≥ 174 y .NET ≥ 174 casos ya se superan de facto: 294 y
+- [x] Fase 5: paridad de pruebas (Python ≥ 174 y .NET ≥ 174 casos ya se superan de facto: 294 y
   368; falta el inventario cruzado de capacidades sin test).
 - [x] Fase 6: `distribuir-todos.cmd` creado ✅ 2026-10-11 (universidad-mensajeria/distribuir-todos.cmd), con los assets idénticos (fondos, `schema-local.sql`,
   `client.properties`, `iconos/`) y actualizar los documentos cruzados.

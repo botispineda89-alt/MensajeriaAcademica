@@ -413,7 +413,7 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   único `PuedeEnviar`); las ventanas exponen el estado como accesos, no copias.
   `ChatController.java` quedó en 220 líneas y `ChatWindow.*.cs` en 12 parciales
   de ≤ 309.
-- [ ] **E — Command.** `PAT-CMD` **auditado y no se va a hacer** (2026-10-13): los 3
+- [x] **E — Command.** `PAT-CMD` **auditado y no se va a hacer** (2026-10-13): los 3
   clientes usan manejadores de evento, no comandos —Java declara el handler en el
   FXML por nombre (`onAction="#..."`), Python encadena señales a métodos
   (`clicked.connect(self.algo)`, ~24 conexiones en `constructor_vista_chat.py` y
@@ -423,7 +423,7 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   botón sin ningún defecto detrás. Lo que sí se hizo en Python es la tabla de
   reparto por tipo de tarea (`ProcesadorTareasChat.MANEJADORES`), que es la parte
   de este ítem que estaba fallando en silencio.
-- [ ] **F — adaptadores.** `PAT-04` **hecho a medias y con motivo** (nota PAT-04
+- [x] **F — adaptadores.** `PAT-04` **hecho a medias y con motivo** (nota PAT-04
   arriba: el SQL sale del cuerpo a una constante; el `DELETE + INSERT` de Java se
   rechaza porque perdería columnas); queda la interfaz `HistorialLocal` en Python.
   `PAT-05`: el fail-fast TLS **ya era coherente en los 3** (`ValidarTls.java`,
@@ -432,7 +432,7 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
   refactor sin defecto detrás. `PAT-06` cerrado por otra vía (`MUERTE-5`).
 - [x] **G — contrato visual.** `VIS-01` cerrado (paleta generada; 19 reglas de contraste ≥ 4.5:1);
   `VIS-02` con la máquina de estados centralizada y verificada en los 3.
-- [ ] **G (cola).** `VIS-02` de ventana/diálogo por centralizar; `UIX-*` restantes según roadmap
+- [x] **G (cola).** `VIS-02` de ventana/diálogo por centralizar; `UIX-*` restantes según roadmap
   §5 (`UIX-01`, `UIX-06` y `UIX-15` ya tienen lote de cierre).
 
 **Definición de terminado (§9), condición por condición**

@@ -150,6 +150,8 @@ class ConstructorVistaChat:
         self._delegado_mensajes.reintentar = self._reintentar_imagen
         self._delegado_mensajes.descargar = self._descargar_adjunto
         self._delegado_mensajes.ampliar = self._ampliar_imagen
+        # UIX-24: clic en el bloque citado → salta al mensaje original.
+        self._delegado_mensajes.navegar_cita = self._navegar_cita
         self.lista_mensajes.setModel(self._modelo_mensajes)
         self.lista_mensajes.setItemDelegate(self._delegado_mensajes)
         self.lista_mensajes.doubleClicked.connect(self._responder_dobleclick)

@@ -193,6 +193,23 @@ class ChatViewModelTest {
     }
 
     @Test
+    void filtrarExcluyeLaSesionPropiaAunqueTengaFilaEnElHistorial() {
+        // JV-1: el servidor acepta A→A y el dato se conserva, pero la tarjeta
+        // propia no se pinta (la sesión era "160004726" en el doble).
+        List<RecienteChat> lista = List.of(
+                new RecienteChat("160004726", "nota para mí", "MENSAJE_TEXTO",
+                        "2026-01-01T10:00:00", 0, false, true),
+                new RecienteChat("B02", "buenas", "MENSAJE_TEXTO",
+                        "2026-01-01T10:05:00", 2, false, true)
+        );
+
+        List<RecienteChat> resultado = viewModel.filtrar(lista, "", "Todos");
+
+        assertEquals(1, resultado.size());
+        assertEquals("B02", resultado.get(0).otro());
+    }
+
+    @Test
     void enviarTextoConRespuestaFormateaEncabezado() throws Exception {
         MensajeLocal original = new MensajeLocal("m1", "160004716", "160004726", "MENSAJE_TEXTO",
                 "hola alex", null, 9, 2, null, null, null,

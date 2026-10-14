@@ -9,9 +9,10 @@ from PySide6.QtWidgets import QApplication, QStyledItemDelegate, QStyle
 
 from transversal import iconos_archivo
 from transversal.fechas import hora_corta
+from ui.celdas import bloque_cita
 from ui.lista_virtual import ROL_ITEM
 from ui.renderizado_texto import resaltar_html
-from ui.tema import TOKENS_CANONICOS, normalizar, tokens
+from ui.tema import TOKENS_CANONICOS, color_tick, normalizar, tokens
 from ui.miniaturas_chat import MiniaturasChat
 from transversal.etapas_filtrado import resumir_etapas_filtrado
 
@@ -21,6 +22,8 @@ MARGEN_FILA = 10
 BUBBLE_PAD_H = 12
 BUBBLE_PAD_V = 8
 ESPACIADO = 5
+
+
 class MensajeDelegate(QStyledItemDelegate):
     """Pinta burbujas y resuelve clics por coordenadas."""
 
@@ -34,6 +37,7 @@ class MensajeDelegate(QStyledItemDelegate):
         self.reintentar: Callable[[dict], None] | None = None
         self.descargar: Callable[[dict], None] | None = None
         self.ampliar: Callable[[str], None] | None = None
+        self.navegar_cita: Callable[[dict, str], None] | None = None
         self._fuente_remitente = QFont()
         self._fuente_remitente.setPointSize(12)
         self._fuente_remitente.setBold(True)
@@ -88,8 +92,10 @@ class MensajeDelegate(QStyledItemDelegate):
             y += BUBBLE_PAD_V + h + ESPACIADO
         else:
             y += BUBBLE_PAD_V
-        texto = item.get("text", "") or ""
-        if texto:
+        cuerpo, y = bloque_cita.repartir(
+            lay, item.get("text", "") or "", x_burbuja + BUBBLE_PAD_H, y,
+            interior, self._fuente_mini, self._patron, ESPACIADO)
+        if cuerpo:
             doc = QTextDocument()
             doc.setDefaultFont(self._fuente_cuerpo)
             # El icono del tipo va DENTRO del documento y no como widget
@@ -98,7 +104,7 @@ class MensajeDelegate(QStyledItemDelegate):
             icono = (iconos_archivo.ruta(item.get("filename"))
                      if item.get("es_archivo") else None)
             doc.setHtml(iconos_archivo.con_icono(
-                icono, resaltar_html(texto, self._patron)))
+                icono, resaltar_html(cuerpo, self._patron)))
             if icono is not None:
                 doc.addResource(QTextDocument.ResourceType.ImageResource,
                                 QUrl(icono.as_uri()), QImage(str(icono)))
@@ -208,6 +214,7 @@ class MensajeDelegate(QStyledItemDelegate):
                 painter.drawText(ox + x, oy + y, w, h,
                                  Qt.AlignmentFlag.AlignLeft
                                  | Qt.AlignmentFlag.AlignVCenter, sender)
+            bloque_cita.pintar_si_hay(painter, ox, oy, lay, t)
             if "cuerpo" in lay:
                 doc = lay["_doc"]
                 painter.save()
@@ -265,9 +272,7 @@ class MensajeDelegate(QStyledItemDelegate):
                                  hora_corta(item.get("date", "")))
                 estado = item.get("state", "")
                 if estado and propia:
-                    painter.setPen(QColor(t["visto_leido"] if "✓✓" in estado
-                                         and "Le" in str(item.get("raw_state", ""))
-                                         else t["visto_otro"]))
+                    painter.setPen(QColor(color_tick(t, item.get("raw_state"))))
                     fm = QFontMetrics(self._fuente_mini)
                     painter.drawText(ox + x, oy + y, w, h,
                                      Qt.AlignmentFlag.AlignRight
@@ -324,6 +329,8 @@ class MensajeDelegate(QStyledItemDelegate):
             return False
         if evento.type() == QEvent.Type.MouseButtonRelease and pos is not None:
             lx, ly = pos.x() - ox, pos.y() - oy
+            if bloque_cita.clic(lx, ly, lay, item, self.navegar_cita):
+                return True
             if "imagen" in lay:
                 x, y, w, h = lay["imagen"]
                 if x <= lx <= x + w and y <= ly <= y + h and self.ampliar:

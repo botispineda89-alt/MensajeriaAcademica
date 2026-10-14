@@ -120,6 +120,15 @@ def estilo_cita(t):
     )
 
 
+def color_tick(t, crudo):
+    """Color del tick de estado: azul solo con crudo LEIDO.
+
+    PY-1: antes era `"Le" in crudo`, y como el crudo viaja en mayúsculas
+    ("LEIDO") nunca coincidía y el visto siempre salía gris.
+    """
+    return t["visto_leido"] if str(crudo or "") == "LEIDO" else t["visto_otro"]
+
+
 def estilo_preview(t):
     return (
         "QFrame#previewContainer {"
