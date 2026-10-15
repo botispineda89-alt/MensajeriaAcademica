@@ -51,6 +51,29 @@ class CoordinadorMensajeriaCliente:
     def codigo(self):
         return self._codigo_actual()
 
+    def _pedir_archivo(self, solicitud, timeout=None):
+        """Usa el timeout de transferencia; conserva adaptadores de prueba antiguos."""
+        pedir_archivo = getattr(self.conexion, "pedir_archivo", None)
+        if callable(pedir_archivo):
+            if timeout is None:
+                return pedir_archivo(solicitud)
+            return pedir_archivo(solicitud, timeout=timeout)
+        return self.conexion.pedir(solicitud)
+
+    def _cancelar_archivo_en_servidor(self, id_msg, fecha):
+        try:
+            self._pedir_archivo({
+                "id": f"{id_msg}#cancel",
+                "tipo": TipoMensaje.ARCHIVO_FIN,
+                "remitente": self.codigo,
+                "archivoId": id_msg,
+                "exito": False,
+                "fechaHora": fecha,
+            }, timeout=5)
+        except Exception:
+            # La fila local sigue cancelada aunque el servidor no responda.
+            pass
+
     def enviar_texto(self, destinatario, texto, id_msg=None):
         """True si salió por red; False si el texto quedó en pendientes."""
         self._exigir_sesion()
@@ -173,6 +196,7 @@ class CoordinadorMensajeriaCliente:
             tamano_archivo=len(datos), enviado=1, descargado=1,
             estado="PENDIENTE", caption=pie)
 
+        inicio_enviado = False
         try:
             if cancelado and cancelado():
                 raise EnvioCancelado(
@@ -190,13 +214,14 @@ class CoordinadorMensajeriaCliente:
             }
             if pie:
                 solicitud_inicio["contenido"] = pie
-            inicio = self.conexion.pedir(solicitud_inicio)
+            inicio_enviado = True
+            inicio = self._pedir_archivo(solicitud_inicio)
             lanzar_si_error(inicio, "inicio de transferencia rechazado")
             for indice, parte in enumerate(partes):
                 if cancelado and cancelado():
                     raise EnvioCancelado(
                         "envío cancelado a mitad de la transferencia")
-                respuesta_parte = self.conexion.pedir({
+                respuesta_parte = self._pedir_archivo({
                     "id": f"{id_msg}#p{indice}",
                     "tipo": TipoMensaje.ARCHIVO_PARTE,
                     "remitente": self.codigo,
@@ -209,7 +234,9 @@ class CoordinadorMensajeriaCliente:
                                 f"parte {indice + 1}/{total_partes} rechazada")
                 if on_progreso:
                     on_progreso(indice + 1, total_partes)
-            respuesta = self.conexion.pedir({
+            if cancelado and cancelado():
+                raise EnvioCancelado("envío cancelado antes de completar la transferencia")
+            respuesta = self._pedir_archivo({
                 "id": f"{id_msg}#fin",
                 "tipo": TipoMensaje.ARCHIVO_FIN,
                 "remitente": self.codigo,
@@ -218,11 +245,19 @@ class CoordinadorMensajeriaCliente:
                 "fechaHora": fecha,
             })
         except EnvioCancelado:
+            if inicio_enviado:
+                self._cancelar_archivo_en_servidor(id_msg, fecha)
             # Cancelar NO deja pendiente (el usuario no quiere este envío);
             # la fila queda en ERROR para que la burbuja diga «! No enviado».
             self.historial.marcar_estado(id_msg, "ERROR")
             raise
         except (ConnectionError, TimeoutError, OSError):
+            if cancelado and cancelado():
+                if inicio_enviado:
+                    self._cancelar_archivo_en_servidor(id_msg, fecha)
+                self.historial.marcar_estado(id_msg, "ERROR")
+                raise EnvioCancelado(
+                    "envío cancelado antes de completarse tras un fallo de conexión")
             self.historial.guardar_pendiente(
                 id_msg, TipoMensaje.MENSAJE_ARCHIVO, self.codigo,
                 destinatario, pie or "", nombre, datos, fecha)
@@ -236,25 +271,6 @@ class CoordinadorMensajeriaCliente:
         if respuesta.get("archivoId"):
             self.historial.actualizar_archivo_id(id_msg, respuesta["archivoId"])
         self.historial.marcar_estado(id_msg, "ENVIADO")
-        return True
-
-    def difundir(self, texto):
-        self._exigir_sesion()
-        if not texto:
-            raise ValueError("el contenido no puede estar vacío")
-        id_msg = str(uuid.uuid4())
-        fecha = ahora_utc()
-        respuesta = self.conexion.pedir({
-            "id": id_msg,
-            "tipo": TipoMensaje.BROADCAST,
-            "remitente": self.codigo,
-            "contenido": texto,
-            "fechaHora": fecha,
-        })
-        lanzar_si_error(respuesta, "difusión rechazada")
-        self.historial.guardar_mensaje(
-            id_msg, self.codigo, DESTINO_BROADCAST,
-            TipoMensaje.BROADCAST, texto, fecha)
         return True
 
     def marcar_leidos(self, destinatario):

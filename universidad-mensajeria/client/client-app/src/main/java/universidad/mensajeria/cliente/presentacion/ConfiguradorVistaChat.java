@@ -29,22 +29,50 @@ final class ConfiguradorVistaChat {
     private final javafx.scene.Node ancla;
     private final Supplier<String> codigoActual;
     private final Runnable mostrarBusqueda;
+    private final Runnable deseleccionar;
 
     ConfiguradorVistaChat(ComboBox<String> comboTema, SplitPane divisorPrincipal,
                           InterfazNavegacionCliente navegacion, javafx.scene.Node ancla,
-                          Supplier<String> codigoActual, Runnable mostrarBusqueda) {
+                          Supplier<String> codigoActual, Runnable mostrarBusqueda,
+                          Runnable deseleccionar) {
         this.comboTema = comboTema;
         this.divisorPrincipal = divisorPrincipal;
         this.navegacion = navegacion;
         this.ancla = ancla;
         this.codigoActual = codigoActual;
         this.mostrarBusqueda = mostrarBusqueda;
+        this.deseleccionar = deseleccionar;
     }
 
     void configurar() {
         configurarTema();
         configurarAtajoBusqueda();
+        configurarEscape();
         configurarDivisor();
+    }
+
+    /**
+     * T1 (2026-10-14): Esc deja la ventana sin conversación.
+     * <p>
+     * Va como manejador de la <b>escena</b> y no como acelerador a propósito: el evento
+     * sube desde el nodo con el foco, así que si el compositor tenía una cita o un adjunto
+     * que cancelar (o la búsqueda estaba abierta) ya lo consumió y aquí no se llega. El
+     * orden que se quiere es ese: primero se cancela, después se deselecciona.
+     * </p>
+     */
+    private void configurarEscape() {
+        if (ancla == null || deseleccionar == null) {
+            return;
+        }
+        ancla.sceneProperty().addListener((o, anterior, escena) -> {
+            if (escena != null) {
+                escena.setOnKeyPressed(evento -> {
+                    if (evento.getCode() == KeyCode.ESCAPE) {
+                        deseleccionar.run();
+                    }
+                });
+            }
+        });
     }
 
     private void configurarTema() {

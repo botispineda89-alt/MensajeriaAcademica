@@ -140,6 +140,45 @@ class PruebasListaVirtual(unittest.TestCase):
         self.assertLess(resumen.index("Grises"), resumen.index("Sepia"))
         self.assertNotIn("C:/srv", resumen)
 
+    def test_modo_claro_letra_negra(self):
+        t = tokens(MODO_CLARO)
+        self.assertEqual("#000000", t["cuerpo_ajena"])
+        self.assertEqual("#000000", t["cuerpo_propia"])
+        self.delegado.set_modo(MODO_CLARO)
+        lay = self.delegado.distribuir(_mensaje(text="mensaje claro"), 600, t)
+        self.assertIn("color: #000000", lay["_doc"].defaultStyleSheet())
+
+    def test_clic_en_bloque_cita_dispara_navegacion(self):
+        from PySide6.QtCore import QEvent, QPointF, Qt
+        from PySide6.QtGui import QMouseEvent
+        from PySide6.QtWidgets import QStyleOptionViewItem
+
+        texto_con_cita = 'Respuesta a Carlos [C003]: "hola"\n\nRespuesta al mensaje'
+        item = _mensaje(text=texto_con_cita)
+        self.modelo.agregar(item)
+        indice = self.modelo.indice_por_id("m1")
+
+        navegado = []
+        self.delegado.navegar_cita = lambda it, c: navegado.append((it, c))
+
+        option = QStyleOptionViewItem()
+        option.rect.setRect(0, 0, 600, 100)
+        t = tokens(MODO_OSCURO)
+        lay = self.delegado.distribuir(item, 600, t)
+        self.assertIn("cita", lay)
+        cx, cy, cw, ch = lay["cita"]
+        pos_clic = QPointF(cx + 5, cy + 5)
+
+        evento_press = QMouseEvent(
+            QEvent.Type.MouseButtonPress, pos_clic, pos_clic,
+            Qt.MouseButton.LeftButton, Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier)
+        consumido = self.delegado.editorEvent(
+            evento_press, self.modelo, option, indice)
+        self.assertTrue(consumido)
+        self.assertEqual(1, len(navegado))
+        self.assertIn('Respuesta a Carlos [C003]: "hola"', navegado[0][1])
+
 
 if __name__ == "__main__":
     unittest.main()

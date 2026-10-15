@@ -26,6 +26,7 @@ import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 import universidad.mensajeria.cliente.transversal.utilerias.FormatoFecha;
 import universidad.mensajeria.cliente.transversal.utilerias.FormatoEtapasFiltrado;
 import universidad.mensajeria.cliente.transversal.utilerias.IconoArchivo;
+import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
 
 /** Celda virtualizada del historial: pinta metadatos y solo pide la imagen visible. */
 public final class MensajeCell extends ListCell<FilaChat> {
@@ -426,8 +427,8 @@ public final class MensajeCell extends ListCell<FilaChat> {
         pie.getStyleClass().add("message-footer");
         Button responder = new Button("↩");
         responder.getStyleClass().add("reply-button");
-        responder.setTooltip(new Tooltip("Responder a este mensaje"));
-        responder.setAccessibleText("Responder a este mensaje");
+        responder.setTooltip(new Tooltip(TextosVentana.BOTON_RESPONDER));
+        responder.setAccessibleText(TextosVentana.BOTON_RESPONDER);
         responder.setOnAction(e -> alResponder.accept(item));
         Label lHora = new Label(hora);
         lHora.getStyleClass().add("message-time");

@@ -118,11 +118,8 @@ class TestFachada(unittest.TestCase):
         self.assertEqual(self.f.reintentar_pendientes(), 1)
         self.assertEqual(self.f.pendientes(), [])
 
-    def test_broadcast_propio_marcado_y_recibido_en_conversacion(self):
-        self.f.difundir("aviso")
-        propias = [m for m in self.f.historial.obtener_conversacion("A001", DESTINO_BROADCAST)]
-        self.assertEqual(len(propias), 1)
-        # Entrante de otro: destino = codigo propio (leccion Fase 5).
+    def test_broadcast_recibido_en_conversacion(self):
+        # Entrante de difusion del servidor: destino = codigo propio (leccion Fase 5).
         self.f._handle_unsolicited_message(
             {'tipo': 'BROADCAST', 'id': 'bc-1', 'remitente': 'B002',
              'contenido': 'hola a todos', 'fechaHora': '2026-01-01T10:00:00'})

@@ -280,14 +280,14 @@ recrean su carpeta de salida. Ninguno copia el monorepo.
 
 | PC | Script | Salida | Contenido |
 |---|---|---|---|
-| Servidor | `dist\distribuir-servidor.cmd` | `dist\MensajeriaServidor\` | `servidor.jar`, `start-server.cmd`, `config\`, `uploads\`, `logs\` vacías, `README.md`, `version.txt` |
+| Servidor | `server\distribuir-servidor.cmd` | `dist\MensajeriaServidor\` | `servidor.jar`, `start-server.cmd`, `config\`, `uploads\`, `logs\` vacías, `README.md`, `version.txt` |
 | JavaFX | `client\dist-client.cmd` | `dist\MensajeriaClienteJava\` | `client-app.jar`, `lib\`, `javafx\`, `client.properties`, `launch-client.cmd` |
 | Python | `client-python\distribuir.cmd` | `client-python\dist\MensajeriaPython\` (y copia centralizada en `dist\MensajeriaPython\` vía `empaquetar-todo.cmd`) | fuentes sin `.venv`/tests, `requirements.txt`, `store\schema-local.sql` |
 | WPF | `dotnet publish` (abajo) | `dist\MensajeriaWPF\` | salida self-contained, `client.properties`, `schema-local.sql` |
 
 ```powershell
 Set-Location universidad-mensajeria
-cmd dist\distribuir-servidor.cmd
+cmd server\distribuir-servidor.cmd
 cmd client\dist-client.cmd
 cmd client-python\distribuir.cmd
 dotnet publish client-dotnet\Mensajeria.csproj -c Release -r win-x64 --self-contained true -o dist\MensajeriaWPF
@@ -455,9 +455,9 @@ absoluta: solo `host`/`puerto` con la IP LAN del servidor.
 
 ## Documentación restante
 
-- [Pruebas y aceptación](GUIA_ACEPTACION.md)
-- [Requerimientos funcionales](REQUERIMIENTOS.md)
-- [Arquitectura](PLAN.md)
-- [Estado y backlog](ESTADO_ROADMAP.md)
+- [Pruebas y aceptación](docs/GUIA_ACEPTACION.md)
+- [Requerimientos funcionales](docs/REQUERIMIENTOS.md)
+- [Arquitectura](docs/PLAN.md)
+- [Estado y backlog](docs/ESTADO_ROADMAP.md)
 - [Contrato TCP/JSON](universidad-mensajeria/common-protocol/PROTOCOLO.md)
 - [Persistencia local](universidad-mensajeria/common-protocol/HISTORIAL_LOCAL.md)

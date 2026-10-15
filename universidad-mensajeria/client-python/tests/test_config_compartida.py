@@ -29,7 +29,6 @@ class TestConfigCompartida(unittest.TestCase):
         self.assertEqual("true", cfg.get("tls.habilitado"))
         self.assertEqual("5443", cfg.get("tls.puerto"))
         self.assertEqual("C:/confianza/prueba.jks", cfg.get("tls.confianza"))
-        self.assertEqual("es", cfg.get("idioma"))
         # clave repetida: gana la ultima linea
         self.assertEqual("oscuro", cfg.get("tema"))
 

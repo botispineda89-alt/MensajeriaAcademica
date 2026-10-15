@@ -227,7 +227,7 @@ public class VistaEscritorio extends Application {
             ultimaActualizacion.setText("No se pudo conectar con la fachada del servidor.");
         }
 
-        Scene escena = new Scene(raiz, 1280, 820);
+        Scene escena = new Scene(raiz, 1120, 720);
         try {
             var css = getClass().getResource("/estilos/escritorio.css");
             if (css != null) {
@@ -237,8 +237,8 @@ public class VistaEscritorio extends Application {
             // sin CSS la vista sigue funcional
         }
         escenario.setScene(escena);
-        escenario.setMinWidth(1080);
-        escenario.setMinHeight(700);
+        escenario.setMinWidth(800);
+        escenario.setMinHeight(550);
         escenario.setOnCloseRequest(evento -> {
             Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION,
                     "¿Deseas cerrar la vista administrativa del servidor? "
@@ -347,7 +347,7 @@ public class VistaEscritorio extends Application {
     private Tab pestanaUsuarios(Fachada f) {
         tabla = new TableView<>();
         tabla.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
-        tabla.setMaxWidth(1100);
+        tabla.setMaxWidth(Double.MAX_VALUE);
         tabla.getColumns().addAll(
                 columna("Código", 120, UsuarioResumen::codigo),
                 columna("Nombres", 150, UsuarioResumen::nombres),
@@ -375,7 +375,8 @@ public class VistaEscritorio extends Application {
         HBox acciones = new HBox(10, abrir, desconectar, ayuda);
         acciones.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         VBox caja = new VBox(10, tabla, acciones, estadoAccionUsuario);
-        caja.setAlignment(javafx.geometry.Pos.CENTER);
+        caja.setAlignment(javafx.geometry.Pos.TOP_LEFT);
+        caja.setFillWidth(true);
         caja.getStyleClass().add("page-content");
         VBox.setVgrow(tabla, Priority.ALWAYS);
         ScrollPane desplazamiento = new ScrollPane(caja);
@@ -677,9 +678,10 @@ public class VistaEscritorio extends Application {
 
     private Tab pestanaConectados(Fachada f) {
         conectados = new ListView<>();
+        conectados.setMaxWidth(Double.MAX_VALUE);
         objetivoDesconexion = new ComboBox<>();
         objetivoDesconexion.setPromptText("No hay usuarios activos");
-        objetivoDesconexion.setMaxWidth(360);
+        objetivoDesconexion.setMaxWidth(Double.MAX_VALUE);
         estadoDesconexion = new Label("No hay usuarios activos");
         botonDesconexion = boton("Desconectar usuario", this::desconectarUsuarioActivo);
         botonDesconexion.getStyleClass().add("action-danger");
@@ -711,7 +713,9 @@ public class VistaEscritorio extends Application {
                 botonDesconexion);
         barra.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         barra.getStyleClass().add("disconnect-toolbar");
+        HBox.setHgrow(objetivoDesconexion, Priority.ALWAYS);
         VBox caja = new VBox(10, conectados, barra, estadoDesconexion);
+        caja.setFillWidth(true);
         VBox.setVgrow(conectados, Priority.ALWAYS);
         return new Tab("Conectados", caja);
     }
@@ -752,6 +756,7 @@ public class VistaEscritorio extends Application {
         eventos.setPromptText("Eventos en vivo (Observer): conexiones, mensajes, cierres, logs.");
         eventos.setPrefRowCount(30);
         eventos.setWrapText(true);
+        eventos.getStyleClass().add("logs-terminal");
         VBox caja = new VBox(eventos);
         VBox.setVgrow(eventos, Priority.ALWAYS);
         caja.getStyleClass().add("logs-content");
@@ -760,36 +765,81 @@ public class VistaEscritorio extends Application {
 
     /** Difusion administrativa: solo a TODOS, sin selector de destinatario. */
     private Tab pestanaDifundir() {
+        Label titulo = new Label("📢 Emisión de Difusión Administrativa");
+        titulo.getStyleClass().add("broadcast-title");
+        Label subtitulo = new Label(
+                "Envía un comunicado institucional a todos los usuarios conectados y registrados en la plataforma. "
+                + "El mensaje se entrega en tiempo real y no tiene un destinatario único.");
+        subtitulo.setWrapText(true);
+        subtitulo.getStyleClass().add("broadcast-subtitle");
+
         campoDifundir = new TextField();
-        campoDifundir.setPromptText("Mensaje para toda la comunidad (broadcast, sin destinatario unico)");
-        estadoDifundir = new Label("La difusion llega a todos los usuarios registrados.");
+        campoDifundir.setPromptText("Escribe el comunicado para toda la comunidad académica…");
+
+        estadoDifundir = new Label("Listo para emitir comunicados a toda la comunidad.");
         estadoDifundir.setWrapText(true);
-        Button difundir = boton("Enviar difusión", () -> ejecutarSeguro(() -> {
-            Fachada f = fachada;
-            if (f == null) {
-                return;
-            }
+        estadoDifundir.getStyleClass().addAll("broadcast-status-banner", "banner-info");
+
+        Button difundir = boton("Enviar difusión", () -> {
             String contenido = campoDifundir.getText() == null ? "" : campoDifundir.getText().trim();
+            campoDifundir.clear();
             if (contentoVacio(contenido)) {
-                estadoDifundir.setText("Escribe un mensaje no vacio para difundir.");
+                estadoDifundir.setText("Por favor escribe un mensaje no vacío para difundir.");
+                estadoDifundir.getStyleClass().removeAll("banner-info", "banner-success", "banner-error");
+                if (!estadoDifundir.getStyleClass().contains("banner-warning")) {
+                    estadoDifundir.getStyleClass().add("banner-warning");
+                }
                 return;
             }
-            try {
-                f.difundirAdministrativo(contenido);
-                estadoDifundir.setText("Difusion encolada para todos.");
-                campoDifundir.clear();
-            } catch (RuntimeException e) {
-                estadoDifundir.setText("No se pudo difundir: " + e.getMessage());
-            }
-        }));
-        HBox fila = new HBox(8, campoDifundir, difundir);
-        fila.setStyle("-fx-padding: 8;");
+            ejecutarSeguro(() -> {
+                Fachada f = fachada;
+                if (f == null) {
+                    estadoDifundir.setText("No hay conexión con la fachada del servidor.");
+                    estadoDifundir.getStyleClass().removeAll("banner-info", "banner-success", "banner-warning");
+                    if (!estadoDifundir.getStyleClass().contains("banner-error")) {
+                        estadoDifundir.getStyleClass().add("banner-error");
+                    }
+                    return;
+                }
+                try {
+                    f.difundirAdministrativo(contenido);
+                    estadoDifundir.setText("✔ Difusión encolada exitosamente para toda la comunidad.");
+                    estadoDifundir.getStyleClass().removeAll("banner-info", "banner-warning", "banner-error");
+                    if (!estadoDifundir.getStyleClass().contains("banner-success")) {
+                        estadoDifundir.getStyleClass().add("banner-success");
+                    }
+                } catch (RuntimeException e) {
+                    estadoDifundir.setText("✖ No se pudo difundir el mensaje: " + e.getMessage());
+                    estadoDifundir.getStyleClass().removeAll("banner-info", "banner-success", "banner-warning");
+                    if (!estadoDifundir.getStyleClass().contains("banner-error")) {
+                        estadoDifundir.getStyleClass().add("banner-error");
+                    }
+                }
+            });
+        });
+        difundir.getStyleClass().add("action-primary");
+        campoDifundir.setOnAction(evento -> difundir.fire());
+
+        HBox fila = new HBox(10, campoDifundir, difundir);
+        fila.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         HBox.setHgrow(campoDifundir, Priority.ALWAYS);
-        Label ayuda = new Label("El servidor no puede elegir un unico destinatario: siempre es broadcast.");
+
+        Label ayuda = new Label("💡 Consejo: Los usuarios recibirán este mensaje como 'SERVIDOR' con prioridad de difusión.");
         ayuda.setWrapText(true);
-        VBox caja = new VBox(8, fila, estadoDifundir, ayuda);
-        caja.setStyle("-fx-padding: 12;");
-        return new Tab("Difundir", caja);
+        ayuda.getStyleClass().add("broadcast-hint");
+
+        VBox tarjeta = new VBox(16, titulo, subtitulo, fila, estadoDifundir, ayuda);
+        tarjeta.getStyleClass().add("broadcast-card");
+
+        VBox contenedor = new VBox(tarjeta);
+        contenedor.setStyle("-fx-padding: 18px;");
+        contenedor.setFillWidth(true);
+        contenedor.getStyleClass().add("page-content");
+
+        ScrollPane desplazamiento = new ScrollPane(contenedor);
+        desplazamiento.setFitToWidth(true);
+        desplazamiento.getStyleClass().add("page-scroll");
+        return new Tab("Difundir", desplazamiento);
     }
 
     private static boolean contentoVacio(String contenido) {
@@ -802,7 +852,7 @@ public class VistaEscritorio extends Application {
         filtroCodigoMensaje = new ComboBox<>();
         filtroCodigoMensaje.setEditable(true);
         filtroCodigoMensaje.setPromptText("Código o SERVIDOR (vacío = todos)");
-        filtroCodigoMensaje.setPrefWidth(280);
+        filtroCodigoMensaje.setMaxWidth(Double.MAX_VALUE);
         filtroCodigoMensaje.getEditor().setOnAction(evento -> ejecutarSeguro(this::actualizarMensajes));
         comboTipoMensaje = new ComboBox<>();
         comboTipoMensaje.getItems().setAll("Todos", "TEXTO", "IMAGEN", "ARCHIVO", "BROADCAST");
@@ -811,6 +861,8 @@ public class VistaEscritorio extends Application {
         HBox filtros = new HBox(8, new Label("Código:"), filtroCodigoMensaje,
                 new Label("Tipo:"), comboTipoMensaje, actualizar);
         filtros.setStyle("-fx-padding: 8;");
+        filtros.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        HBox.setHgrow(filtroCodigoMensaje, Priority.ALWAYS);
 
         estadoMensajes = new Label("Pulsa Actualizar para ver el detalle con contenido.");
         tablaMensajes = new TableView<>();
@@ -820,7 +872,7 @@ public class VistaEscritorio extends Application {
                 colMensaje("Remitente", 150, m -> m.remitente()),
                 colMensaje("Destinatario", 150, m -> m.destinatario()),
                 colMensaje("IP remitente", 140, m -> txt(m.ipRemitente())),
-                colMensaje("IP destinatario", 160, m -> ipDestinatarioActual(m.destinatario())),
+                colMensaje("IP destinatario", 160, m -> txt(m.ipDestinatario())),
                 colMensaje("Tipo", 90, m -> txt(m.tipo())),
                 colMensaje("Hash", 120, m -> corto(m.hashSha256())));
         tablaMensajes.setMinHeight(130);
@@ -1000,16 +1052,19 @@ public class VistaEscritorio extends Application {
         };
     }
 
-    /** true si ImageIO puede abrirlo (requisito para previsualizar filtros). */
+    /** true si ImageIO o el decodificador de utilerías puede abrirlo. */
     static boolean decodificableParaFiltros(byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             return false;
         }
         try {
-            return javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes)) != null;
-        } catch (Exception e) {
-            return false;
+            if (javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes)) != null) {
+                return true;
+            }
+        } catch (Exception ignorada) {
+            // probar con utilerías
         }
+        return Imagenes.esImagenValida(bytes);
     }
 
     static boolean esImagen(byte[] bytes, String mime, String nombre) {
@@ -1018,12 +1073,15 @@ public class VistaEscritorio extends Application {
         }
         String n = nombre == null ? "" : nombre.toLowerCase();
         if (n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg")
-                || n.endsWith(".gif") || n.endsWith(".bmp") || n.endsWith(".webp")) {
+                || n.endsWith(".gif") || n.endsWith(".bmp") || n.endsWith(".webp")
+                || n.endsWith(".avif") || n.endsWith(".heic") || n.endsWith(".heif")
+                || n.endsWith(".svg")) {
             return true;
         }
-        return bytes != null && bytes.length >= 4
-                && ((bytes[0] & 0xFF) == 0x89 || (bytes[0] & 0xFF) == 0xFF
-                        || (bytes[0] & 0xFF) == 0x47 || (bytes[0] & 0xFF) == 0x42);
+        if (bytes != null && bytes.length >= 4) {
+            return Imagenes.esImagenValida(bytes);
+        }
+        return false;
     }
 
     static String resumirEtapas(String json) {
@@ -1065,7 +1123,7 @@ public class VistaEscritorio extends Application {
         hasta.setPromptText("hasta (aaaa-mm-dd)");
         textoCodigo = new TextField();
         textoCodigo.setPromptText("codigo usuario (o SERVIDOR)");
-        textoCodigo.setPrefWidth(170);
+        textoCodigo.setMaxWidth(Double.MAX_VALUE);
         estadoInforme = new Label(" ");
 
         Button actualizar = boton("Actualizar", () -> ejecutarSeguro(this::actualizarInforme));
@@ -1077,6 +1135,8 @@ public class VistaEscritorio extends Application {
                 new Label("Desde:"), desde, new Label("Hasta:"), hasta,
                 new Label("Codigo:"), textoCodigo, actualizar, exportar);
         filtros.setStyle("-fx-padding: 8;");
+        filtros.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        HBox.setHgrow(textoCodigo, Priority.ALWAYS);
 
         tablaInformes = new TableView<>();
         tablaInformes.getSelectionModel().selectedItemProperty().addListener(

@@ -1,7 +1,7 @@
 # PLAN DE MEJORAS — ARCHIVO HISTÓRICO (clientes + servidor)
 
 > **Archivado el 2026-10-07.** Diario de lo ejecutado el 2026-10-04/05.
-> El tablero vigente es [`../../ESTADO_ROADMAP.md`](../../ESTADO_ROADMAP.md);
+> El tablero vigente es [`../../ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md);
 > no usar este archivo como lista de pendientes.
 
 > Plan ejecutado el 2026-10-04 (ver "Registro de ejecución" al final).
@@ -665,8 +665,8 @@ cliente Java **58/58**, Python **60** + 5 omitidas, .NET **35/35**.
 ## Ronda de planificación 2026-10-05 (documentación, sin aplicar código)
 
 Esta ronda **no modificó código**. Se auditó el proyecto completo y se escribió la planificaciónón.
-Evidencia con `archivo:línea` en [`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md); plan ejecutable en
-[`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md); tablero en [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md).
+Evidencia con `archivo:línea` en [`ANALISIS_TECNICO-historico.md`](ANALISIS_TECNICO-historico.md); plan ejecutable en
+[`PLAN_PATRONES_UI-historico.md`](PLAN_PATRONES_UI-historico.md); tablero en [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md).
 
 ### Qué se escribió
 

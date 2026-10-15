@@ -37,9 +37,13 @@ $anchos = @{
     'act-difusion'       = 2000
     'clases-servidor-app'  = 2000
     'clases-inicio-vistas' = 2000
-    'clases-fachada-casos' = 2000
+    'clases-fachada-casos' = 3000
     'clases-nucleo'        = 2000
     'clases-persistencia'  = 2000
+    'act-archivo-fragmentado' = 3000
+    'act-descarga'            = 3000
+    'act-reconexion-cola'     = 3000
+    '02-clases-puertos-adaptadores' = 3000
 }
 
 function Test-Herramienta {

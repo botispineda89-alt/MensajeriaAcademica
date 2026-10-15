@@ -109,7 +109,9 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         # UIX-06/UIX-07: búsqueda en el historial con debounce.
         self.modelo_vista = self._ctx.vista
         self._preferencias_chat = self._ctx.preferencias
-        self._restauracion_ultimo_chat_pendiente = True
+        # T1 (2026-10-14): se quitó la restauración de la última conversación al
+        # arrancar. La preferencia se sigue guardando (flujo_conversacion_chat),
+        # pero el chat abre sin selección a propósito.
         self._timer_buscar = QTimer(self)
         self._timer_buscar.setSingleShot(True)
         self._timer_buscar.setInterval(300)
@@ -141,7 +143,9 @@ class ChatWindow(GestorSalidaSesionChat, FlujoConversacionChat, ProcesadorEvento
         self._pool = self._ctx.pool
         self._directorio_imagenes = self._ctx.directorio_imagenes()
 
-        self.setWindowTitle(TITULO_CHAT.format(codigo=codigo))
+        # P4: aquí solo se conoce el código; el nombre completo llega con el
+        # directorio y `_entregar_directorio` vuelve a pintar el título.
+        self.setWindowTitle(TITULO_CHAT.format(identidad=codigo))
         self.setMinimumSize(QSize(900, 600))
         self.resize(1120, 740)
         self.setAcceptDrops(True)

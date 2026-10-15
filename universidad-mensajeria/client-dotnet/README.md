@@ -24,10 +24,9 @@ testeable desde la suite—. Se descartó `SixLabors.ImageSharp`: la 4.x exige l
 3.x arrastra avisos NU1902/NU1903 en cada compilación. Verifica que `libSkiaSharp.dll` está en la
 publicación.
 
-La auditoría NuGet actual de tests advierte gravedad alta en la dependencia transitiva
-`SQLitePCLRaw.lib.e_sqlite3 2.1.6` (vía `Microsoft.Data.Sqlite 8.0.10`, fijado a propósito).
-Decisión vigente: se mantiene la versión fijada y la alerta queda como riesgo conocido a
-revisar antes de un despliegue de producción; no se actualiza sin probar la suite completa.
+La auditoría NuGet de `Microsoft.Data.Sqlite 8.0.31` reporta 0 vulnerabilidades
+conocidas (`SEG-04` cerrado en `../../docs/ESTADO_ROADMAP.md` §15.4, verificado con
+`dotnet list package --vulnerable`).
 
 En el destino, inicia `Mensajeria.exe`. Al ser self-contained no requiere instalar .NET Desktop
 Runtime. Para publicar en ARM64 o una plataforma distinta, sustituye el Runtime Identifier (`-r`)
@@ -60,7 +59,6 @@ puerto=5000
 db.url=sqlite:///~/mensajeria_cliente.db
 db.user=
 db.pass=
-idioma=es
 adjuntos.lote-max-mb=200
 ```
 

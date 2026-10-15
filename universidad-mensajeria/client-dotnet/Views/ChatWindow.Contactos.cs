@@ -35,14 +35,19 @@ namespace Mensajeria.Views
             catch { lista = await Task.Run(() => _fachada.DirectorioLocal()); }
             await ActualizarFechasRecientesAsync();
             string? seleccionado = (lstUsuarios.SelectedItem as UsuarioVM)?.Codigo ?? UsuarioDestino;
-            // Encabezado de sesión con nombre completo + código cuando está disponible.
+            // P4: identidad de la cuenta (nombre completo + código cuando está disponible) en
+            // el sidebar y en el título de la ventana. Los dos salen del mismo dato a
+            // propósito: antes el sidebar tenía el nombre y el título seguía con `| Chat`.
             var propia = lista.FirstOrDefault(u => u.TryGetValue("codigo", out var c) && c is string s && s == _fachada.UsuarioActual);
             if (propia != null)
             {
                 string nom = (Valor(propia, "nombres") + " " + Valor(propia, "apellidos")).Trim();
-                txtSesion.Text = string.IsNullOrWhiteSpace(nom)
-                    ? $"Sesión activa · {_fachada.UsuarioActual}"
-                    : $"Sesión activa · {nom} [{_fachada.UsuarioActual}]";
+                string codigoCuenta = _fachada.UsuarioActual ?? "";
+                string identidad = string.IsNullOrWhiteSpace(nom)
+                    ? codigoCuenta
+                    : $"{nom} [{codigoCuenta}]";
+                txtSesion.Text = $"Sesión activa · {identidad}";
+                Title = TextosVentana.TituloChatCon(identidad);
             }
             _directorio = lista
                 .Where(u => u.TryGetValue("codigo", out var c) && c is string s && s != _fachada.UsuarioActual)
@@ -64,22 +69,10 @@ namespace Mensajeria.Views
                     u.PropioPreview = prev.Propio;
                 }
             }
+            // T1 (2026-10-14): aquí se reabría la última conversación de la cuenta
+            // (`RestaurarUltimoChatSiPendiente`). Se quitó a propósito: el chat arranca sin
+            // selección. La preferencia se sigue guardando al cambiar de chat.
             AplicarFiltro(seleccionado);
-            RestaurarUltimoChatSiPendiente(seleccionado);
-        }
-
-        private void RestaurarUltimoChatSiPendiente(string? seleccionado)
-        {
-            if (!_restauracionUltimoChatPendiente) return;
-            _restauracionUltimoChatPendiente = false;
-            string? seleccionadoInicial = Transversal.PreferenciasChat.ResolverSeleccion(
-                Transversal.PreferenciasChat.UltimoChat(_fachada.UsuarioActual),
-                seleccionado, _usuarios.Select(u => u.Codigo));
-            if (seleccionadoInicial == null
-                || string.Equals(seleccionadoInicial, seleccionado, StringComparison.OrdinalIgnoreCase))
-                return;
-            lstUsuarios.SelectedItem = _usuarios.FirstOrDefault(u =>
-                string.Equals(u.Codigo, seleccionadoInicial, StringComparison.OrdinalIgnoreCase));
         }
 
         private async Task ActualizarFechasRecientesAsync()
@@ -138,7 +131,54 @@ namespace Mensajeria.Views
             foreach (var usuario in vista) _usuarios.Add(usuario);
             if (seleccionado != null)
                 lstUsuarios.SelectedItem = _usuarios.FirstOrDefault(u => u.Codigo == seleccionado);
-            txtEstado.Text = $"{_directorio.Count(u => u.Conectado)} contactos en línea";
+            // N2: el conteo del directorio va al sidebar. En la cabecera vive la presencia del
+            // contacto abierto, y este método corre en cada aviso de presencia: escribiendo el
+            // conteo ahí, el `en línea`/`desconectado` duraba hasta el siguiente refresco.
+            txtEstadoRed.Text = $"{_directorio.Count(u => u.Conectado)} contactos en línea";
+            RefrescarPresenciaCabecera();
+        }
+
+        /// <summary>
+        /// T1 (2026-10-14): deja la ventana sin conversación (Esc).
+        /// </summary>
+        /// <remarks>
+        /// Solo suelta la selección: el historial local y la preferencia del último chat
+        /// quedan intactos, y ninguna conversación se reabre sola al arrancar. Se vacían la
+        /// lista visible, la cita y los adjuntos, que eran de ese chat.
+        /// </remarks>
+        private void DeseleccionarConversacion()
+        {
+            if (UsuarioDestino == null) return;
+            // Las cargas en vuelo de la conversación que se abandona ya no pintan aquí.
+            _versionCargaHistorial++;
+            Interlocked.Increment(ref _versionNavegacionCita);
+            lstUsuarios.SelectedItem = null;
+            UsuarioDestino = null;
+            _mensajes.Clear();
+            _nuevosPendientes = 0;
+            btnNuevos.Visibility = Visibility.Collapsed;
+            _adjuntos.Limpiar();
+            ActualizarPanelAdjuntos();
+            LimpiarCita();
+            txtTitulo.Text = TextosVentana.SeleccionaConversacion;
+            txtEstado.Text = "";
+            ActualizarVacioChat();
+            ActualizarEstadoEnvio();
+        }
+
+        /// <summary>
+        /// N2: presencia del contacto abierto en la cabecera (`en línea` / `desconectado`).
+        /// Sin conversación, la cabecera se queda en blanco y el título ya dice
+        /// `Selecciona una conversación`.
+        /// </summary>
+        private void RefrescarPresenciaCabecera()
+        {
+            if (txtEstado == null) return;
+            txtEstado.Text = UsuarioDestino == null
+                ? ""
+                : _usuarios.FirstOrDefault(u =>
+                    string.Equals(u.Codigo, UsuarioDestino, StringComparison.OrdinalIgnoreCase))
+                    ?.Presencia ?? "";
         }
 
         private void TxtBuscar_TextChanged(object sender, TextChangedEventArgs e)

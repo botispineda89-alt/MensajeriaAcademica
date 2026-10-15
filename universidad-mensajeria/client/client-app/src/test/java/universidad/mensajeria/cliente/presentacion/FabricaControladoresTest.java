@@ -3,12 +3,15 @@ package universidad.mensajeria.cliente.presentacion;
 import org.junit.jupiter.api.Test;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import universidad.mensajeria.cliente.fachada.InterfazChatCliente;
 import universidad.mensajeria.cliente.fachada.InterfazInicioSesion;
 import universidad.mensajeria.cliente.transversal.config.ClienteConfig;
 
 import java.lang.reflect.Proxy;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -94,6 +97,39 @@ class FabricaControladoresTest {
             Parent chatView = chatLoader.load();
             assertNotNull(chatView);
             assertTrue(chatLoader.getController() instanceof ChatController);
+            ((ChatController) chatLoader.getController()).detener();
+            return null;
+        });
+    }
+
+    @Test
+    void losAvisosVanArribaDeLaListaDeMensajes() throws Exception {
+        // J1 (2026-10-14): el banner de sin conexión y el aviso inline van bajo la
+        // cabecera, no al pie: abajo competían con el compositor y el aviso se leía
+        // tarde. Se comprueba sobre la vista cargada de verdad, no sobre el texto
+        // del FXML, para que un `<VBox>` movido de sitio no pase inadvertido.
+        iniciarJavaFx();
+        ejecutarEnJavaFx(() -> {
+            FXMLLoader chatLoader = crearLoader("/vistas/chat.fxml",
+                    new FabricaControladores(inicioSesion, chat, tareasFondo, config, navegacion));
+            Parent vista = chatLoader.load();
+            // La columna derecha del divisor es la conversación; los avisos se buscan
+            // por `fx:id` entre sus hijos en vez de por selector CSS.
+            javafx.scene.layout.VBox conversacion = (javafx.scene.layout.VBox)
+                    ((javafx.scene.control.SplitPane) vista).getItems().get(1);
+            Map<String, Integer> posiciones = new LinkedHashMap<>();
+            for (Node hijo : conversacion.getChildren()) {
+                posiciones.putIfAbsent(hijo.getId(), posiciones.size());
+            }
+            int lista = posiciones.getOrDefault("listaMensajes", -1);
+            int banner = posiciones.getOrDefault("bannerOffline", -1);
+            int aviso = posiciones.getOrDefault("avisoInline", -1);
+
+            assertTrue(lista >= 0, "la lista de mensajes tiene que estar en la vista");
+            assertTrue(banner >= 0 && banner < lista,
+                    "el banner de sin conexión va antes de la lista de mensajes");
+            assertTrue(aviso >= 0 && aviso < lista,
+                    "el aviso inline va antes de la lista de mensajes");
             ((ChatController) chatLoader.getController()).detener();
             return null;
         });

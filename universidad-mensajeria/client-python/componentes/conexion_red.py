@@ -21,6 +21,7 @@ from transversal.tls import (
 )
 
 TIMEOUT_RESPUESTA_SEG = 15
+TIMEOUT_ARCHIVO_SEG = 180
 
 
 class ConexionRed:
@@ -152,6 +153,10 @@ class ConexionRed:
     def desenroscar_fragmentos(self, id_peticion):
         with self.lock:
             self._colectores.pop(str(id_peticion), None)
+
+    def pedir_archivo(self, msg, timeout=TIMEOUT_ARCHIVO_SEG):
+        """Espera el ACK de una fase de subida sin confundir lentitud con fallo."""
+        return self.pedir(msg, timeout=timeout)
 
     def pedir(self, msg, timeout=TIMEOUT_RESPUESTA_SEG):
         """Envia correlacionando por id y DEVUELVE la respuesta (o eleva)."""

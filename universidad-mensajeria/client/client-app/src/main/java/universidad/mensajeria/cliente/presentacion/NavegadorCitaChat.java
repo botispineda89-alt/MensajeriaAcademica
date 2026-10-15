@@ -235,6 +235,18 @@ public final class NavegadorCitaChat {
         }
         listaMensajes.scrollTo(indice);
         listaMensajes.getSelectionModel().clearAndSelect(indice);
+        resaltarVisible(id, intentos);
+    }
+
+    /** Resalta la burbuja respondida sin cambiar el scroll ni la selección del chat. */
+    void resaltarAlResponder(MensajeLocal mensaje) {
+        if (mensaje == null || mensaje.idMensaje() == null) {
+            return;
+        }
+        resaltarVisible(mensaje.idMensaje(), 2);
+    }
+
+    private void resaltarVisible(String id, int intentos) {
         Platform.runLater(() -> {
             Node burbuja = listaMensajes.lookupAll(".list-cell").stream()
                     .filter(ListCell.class::isInstance)
@@ -249,7 +261,7 @@ public final class NavegadorCitaChat {
             if (burbuja != null) {
                 resaltar(burbuja);
             } else if (intentos > 0) {
-                enfocar(id, intentos - 1);
+                resaltarVisible(id, intentos - 1);
             }
         });
     }

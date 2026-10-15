@@ -149,6 +149,21 @@ public final class PaginadorHistorialChat {
         }
     }
 
+    /**
+     * T1: sin conversación no se enseña el historial de la anterior. El pintado normal
+     * sale antes cuando no hay destino, así que vaciar es cosa de quien deselecciona.
+     */
+    void vaciar() {
+        listaMensajes.getItems().clear();
+        nuevosPendientes = 0;
+        botonNuevos.setVisible(false);
+        botonNuevos.setManaged(false);
+        botonMas.setVisible(false);
+        botonMas.setManaged(false);
+        ruedaHistorial.setVisible(false);
+        ruedaHistorial.setManaged(false);
+    }
+
     void pintarPagina(String otro, List<MensajeLocal> pagina, int total, int off) {
         if (otro == null) {
             return;

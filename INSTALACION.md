@@ -448,7 +448,7 @@ Cada proceso recibe **una carpeta**, nunca el monorepo:
 ```powershell
 Set-Location universidad-mensajeria
 
-cmd dist\distribuir-servidor.cmd      # -> dist\MensajeriaServidor\
+cmd server\distribuir-servidor.cmd    # -> dist\MensajeriaServidor\
 cmd client\dist-client.cmd            # -> dist\MensajeriaClienteJava\
 cmd client-python\distribuir.cmd      # -> client-python\dist\MensajeriaPython\
 dotnet publish client-dotnet\Mensajeria.csproj -c Release -r win-x64 --self-contained true -o dist\MensajeriaWPF
@@ -540,8 +540,8 @@ local del usuario.
 ## 15. Referencias
 
 - [`DESPLIEGUE.md`](DESPLIEGUE.md) — despliegue por computador, backups, rotación de secretos.
-- [`GUIA_ACEPTACION.md`](GUIA_ACEPTACION.md) — pruebas y matriz manual.
-- [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) — qué falta y en qué orden.
+- [`GUIA_ACEPTACION.md`](docs/GUIA_ACEPTACION.md) — pruebas y matriz manual.
+- [`ESTADO_ROADMAP.md`](docs/ESTADO_ROADMAP.md) — qué falta y en qué orden.
 - Guías por componente: [servidor](universidad-mensajeria/server/servidor-app/README.md) ·
   [JavaFX](universidad-mensajeria/client/README.md) ·
   [Python](universidad-mensajeria/client-python/README.md) ·

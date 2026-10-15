@@ -25,6 +25,13 @@ public final class EntregaCaso {
     private final universidad.mensajeria.protocolo.InterfazProtocoloComunicacion protocolo;
     private final InterfazConexionesClientes conexiones;
 
+    /**
+     * Umbral a partir del cual el Base64 excede con certeza los 16 MiB de trama
+     * (~11.5 MB binario). Se envía directamente la versión ligera para evitar
+     * la serialización masiva inútil y la CodecException.
+     */
+    private static final long UMBRAL_ENTREGA_LIGERA = 11L * 1024 * 1024;
+
     public EntregaCaso(universidad.mensajeria.protocolo.InterfazProtocoloComunicacion protocolo,
                        InterfazConexionesClientes conexiones) {
         this.protocolo = protocolo;
@@ -44,9 +51,10 @@ public final class EntregaCaso {
      */
     public void entregar(String codigo, Mensaje entrega, IdSesion excepto) {
         boolean alMenosUna = false;
+        Mensaje mensajeEnvio = requiereVersionLigera(entrega) ? sinContenido(entrega) : entrega;
         for (IdSesion s : conexiones.sesionesDe(codigo)) {
             try {
-                protocolo.enviar(s, entrega);
+                protocolo.enviar(s, mensajeEnvio);
                 alMenosUna = true;
             } catch (Exception e) {
                 // Un adjunto grande no cabe en UNA trama (16 MiB): los bytes van
@@ -122,17 +130,24 @@ public final class EntregaCaso {
                 m.indiceParte(), m.tipoOriginal());
     }
 
+    private static boolean requiereVersionLigera(Mensaje m) {
+        if (m == null) return false;
+        if (m.tamanoArchivo() != null && m.tamanoArchivo() > UMBRAL_ENTREGA_LIGERA) return true;
+        return m.contenidoImagen() != null && m.contenidoImagen().length() > 15 * 1024 * 1024;
+    }
+
     private void ecoRemitente(String codigoDestino, Mensaje entrega, IdSesion excepto) {
         String remitente = entrega.remitente();
         if (remitente == null || remitente.isBlank() || remitente.equals(codigoDestino)) {
             return;
         }
+        Mensaje mensajeEnvio = requiereVersionLigera(entrega) ? sinContenido(entrega) : entrega;
         for (IdSesion s : conexiones.sesionesDe(remitente)) {
             if (excepto != null && excepto.id() != null && excepto.id().equals(s.id())) {
                 continue;
             }
             try {
-                protocolo.enviar(s, entrega);
+                protocolo.enviar(s, mensajeEnvio);
             } catch (Exception e) {
                 // Mismo motivo que en el destinatario: el eco de un adjunto grande
                 // tampoco cabe. Se manda la version ligera; si ni esa cabe, el

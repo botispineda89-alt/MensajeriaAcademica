@@ -4,7 +4,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:local="clr-namespace:Mensajeria.Views"
         xmlns:transversal="clr-namespace:Mensajeria.Transversal"
-        Title="{x:Static transversal:TextosVentana.TituloChat}" Height="760" Width="1120"
+        Height="760" Width="1120"
         MinHeight="600" MinWidth="880" WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBgBrush}">
     <Window.Resources>
@@ -41,6 +41,13 @@
                     <TextBlock x:Name="bannerOfflineText" Text="⛔ Sin conexión — mensajes en cola local, se reintentan solos"
                                Foreground="#B45309" FontWeight="SemiBold" FontSize="11" TextWrapping="Wrap"/>
                 </Border>
+                <!-- N2 (2026-10-14): el estado del directorio vive aquí, en el sidebar,
+                     para que la cabecera pueda llevar la presencia del contacto abierto.
+                     Antes la cuenta de contactos y la presencia compartían `txtEstado`.
+                     Declarado antes que la fila de acciones para quedar abajo del todo. -->
+                <TextBlock x:Name="txtEstadoRed" DockPanel.Dock="Bottom" Margin="16,0,16,8"
+                           Foreground="{DynamicResource MutedBrush}" FontSize="11"
+                           TextWrapping="Wrap"/>
                 <StackPanel DockPanel.Dock="Bottom" Margin="8,0,8,10">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                         <ui:Button Content="KICK otras" Click="BtnKickOtras_Click"
@@ -387,7 +394,8 @@
                                 <DockPanel LastChildFill="False" Margin="0,8,0,0">
                                     <TextBlock Text="{Binding Fecha}" Foreground="{DynamicResource FechaBrush}" FontSize="11"
                                                VerticalAlignment="Center"/>
-                                    <Button Content="Responder" DockPanel.Dock="Right" Margin="8,0,0,0"
+                                    <Button Content="{x:Static transversal:TextosVentana.BotonResponder}"
+                                         DockPanel.Dock="Right" Margin="8,0,0,0"
                                          Padding="4,1" Click="BtnResponder_Click"/>
                                 </DockPanel>
                             </StackPanel>

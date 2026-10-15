@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 
 from transversal.fechas import ahora_utc
+from transversal.textos import SELECCIONA_CONVERSACION
 from transversal import iconos_archivo
 from ui.enviar_mensaje_comando import EnviarMensajeComando
 from ui.plan_envio_adjuntos import Adjunto, PlanEnvioAdjuntos, Texto
@@ -38,6 +39,53 @@ class FlujoConversacionChat:
             return
         self._cancelar_respuesta()
         self._quitar_adjunto()
+
+    def _al_pulsar_escape(self):
+        """Esc en la ventana: cancelar primero y deseleccionar después (T1).
+
+        Antes Esc solo cancelaba cita y adjunto; con la ventana limpia no había
+        forma de dejar la conversación sin selección más que pulsar el contacto
+        activo. El orden importa: si hay algo que cancelar, Esc hace eso y no
+        además suelta el chat.
+        """
+        if self.barra_buscar.isVisible():
+            self._cerrar_buscar()
+            return
+        if self._respuesta_mensaje is not None or self.bandeja_adjuntos.rutas:
+            self._cancelar_composicion()
+            return
+        self.deseleccionar_conversacion()
+
+    def deseleccionar_conversacion(self):
+        """T1 (2026-10-14): deja la ventana sin conversación.
+
+        El historial local y la preferencia del último chat no se tocan: se suelta
+        la selección, se vacía la lista visible y se caen la cita y los adjuntos
+        que eran de ese chat. La cabecera vuelve a `Selecciona una conversación`.
+        """
+        if self.usuario_seleccionado is None:
+            return
+        self._reconstruyendo = True
+        try:
+            self.lista_usuarios.clearSelection()
+            self.lista_usuarios.setCurrentItem(None)
+        finally:
+            self._reconstruyendo = False
+        self.usuario_seleccionado = None
+        self._cancelar_respuesta()
+        self._quitar_adjunto()
+        # La conversación que se estaba pintando ya no vale: se invalida su
+        # generación para que una página en vuelo no la repinte encima.
+        self._gen_historial += 1
+        self._historial_ids.clear()
+        self._offset = 0
+        self._modelo_mensajes.limpiar()
+        self._nuevos_pendientes = 0
+        self.btn_nuevos.setVisible(False)
+        self.lbl_conversacion.setText(SELECCIONA_CONVERSACION)
+        self.lbl_presencia.setText("")
+        self._actualizar_vacio_chat()
+        self._actualizar_envio()
 
     def _avisar_nuevo(self):
         """UIX-16: llegó algo mientras se lee historial viejo."""

@@ -7,7 +7,7 @@ REM Ejecutar desde universidad-mensajeria/
 REM ============================================================
 setlocal
 echo === [1/4] Servidor (Spring Boot fat jar) ===
-call dist\distribuir-servidor.cmd || goto :fallo
+call server\distribuir-servidor.cmd || goto :fallo
 
 echo === [2/4] Cliente JavaFX ===
 call client\dist-client.cmd || goto :fallo

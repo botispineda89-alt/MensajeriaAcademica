@@ -64,7 +64,7 @@ El sistema se compone de dos aplicaciones:
 | **RF-S03** | Los usuarios están registrados en un **archivo plano**, que es la **única fuente de registro**. El alta, la baja y la modificación de usuarios se hacen editando ese archivo; el servidor lo carga al iniciar. | Ajuste |
 | **RF-S04** | Un mismo usuario **puede conectarse más de una vez** (múltiples sesiones simultáneas). Los mensajes y difusiones se distribuyen a todas sus sesiones activas. | Obligatorio |
 | **RF-S27** | El servidor **no debe exponer ninguna operación de registro** a los clientes. Un intento de registro por red se rechaza con un mensaje de error explícito. | Ajuste |
-| **RF-S28** | Las contraseñas del archivo plano se almacenan como **hash** (no en texto claro) y la validación compara hashes. | Extra |
+| **RF-S28** | Las contraseñas del archivo plano se almacenan como **hash** (no en texto claro) y la validación compara hashes. **Fuera de alcance: excluido 2026-10-15 por decisión de producto (fila 23 del control de cambios).** | ~~Extra~~ Fuera de alcance |
 | **RF-S34** | **Toda trama que requiera sesión autenticada debe rechazarse con `ERROR` cuando llega de una sesión anónima.** La comprobación es responsabilidad de cada comando, porque el despachador no filtra. Añadido 2026-10-05 tras el hallazgo `SEC-05`. | **Obligatorio** |
 | **RF-S35** | Ningún comando puede declarar en su firma una capacidad de respuesta (`SalidaRespuestas`) que no use: la firma debe reflejar el cuerpo. Añadido 2026-10-05 (`SEC-06`). | Ajuste |
 
@@ -107,8 +107,8 @@ El sistema se compone de dos aplicaciones:
 | **RF-S16** | Cada filtro genera una **nueva imagen**, que debe **almacenarse**. | Obligatorio |
 | **RF-S17** | Los filtros se ejecutan **secuencialmente**. | Obligatorio |
 | **RF-S33** | El procesamiento de texto e imagen se implementa como una **tubería de filtros (*Pipes & Filters*)**, con etapas independientes y reutilizables. | Extra |
-| **RF-S59** | Los formatos de imagen aceptados son **PNG, JPEG, GIF, BMP y WebP**. La validación se hace por **magic bytes** (para WebP, la firma `WEBP` en el offset 8, de modo que un `.wav` o un `.avi` se rechacen) y la tubería **decodifica** lo que la validación deja pasar. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.6). | Obligatorio |
-| **RF-S60** | Subir **dos veces el mismo archivo con el mismo propietario no pierde el mensaje**: la clave `archivos.ruta` es única y hoy esa resubida revienta el `insert`. **Abierto** (`ESTADO_ROADMAP.md` §5.7). | Obligatorio |
+| **RF-S59** | Se aceptan **PNG, JPEG, GIF, BMP, WebP, AVIF, HEIC/HEIF y SVG**. Se validan por contenido: WebP por la firma `WEBP` en el offset 8; AVIF/HEIC por `ftyp` y la marca del formato; SVG por el primer elemento real del documento. La tubería decodifica los formatos aceptados; AVIF/HEIC/SVG requieren ImageMagick en el servidor. Añadido 2026-10-10 y ampliado 2026-10-14 (ver `ESTADO_ROADMAP.md` §§5.6, 5.24). | Obligatorio |
+| **RF-S60** | Subir dos veces el mismo archivo con el mismo propietario **no pierde el mensaje ni falla por la restricción única de `archivos.ruta`**. La persistencia es idempotente para esa ruta. **Cerrado 2026-10-14**, con `JpaPersistenciaAdapterTest` (7/7); evidencia en `ESTADO_ROADMAP.md` §5.7. | Obligatorio |
 
 ### 3.5 Persistencia y logs
 
@@ -135,8 +135,8 @@ El sistema se compone de dos aplicaciones:
 
 | ID | Requerimiento | Prioridad |
 |---|---|---|
-| **RF-S34** | La consola presenta una **interfaz mejorada y legible**: encabezado con nombre, puerto y estado del servidor; **menú numerado** de opciones; separadores visuales entre secciones. | Ajuste |
-| **RF-S35** | Los informes y listados se muestran en **tablas alineadas por columnas** (con paginación o truncado de campos largos). | Ajuste |
+| **RF-S61** | La consola presenta una **interfaz mejorada y legible**: encabezado con nombre, puerto y estado del servidor; **menú numerado** de opciones; separadores visuales entre secciones. Antes `RF-S34`; renumerado 2026-10-15 (fila 23 del control de cambios). | Ajuste |
+| **RF-S62** | Los informes y listados se muestran en **tablas alineadas por columnas** (con paginación o truncado de campos largos). Antes `RF-S35`; renumerado 2026-10-15 (fila 23 del control de cambios). | Ajuste |
 | **RF-S36** | Cada mensaje entrante se muestra en un **bloque con formato uniforme**: fecha y hora, remitente, destinatario, tipo (texto/imagen), hash SHA-256 y resultado del procesamiento (conteo de caracteres/palabras, o rutas de las imágenes generadas). | Ajuste |
 | **RF-S37** | Los eventos se distinguen por **categoría y color** (información, advertencia, error, conexión, desconexión) cuando la terminal soporte colores ANSI; si no, se usan etiquetas de texto (`[INFO]`, `[WARN]`, `[ERROR]`). | Ajuste |
 | **RF-S38** | La consola muestra un **resumen de estado** (usuarios conectados / límite, sesiones activas, mensajes procesados) y valida las entradas del administrador mostrando mensajes de error claros. | Ajuste |
@@ -211,10 +211,10 @@ El sistema se compone de dos aplicaciones:
 
 | ID | Requerimiento | Prioridad |
 |---|---|---|
-| **RF-C04** | La información del cliente se almacenará en una **base de datos relacional local (H2 Database)**. | Obligatorio |
-| **RF-C05** | La conexión a la base de datos H2 debe configurarse mediante **archivos de configuración**. | Obligatorio |
-| **RF-C15** | Todo mensaje enviado o recibido se guarda en H2 y el **historial** de cada conversación se puede consultar localmente. | Extra |
-| **RF-C16** | Si la red falla, los mensajes se **encolan localmente** y se reintentan al restablecer la conexión. | Extra |
+| **RF-C04** | Cada cliente mantiene su información en una **base de datos relacional local**, aislada del servidor. JavaFX usa H2; Python y .NET usan SQLite, por cuenta. | Obligatorio |
+| **RF-C05** | La configuración de la persistencia local se resuelve mediante la configuración y convenciones propias de cada cliente; no se comparte la base de datos del servidor. | Obligatorio |
+| **RF-C15** | Los mensajes enviados o recibidos se guardan localmente y el **historial** de cada conversación se puede consultar sin depender de la base de datos del servidor. JavaFX usa H2; Python y .NET usan SQLite. | Extra |
+| **RF-C16** | Si la red falla, los mensajes se **encolan localmente** y se reintentan al restablecer la conexión. **Fuera de alcance: excluido 2026-10-15 por decisión de producto (fila 23 del control de cambios).** | ~~Extra~~ Fuera de alcance |
 | **RF-C22** | El historial y las colas locales se aíslan por cuenta. Instancias del mismo código pueden compartir su archivo; cuentas distintas no comparten filas cuya orientación/estado sea relativo al usuario. La migración desde archivos compartidos es aditiva e idempotente. | Ajuste |
 | **RF-C23** | El cliente **comunica su estado de conexión** (`Conectando`, `Conectado`, `SinRed`, `SesionCerrada`) de forma observable y reactiva, no por sondeo periódico del servidor. Añadido 2026-10-05 (`PAT-03`). | Ajuste |
 | **RF-C24** | La vista **no alcanza el interior de la fachada**: no usa localizadores de servicio estáticos, no consulta atributos privados ni parchea la fachada en runtime. La lógica de presentación se alcanza por una costura pública y comprobable. Añadido 2026-10-05 (`PAT-01`). | Ajuste |
@@ -227,7 +227,7 @@ El sistema se compone de dos aplicaciones:
 | **RF-C31** | Las listas largas se muestran **virtualizadas**. Añadido 2026-10-05 (`UIX-01`). | Ajuste |
 | **RF-C32** | Al enviar **varias imágenes** en una operación, el cliente las compone en un montaje y las entrega como **una sola burbuja**; el texto, si lo hay, es el pie de esa burbuja. Los documentos no se componen y siguen yendo en mensajes propios. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
 | **RF-C33** | Los envíos de archivos grandes son **secuenciales** por el protocolo fragmentado (`ARCHIVO_INICIO` → N×`ARCHIVO_PARTE` → `ARCHIVO_FIN`, una parte en vuelo y `ACK` por parte), con progreso ponderado por bytes y cancelación cooperativa. Cancelar no deja pendientes en la cola offline; un fallo de transporte encola solo el adjunto fallido. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.4). | Obligatorio |
-| **RF-C34** | El servidor acepta como imagen **PNG, JPEG, GIF, BMP y WebP** (validación por *magic bytes*, con la firma `WEBP` en el offset 8) y la tubería de filtros **decodifica** lo que la validación deja pasar. Los clientes envían el archivo **sin renombrar ni convertir**; convertir a PNG, si lo hacen, es solo para representarlo. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.6). | Obligatorio |
+| **RF-C34** | El servidor acepta como imagen **PNG, JPEG, GIF, BMP, WebP, AVIF, HEIC/HEIF y SVG**, con validación basada en la firma/contenido del formato, y la tubería de filtros **decodifica** lo aceptado. Los clientes envían el archivo **sin renombrar ni convertir**; convertir a PNG, si lo hacen, es solo para representarlo. AVIF/HEIC/SVG requieren ImageMagick en el servidor. Añadido 2026-10-10 y ampliado 2026-10-14 (`ESTADO_ROADMAP.md` §§5.6, 5.24). | Obligatorio |
 | **RF-C35** | Las imágenes recibidas se pueden **guardar en el equipo**: el archivo entregado es el **original**, no la copia de visualización. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
 | **RF-C36** | Los avisos recuperables (envío correcto, fallo, pérdida y recuperación de red) se muestran en una banda sobre el chat y **se retiran solos** con plazos por tipo; también se pueden cerrar manualmente. Añadido 2026-10-10 (`ESTADO_ROADMAP.md` §5.5). | Ajuste |
 
@@ -367,7 +367,7 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 | Procesamiento de texto e imágenes | RF-S11 a RF-S17, RF-S33 |
 | Persistencia y logs | RF-S18 a RF-S22, RF-C04, RF-C05, RF-C15, RF-C16 |
 | Informes | RF-S23 a RF-S26, RF-S54 |
-| Consola y refresco automático | RF-S39 a RF-S42, RNF-11, RNF-12 |
+| Consola y refresco automático | RF-S36 a RF-S42, RF-S61, RF-S62, RNF-11, RNF-12 |
 | Vista administrativa (conectados, ficha, desconexión) | RF-S50 a RF-S52, RF-S55, RF-S58 |
 | Object Pool y concurrencia | RF-S43 a RF-S49, RNF-09, PD-05 |
 | Arquitectura y diseño | RNF-01, RNF-02, RNF-10, PD-01 a PD-13 |
@@ -383,10 +383,10 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 > Los IDs en **negrita** corresponden a cambios recientes: los puntos 11–15 se añadieron el
 > **2026-10-05** en la ronda de auditoría y el punto 16 el **2026-10-06** para la consola
 > administrativa ([`docs/archivo/ANALISIS_TECNICO-historico.md`](../docs/archivo/ANALISIS_TECNICO-historico.md)). Nota sobre numeración:
-> `RF-S34` y `RF-S35` son
-> **nuevos** y se solapan con el rango histórico `RF-S34..RF-S38` de §3.7 (interfaz de consola).
-> Conviene renumerar en la siguiente versión del documento; mientras tanto, la desambiguación es
-> `RF-S34/S35` = autorización de tramas y `RF-S36..S42` = consola y refresco.
+> `RF-S34` y `RF-S35` son de **autorización de tramas** (auditoría 2026-10-05) y ya no se
+> solapan: los dos requisitos de consola que reutilizaban esos IDs se renumeraron el
+> **2026-10-15** a `RF-S61` (interfaz mejorada) y `RF-S62` (tablas alineadas). El rango de
+> consola es ahora `RF-S36..S42` más `RF-S61..S62`.
 
 ---
 
@@ -394,7 +394,7 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 
 | # | Cambio | Requerimientos |
 |---|---|---|
-| 1 | Mejora de la interfaz de la consola del servidor | RF-S36 a RF-S40 (ver nota de numeración) |
+| 1 | Mejora de la interfaz de la consola del servidor | RF-S61, RF-S62, RF-S36 a RF-S38 (ver nota de numeración) |
 | 2 | Los usuarios no se registran desde el cliente; el registro se hace solo en el archivo plano | RF-S03, RF-S27, RF-C06 |
 | 3 | Cierre de sesión por inactividad a los 10 minutos | RF-S29, RF-S30, RF-C08 |
 | 4 | Patrón Object Pool para los múltiples hilos | RF-S43 a RF-S49, PD-05 |
@@ -414,4 +414,6 @@ El servidor debe seguir la arquitectura de paquetes y componentes del diagrama *
 | **18** | **Sesión B vista administrativa 2026-10-07.** Conectados con `Nombre Apellidos [código]` y sync lista↔combo; confirmación Sí/No al desconectar; Usuarios centrado; ficha Mensajes con paridad (filtro local, detalle, divisor, selección por id); Informes manual sin auto-refresh con conservación de fila | **RF-S51, RF-S52, RF-S54, RF-S55, RF-S58** |
 | **19** | **Cierre de parciales y fidelidad 2026-10-08.** Bloque uniforme multilínea en consola con rutas de derivadas en IMAGEN; IP viva del destinatario en tabla y detalle de Mensajes; las 5 lecturas de casos de uso pasan por E10 (`InterfazMensajes`, pass-throughs sin flechas ni métodos netos nuevos) con candado en `DiagramaFidelidadTest` | **RF-S36, RF-S53** |
 | **20** | **Deuda SOLID/Clean Code saldada 2026-10-08.** `DifusionCaso` + `EntregaCaso` extraídos de la fachada (FachadaDeServicios 901→650); despacho de cola por tabla `EnumMap` en vez de `switch`; pool de entrega creado por `Fabrica`; `DetalleMensaje` extraído a clase propia (VistaEscritorio 1699→1418); fallback 50 MB unificado en `LimitesDTO.TAMANO_MAXIMO_POR_DEFECTO`. Diagrama intacto: 0 flechas y 0 métodos netos nuevos | **PD-04, RNF-16** |
-| **21** | **Lote de clientes 2026-10-10/11.** El texto escrito junto a un adjunto pasa a ser el **pie de la misma burbuja** (cambia `RF-C11`); varias imágenes salen en una sola burbuja por montaje; el envío fragmentado es secuencial con progreso por bytes y cancelación que no deja pendientes; los avisos se retiran solos; las imágenes se pueden guardar en su formato original; y el servidor acepta **WebP** de punta a punta. Se declara además `RF-S60` para el defecto **abierto** de resubida duplicada | **RF-C11, RF-C32, RF-C33, RF-C35, RF-C36, RF-S59, RF-S60** |
+| **21** | **Lote de clientes 2026-10-10/11 y cierres 2026-10-14.** El texto junto a un adjunto es el pie de la misma burbuja; varias imágenes salen en una sola burbuja por montaje; el envío fragmentado es secuencial con progreso y cancelación; los avisos se retiran solos; las imágenes se guardan en su formato original; y el servidor acepta WebP y formatos amplios. La idempotencia de subidas duplicadas (`RF-S60`) se implementó y probó el 2026-10-14. | **RF-C11, RF-C32, RF-C33, RF-C35, RF-C36, RF-S59, RF-S60** |
+| **22** | **Reconciliación documental 2026-10-14.** Se actualizan los formatos de imagen, el estado cerrado de `RF-S60` y la persistencia local por cliente (H2 para JavaFX y SQLite para Python/.NET), de acuerdo con el esquema y el código vigentes. | **RF-C04, RF-C05, RF-C15, RF-C34, RF-S59, RF-S60** |
+| **23** | **Decisión de producto 2026-10-15.** `RF-S28` (hash en CSV) y `RF-C16` (flush local) quedan **fuera de alcance**; se conservan sus filas como registro histórico. Los requisitos de consola `RF-S34`/`RF-S35` se renumeran a **`RF-S61`/`RF-S62`**; `RF-S34`/`RF-S35` quedan solo para autorización de tramas. | **RF-S28, RF-C16, RF-S61, RF-S62** |

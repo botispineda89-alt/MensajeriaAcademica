@@ -124,7 +124,14 @@ public final class GestorReconexionSesion implements InterfazGestorReconexion {
             alRestaurarSesion.accept(codigo);
             LOG.info("Conexión y sesión restauradas automáticamente.");
         } catch (java.io.IOException | universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente | RuntimeException e) {
-            LOG.log(Level.INFO, "Falló el intento de reconexión automática", e);
+            if (e instanceof java.net.ConnectException) {
+                // El servidor apagado es un estado esperado durante la reconexión.
+                // Se reintenta con espera exponencial y el stack trace solo se deja
+                // disponible en FINE para no confundirlo con un fallo de la app.
+                LOG.fine("Servidor aún no disponible; se reintentará la conexión.");
+            } else {
+                LOG.log(Level.WARNING, "Falló el intento de reconexión automática", e);
+            }
             red.desconectar();
             publicarEstado.accept(EstadoConexion.SIN_RED);
             programarReconexion();

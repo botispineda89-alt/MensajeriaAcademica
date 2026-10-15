@@ -215,9 +215,10 @@ class HistorialLocal:
                 f"""SELECT id_mensaje FROM historial_local
                     WHERE ((origen = ? AND destino = ?)
                         OR (origen = ? AND destino = ?))
-                      AND tipo = ? AND {criterio}
+                      AND (tipo = ? OR (tipo IN ('MENSAJE_TEXTO', 'BROADCAST') AND ? IN ('MENSAJE_TEXTO', 'BROADCAST')))
+                      AND {criterio}
                     ORDER BY fecha_envio DESC LIMIT 1""",
-                params).fetchone()
+                [params[0], params[1], params[2], params[3], params[4], params[4]] + params[5:]).fetchone()
             return fila[0] if fila else None
 
     def actualizar_metadatos_remotos(self, id_mensaje, hash_sha256=None,
@@ -269,7 +270,7 @@ class HistorialLocal:
             filas = conn.execute(f"""
                 WITH ordenados AS (
                     SELECT CASE WHEN origen = ? THEN destino ELSE origen END AS otro,
-                           contenido, tipo, fecha_envio,
+                           contenido, tipo, fecha_envio, origen,
                            ROW_NUMBER() OVER (
                                PARTITION BY CASE WHEN origen = ? THEN destino ELSE origen END
                                ORDER BY fecha_envio DESC, id_mensaje DESC
@@ -279,7 +280,7 @@ class HistorialLocal:
                         OR (destino = ? AND origen <> ? AND origen <> '*'))
                       AND tipo IN ({_CONVERSACION_SQL})
                 )
-                SELECT actual.otro, actual.contenido, actual.tipo, actual.fecha_envio,
+                SELECT actual.otro, actual.contenido, actual.tipo, actual.fecha_envio, actual.origen,
                        (SELECT COUNT(*) FROM historial_local AS no_leidos
                         WHERE no_leidos.origen = actual.otro
                           AND no_leidos.destino = ?
@@ -290,10 +291,14 @@ class HistorialLocal:
                 ORDER BY actual.fecha_envio DESC
             """, (yo, yo, yo, yo, yo, yo,
                   *_TIPOS_CONVERSACION, yo, *_TIPOS_CONVERSACION)).fetchall()
-        return [RecienteChat(
-            fila["otro"], fila["contenido"], fila["tipo"], fila["fecha_envio"],
-            int(fila["no_leidos"]), False)
-            for fila in filas]
+        resultado = []
+        for fila in filas:
+            r = RecienteChat(
+                fila["otro"], fila["contenido"], fila["tipo"], fila["fecha_envio"],
+                int(fila["no_leidos"]), False)
+            object.__setattr__(r, "ultimo_propio", bool(fila["origen"] == yo))
+            resultado.append(r)
+        return resultado
 
     def marcar_descargado(self, id_mensaje, ruta_archivo):
         """HISTORIAL_LOCAL.md §3: marca archivo descargado y guarda su ruta."""

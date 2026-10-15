@@ -59,7 +59,6 @@ Edita `client.properties` en la carpeta del cliente:
 host=192.168.1.20
 puerto=5000
 db.url=sqlite:///~/mensajeria_cliente.db
-idioma=es
 tema=oscuro
 tls.habilitado=false
 tls.puerto=5001
@@ -171,11 +170,12 @@ También funciona con unittest:
 .\.venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-Ultima validación local con unittest: 294 pruebas, 5 omitidas (2026-10-13).
+Última validación registrada con unittest: 321 pruebas, 5 omitidas (2026-10-14; `../../docs/ESTADO_ROADMAP.md`).
 
-## Revisión visual manual pendiente
+## Verificación visual complementaria
 
-La suite automatizada verifica la carga de los fondos y estados de UI en modo
-offscreen, pero no sustituye la comprobación en una ventana interactiva. Usa
-[`VERIFICACION_VISUAL_CHAT_PENDIENTE.md`](VERIFICACION_VISUAL_CHAT_PENDIENTE.md)
-como lista de aceptación y marca allí cada comprobación manual.
+Los smoke manuales formales fueron confirmados por el usuario el 2026-10-14. La lista de
+verificación visual complementaria conserva escenarios y evidencia individual que no quedó
+registrada en el reporte común. Usa
+[`Verificación visual complementaria del chat Python`](../../docs/verificacion/VERIFICACION_VISUAL_CHAT_PYTHON.md)
+como referencia adicional; sus casillas sin marcar no indican un smoke formal fallido.

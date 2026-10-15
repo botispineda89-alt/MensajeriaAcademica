@@ -16,8 +16,22 @@ public final class TextosVentana {
     /** Título de la ventana de login. */
     public static final String TITULO_LOGIN = "Mensajería Académica | Iniciar sesión";
 
-    /** Título de la ventana de chat. */
-    public static final String TITULO_CHAT = "Mensajería Académica | Chat";
+    /**
+     * Plantilla del título de la ventana de chat (P4, 2026-10-14): lleva la identidad de la
+     * cuenta con la que se entró. Se rellena con {@link #tituloChat(String)}.
+     */
+    public static final String TITULO_CHAT = "Mensajería Académica | {identidad}";
+
+    /**
+     * Título del chat con la identidad ya resuelta ({@code Nombre Apellido [CÓDIGO]}).
+     *
+     * <p>Sin identidad (todavía no hay cuenta) se cae al nombre de la aplicación: un título
+     * nunca debe mostrar el marcador {@code {identidad}} del contrato.</p>
+     */
+    public static String tituloChat(String identidad) {
+        return identidad == null || identidad.isBlank()
+                ? "Mensajería Académica" : TITULO_CHAT.replace("{identidad}", identidad);
+    }
 
     /** Título del visor de imagen. */
     public static final String TITULO_VISOR = "Imagen";
@@ -51,6 +65,12 @@ public final class TextosVentana {
 
     /** Cabecera sin conversación. */
     public static final String SELECCIONA_CONVERSACION = "Selecciona una conversación";
+
+    /**
+     * Texto del botón de responder de la burbuja (el botón dibuja {@code ↩}; esto es el
+     * tooltip y el texto accesible).
+     */
+    public static final String BOTON_RESPONDER = "Responder a este mensaje";
 
     /** Fila de contacto sin mensajes. */
     public static final String SIN_MENSAJES_FILA = "Sin mensajes aún";

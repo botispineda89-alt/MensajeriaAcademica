@@ -12,7 +12,12 @@
     "La paleta CLARA toma los valores de JavaFX (cliente de referencia), con dos",
     "correcciones de accesibilidad que Python ya habia aplicado y Java no (UIX-17):",
     "los tokens que fallaban 4.5:1 se oscurecen. El generador verifica el contraste",
-    "y falla si algun token no llega, de modo que no se puede degradar en silencio."
+    "y falla si algun token no llega, de modo que no se puede degradar en silencio.",
+    "T2 (2026-10-14): las 4 severidades del aviso inline del chat salen de aqui. Error usa",
+    "error_bg/border/fg, Atencion reutiliza banner_offline_bg/border/fg (el ambar del banner de",
+    "sin conexion y el que ya usaba .NET) y Listo/Aviso estrenan aviso_exito_* y aviso_info_*.",
+    "Los 3 clientes pintan con estas familias: Java en las clases .aviso-inline-* de chat.css,",
+    "WPF en los Aviso*Brush de tema.xaml y Python en los tokens de ui/tema_tokens.py."
   ],
   "comunes": {
     "fuente": "Segoe UI, sans-serif",
@@ -40,7 +45,13 @@
     "banner_offline_fg": "#B45309",
     "error_bg": "#FDECEA",
     "error_border": "#F1A9A5",
-    "error_fg": "#B91C1C"
+    "error_fg": "#B91C1C",
+    "aviso_exito_bg": "#ECFDF3",
+    "aviso_exito_border": "#A7F3D0",
+    "aviso_exito_fg": "#047857",
+    "aviso_info_bg": "#EFF6FF",
+    "aviso_info_border": "#BFDBFE",
+    "aviso_info_fg": "#1D4ED8"
   },
   "temas": {
     "oscuro": {
@@ -142,8 +153,8 @@
       "bubble.shadow": "rgba(31, 48, 56, 0.08)",
       "sender.fg": "#1F635C",
       "sender.out.fg": "#1F635C",
-      "body.fg": "#27363d",
-      "body.out.fg": "#24383D",
+      "body.fg": "#000000",
+      "body.out.fg": "#000000",
       "highlight.fg": "#17635B",
       "quote.fg": "#267d75",
       "quote.bg": "#fafafa",
@@ -355,6 +366,34 @@
       "bg": "quote.bg",
       "min": 4.5,
       "motivo": "cita border sobre bg en oscuro"
+    },
+    {
+      "tema": "claro",
+      "fg": "error_fg",
+      "bg": "error_bg",
+      "min": 4.5,
+      "motivo": "T2: aviso inline de severidad Error (tokens comunes: igual en los dos temas)"
+    },
+    {
+      "tema": "claro",
+      "fg": "banner_offline_fg",
+      "bg": "banner_offline_bg",
+      "min": 4.5,
+      "motivo": "T2: aviso inline de severidad Atencion (el ambar de .NET)"
+    },
+    {
+      "tema": "claro",
+      "fg": "aviso_exito_fg",
+      "bg": "aviso_exito_bg",
+      "min": 4.5,
+      "motivo": "T2: aviso inline de severidad Listo"
+    },
+    {
+      "tema": "claro",
+      "fg": "aviso_info_fg",
+      "bg": "aviso_info_bg",
+      "min": 4.5,
+      "motivo": "T2: aviso inline de severidad Aviso"
     }
   ]
 }

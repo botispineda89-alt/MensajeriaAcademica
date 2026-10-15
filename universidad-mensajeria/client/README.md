@@ -66,7 +66,6 @@ puerto=5000
 db.url=jdbc:h2:~/mensajeria_cliente;AUTO_SERVER=TRUE
 db.user=sa
 db.pass=
-idioma=es
 ```
 
 Usa la IP LAN o DNS del equipo servidor, no `localhost`, cuando Java se ejecuta en otro PC. Cambia

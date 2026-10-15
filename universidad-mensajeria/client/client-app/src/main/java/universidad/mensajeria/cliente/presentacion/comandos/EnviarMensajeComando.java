@@ -10,6 +10,7 @@ import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Envio;
 import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Grupo;
 import universidad.mensajeria.cliente.presentacion.PlanEnvioAdjuntos.Texto;
 import universidad.mensajeria.cliente.presentacion.ProgresoEnvio;
+import universidad.mensajeria.cliente.transversal.excepciones.EnvioArchivoCanceladoException;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 
 import java.util.ArrayList;
@@ -95,6 +96,10 @@ public final class EnviarMensajeComando implements ComandoChat {
         }
     }
 
+    public boolean cancelado() {
+        return cancelado;
+    }
+
     /**
      * Adjuntos que no llegaron a enviarse porque se canceló el lote. Vacío si el
      * lote se completó o falló entero. Lo lee la vista, ya en el hilo de JavaFX,
@@ -131,6 +136,13 @@ public final class EnviarMensajeComando implements ComandoChat {
                             todosEnRed = false;
                             fallos.add(nombreDe(envio) + " quedó en cola para reintentar");
                         }
+                    } catch (EnvioArchivoCanceladoException fallo) {
+                        sumarRestantes(envio);
+                        for (int siguiente = i + 1; siguiente < plan.size(); siguiente++) {
+                            sumarRestantes(plan.get(siguiente));
+                        }
+                        fallos.add("Envío cancelado por el usuario");
+                        break;
                     } catch (Exception fallo) {
                         todosEnRed = false;
                         fallos.add(nombreDe(envio) + ": " + FormatoErrorCliente.mensaje(fallo));
@@ -185,11 +197,12 @@ public final class EnviarMensajeComando implements ComandoChat {
 
     private boolean enviarAdjunto(Adjunto a) throws Exception {
         AdjuntoPendiente p = a.archivo();
-        return p.esImagen()
-                ? viewModel.enviarImagen(destino, p.bytes(), p.nombre(), p.mime(),
-                        a.caption(), respuesta)
-                : viewModel.enviarArchivo(destino, p.bytes(), p.nombre(), p.mime(),
-                        a.caption(), respuesta);
+        if (p.esImagen()) {
+            return viewModel.enviarImagen(destino, p.bytes(), p.nombre(), p.mime(),
+                    a.caption(), respuesta);
+        }
+        return viewModel.enviarArchivo(destino, p.bytes(), p.nombre(), p.mime(),
+                a.caption(), this::cancelado);
     }
 
     /**

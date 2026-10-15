@@ -12,10 +12,10 @@ import universidad.mensajeria.cliente.transversal.utilerias.ValidarTls;
 
 /**
  * Configuración del cliente (mismo formato client.properties en Java, Python
- * y C#: host, puerto, db.url, idioma — §5.2). Sin hardcode: todo sale de aquí.
+ * y C#: host, puerto, db.url — §5.2). Sin hardcode: todo sale de aquí.
  */
 public record ClienteConfig(String host, int puerto, String dbUrl,
-                            String dbUser, String dbPass, String idioma,
+                            String dbUser, String dbPass,
                             boolean tlsHabilitado, int tlsPuerto, String tlsConfianza) {
 
     public static ClienteConfig cargar() throws ExcepcionPersistencia {
@@ -68,7 +68,6 @@ public record ClienteConfig(String host, int puerto, String dbUrl,
         return new ClienteConfig(host, puerto, dbUrl,
                 props.getProperty("db.user", "sa"),
                 props.getProperty("db.pass", ""),
-                props.getProperty("idioma", "es"),
                 ValidarTls.habilitadoDesdeTexto(props.getProperty("tls.habilitado", "false")),
                 tlsPuerto,
                 props.getProperty("tls.confianza", ""));

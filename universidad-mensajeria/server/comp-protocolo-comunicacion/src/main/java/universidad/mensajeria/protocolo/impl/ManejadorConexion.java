@@ -147,7 +147,9 @@ final class ManejadorConexion extends Thread {
                     avisarError(actual, motivoCierre);
                     break;
                 }
-                if (!consumirFicha()) {
+                // Las partes de archivo son síncronas (stop-and-wait con ACK por parte)
+                // y no deben saturar el token bucket de mensajes interactivos.
+                if (entrada.tipo() != TipoMensaje.ARCHIVO_PARTE && !consumirFicha()) {
                     LOG.warn("Limite de frecuencia excedido de {} (max {}/s): trama descartada",
                             actual.id().direccionIp(), tramasPorSegundo);
                     avisarError(actual, "limite de frecuencia excedido (max "

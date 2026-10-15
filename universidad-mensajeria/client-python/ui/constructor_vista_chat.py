@@ -226,7 +226,8 @@ class ConstructorVistaChat:
         self.entry_msg.textChanged.connect(self._actualizar_envio)
         self.acceso_cancelar = QShortcut(Qt.Key.Key_Escape, self)
         self.acceso_cancelar.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.acceso_cancelar.activated.connect(self._cancelar_composicion)
+        # T1 (2026-10-14): Esc cancela lo pendiente y, si no hay nada, deselecciona.
+        self.acceso_cancelar.activated.connect(self._al_pulsar_escape)
         # UIX-06: Ctrl+F abre la búsqueda en el historial.
         self.acceso_buscar = QShortcut(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_F, self)
         self.acceso_buscar.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)

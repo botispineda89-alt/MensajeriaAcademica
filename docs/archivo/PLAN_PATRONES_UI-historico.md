@@ -2,8 +2,8 @@
 
 Actualizado: **2026-10-06**; mediciones y lista de aceptación re-verificadas el **2026-10-11**
 (§4 y §9.1). Este archivo conserva el **plan y sus decisiones de implementación**
-derivados de [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md). Varios lotes ya están aplicados; el
-estado actual de cada tarea se mantiene en [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md). Las mediciones,
+derivados de [`docs/archivo/ANALISIS_TECNICO-historico.md`](ANALISIS_TECNICO-historico.md). Varios lotes ya están aplicados; el
+estado actual de cada tarea se mantiene en [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md). Las mediciones,
 líneas de código y colores en tablas posteriores pueden ser el estado previo a cada lote, no la
 lectura actual del código.
 
@@ -73,7 +73,7 @@ Precondición: ninguna. Cada uno es un cambio pequeño y verificable por separad
 
 ## 2. Fase B — Limpieza de código muerto (P0/P1)
 
-Detalle completo con los 38 items en [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) §2.
+Detalle completo con los 38 items en [`docs/archivo/ANALISIS_TECNICO-historico.md`](ANALISIS_TECNICO-historico.md) §2.
 Aquí solo el **criterio de parada**, que es lo que evita que esto se vaya de las manos.
 
 ### 2.1 Reglas para decidir qué se borra
@@ -479,8 +479,8 @@ tarea sigue en `ESTADO_ROADMAP.md` §5–§6.
 
 ## 10. Referencias
 
-- Evidencia de cada afirmación: [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md).
-- Tareas con estado y prioridad: [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md).
-- IDs normativos: [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md).
-- Textos exactos de la UI: [`DIAGRAMAS/textos-ui.md`](DIAGRAMAS/textos-ui.md).
-- Pruebas manuales: [`GUIA_ACEPTACION.md`](GUIA_ACEPTACION.md).
+- Evidencia de cada afirmación: [`docs/archivo/ANALISIS_TECNICO-historico.md`](ANALISIS_TECNICO-historico.md).
+- Tareas con estado y prioridad: [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md).
+- IDs normativos: [`REQUERIMIENTOS.md`](../REQUERIMIENTOS.md).
+- Textos exactos de la UI: [`DIAGRAMAS/textos-ui.md`](../../DIAGRAMAS/textos-ui.md).
+- Pruebas manuales: [`GUIA_ACEPTACION.md`](../GUIA_ACEPTACION.md).

@@ -45,7 +45,7 @@ iguales en los 3 lenguajes.
 | `tipoOriginal` | string | tipo de contenido en `SYNC_LOGIN` (`MENSAJE_TEXTO`, `MENSAJE_IMAGEN` o `MENSAJE_ARCHIVO`) |
 | `contenidoImagen` | string base64 | imágenes ≤ 10 MiB y bloques de archivo ≤1 MiB crudos (o usar descarga) |
 | `pagina`, `totalPaginas` | int | `HISTORIAL_PAGE` |
-| `exito` | boolean | respuestas |
+| `exito` | boolean | respuestas; en una petición `ARCHIVO_FIN`, `false` cancela la subida temporal |
 | `mensajeError` | string | `ERROR` / respuestas fallidas |
 | `ipRemitente`, `ipDestinatario` | string | informativo servidor→cliente |
 | `usuariosConectados` | array de strings | `LISTAR_CONECTADOS_RESPUESTA` |
@@ -65,7 +65,7 @@ iguales en los 3 lenguajes.
 | `MENSAJE_ARCHIVO` | C→S | `{remitente, destinatario, nombreArchivo, mime, contenidoImagen}` (PDF, documentos; solo SHA-256, sin transformar; solo para archivos cuya trama quepa en 16 MiB) + `contenido` opcional como pie/caption | `ACK` + entrega destinatario (+ eco a las otras sesiones del remitente) |
 | `ARCHIVO_INICIO` | C→S | `{id: idTransferencia, remitente, destinatario, nombreArchivo, mime, tamanoArchivo, totalPartes}` anuncia una transferencia fragmentada (tope propio 50 MB) + `contenido` opcional como pie/caption que el servidor persiste con el archivo | `ACK` |
 | `ARCHIVO_PARTE` | C→S | `{id: idTransferencia, archivoId: idTransferencia, indiceParte, contenidoImagen}` un bloque base64 ≤1 MiB; las partes viajan **secuenciales** (una en vuelo) | `ACK` por parte |
-| `ARCHIVO_FIN` | C→S | `{id: idTransferencia, archivoId: idTransferencia, hashSha256}` cierra; el servidor verifica partes completas + sha256 y encamina al pipeline como `MENSAJE_ARCHIVO` | `ACK` final |
+| `ARCHIVO_FIN` | C→S | `{id: idTransferencia, archivoId: idTransferencia, hashSha256}` cierra; el servidor verifica partes completas + sha256 y encamina al pipeline como `MENSAJE_ARCHIVO`. `{id, archivoId, exito:false}` cancela y elimina la transferencia temporal activa | `ACK` final / de cancelación |
 | `IMAGE_FILTERED_RESULT` | S→C | `{hashSha256, etapasFiltrado[5], archivoId}` | — |
 | `BROADCAST` | C→S | `{remitente, contenido}` → entrega a **todas** las sesiones conectadas salvo la emisora | `ACK` al remitente |
 | `LISTAR_CONECTADOS` | C→S | — | `LISTAR_CONECTADOS_RESPUESTA` |

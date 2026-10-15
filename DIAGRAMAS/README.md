@@ -70,8 +70,8 @@ el archivo, no se toca el script.
 
 | Archivo | Contenido | Origen |
 |---|---|---|
-| `casos/uc-cliente.mmd` | 21 casos del **actor Usuario**, con las relaciones `<<extend>>`-like entre ellos (UC-05 → UC-03/UC-04) y las 5 de almacenamiento local | `REQUERIMIENTOS.md` §4.1–4.3 |
-| `casos/uc-servidor.mmd` | 20 casos del **actor Administrador** + usuario conectado como actor secundario, agrupados en arranque / operación / informes / supervisión | `REQUERIMIENTOS.md` §3.1–3.8 |
+| `casos/uc-cliente.mmd` | 21 casos del **actor Usuario**, con las relaciones `<<extend>>`-like entre ellos (UC-05 → UC-03/UC-04) y las 5 de almacenamiento local | `../docs/REQUERIMIENTOS.md` §4.1–4.3 |
+| `casos/uc-servidor.mmd` | 20 casos del **actor Administrador** + usuario conectado como actor secundario, agrupados en arranque / operación / informes / supervisión | `../docs/REQUERIMIENTOS.md` §3.1–3.8 |
 | `casos/uc-sistema.mmd` | Los 2 actores sobre el mismo sistema, con el cruce que importa: qué acciones del usuario alimentan qué informe | vista de conjunto |
 
 > **Formato.** mermaid no tiene `usecaseDiagram`: los 3 están escritos como
@@ -303,4 +303,4 @@ Cosas que se han verificado en el código y que conviene no contradecir:
 - Análisis con la evidencia de por qué faltaba cada uno:
   [`docs/archivo/ANALISIS_TECNICO-historico.md`](../docs/archivo/ANALISIS_TECNICO-historico.md) §6.
 - Textos literales de la UI: [`textos-ui.md`](textos-ui.md).
-- Tareas del roadmap: [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md) (`DIAG-*`).
+- Tareas del roadmap: [`ESTADO_ROADMAP.md`](../docs/ESTADO_ROADMAP.md) (`DIAG-*`).

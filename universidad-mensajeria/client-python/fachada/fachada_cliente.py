@@ -179,9 +179,6 @@ class FachadaCliente:
         return self._coordinador_mensajeria.enviar_archivo(
             destinatario, ruta_archivo, id_msg, on_progreso, caption)
 
-    def difundir(self, texto):
-        return self._coordinador_mensajeria.difundir(texto)
-
     def descargar_archivo(self, archivo_id, ruta_destino, on_progreso=None):
         return self._lector_historial.descargar_archivo(archivo_id, ruta_destino, on_progreso)
 

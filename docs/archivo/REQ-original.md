@@ -1,7 +1,7 @@
 # Requerimientos — ARCHIVO HISTÓRICO
 
 > **Archivado el 2026-10-07.** Brief original del enunciado. La especificación
-> vigente es [`../../REQUERIMIENTOS.md`](../../REQUERIMIENTOS.md). No usar este
+> vigente es [`../../REQUERIMIENTOS.md`](../REQUERIMIENTOS.md). No usar este
 > archivo como referencia normativa.
 
 Se requiere una aplicación para enviar mensajes a la comunidad académica de la Universidad, los mensajes pueden contener: texto o imágenes. La aplicación de software debe implementar las siguientes funcionalidades:

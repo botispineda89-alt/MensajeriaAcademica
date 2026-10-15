@@ -130,7 +130,8 @@ final class ChatComponentes {
                 viewModel.enviandoProperty(), this::pedirFocoEntrada, progresoEnvio);
         progresoEnvio.configurar(envioAccion::cancelar);
         respuestaAccion = new ChatRespuestaAccion(viewModel, puentes.nombreVisible(),
-                cita -> compositor.mostrarCita(cita), this::pedirFocoEntrada);
+                cita -> compositor.mostrarCita(cita), navegadorCitas::resaltarAlResponder,
+                this::pedirFocoEntrada);
 
         receptorEventos = new ReceptorEventosChat(viewModel, tareas, paginador, contactos,
                 gestorAdjuntos, puentes.seleccionado(), puentes.detenido(), puentes.estado(),
@@ -145,10 +146,11 @@ final class ChatComponentes {
 
         cambio = new CambioConversacionChat(n.etiquetaChat(), n.etiquetaPresencia(), viewModel,
                 gestorAdjuntos, paginador, busqueda, configuradorCeldas, adjuntosEntrada,
-                puentes.nombreVisible());
+                puentes.nombreVisible(), tareas, contactos::actualizarFondoForzado);
 
         new ConfiguradorVistaChat(n.comboTema(), n.divisorPrincipal(), navegacion,
-                n.listaMensajes(), viewModel::codigoActual, busqueda::mostrar).configurar();
+                n.listaMensajes(), viewModel::codigoActual, busqueda::mostrar,
+                this::alDeseleccionar).configurar();
 
         adjuntosEntrada.configurarArrastre();
         contactos.configurar();
@@ -177,6 +179,25 @@ final class ChatComponentes {
     void escribirEstado(String texto) { presentadorEstado.escritorEstado().accept(texto); }
 
     void alSeleccionar(RecienteChat actual) { cambio.aplicar(actual); }
+
+    /**
+     * T1 (2026-10-14): Esc deja la ventana sin conversación.
+     * <p>
+     * Vive aquí y no en un colaborador porque toca a cuatro: se suelta la selección (y con
+     * ella el destino y la cabecera), se vacía la lista —el pintado normal sale antes sin
+     * destino—, se cancela la cita y se sueltan los adjuntos que eran de ese chat. El
+     * historial y la preferencia del último chat no se tocan.
+     * </p>
+     */
+    void alDeseleccionar() {
+        if (contactos == null) {
+            return;
+        }
+        contactos.deseleccionar();
+        paginador.vaciar();
+        compositor.alCancelarRespuesta();
+        adjuntosEntrada.limpiar();
+    }
 
     void alEnviar() { compositor.alEnviar(); }
 

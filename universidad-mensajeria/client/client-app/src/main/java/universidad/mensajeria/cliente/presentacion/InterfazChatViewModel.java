@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.collections.ObservableList;
@@ -182,6 +183,14 @@ public interface InterfazChatViewModel extends InterfazArchivosConversacion {
                           String texto, MensajeLocal respuesta)
             throws universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente,
             java.io.IOException;
+
+    /** Capacidad interna para que Cancelar interrumpa una subida activa. */
+    default boolean enviarArchivo(String destinatario, byte[] bytes, String nombre,
+                                  String mime, String caption, BooleanSupplier cancelado)
+            throws universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente,
+            java.io.IOException {
+        return enviarArchivo(destinatario, bytes, nombre, mime, caption);
+    }
 
     void marcarLeidosEnFondo(String otro);
 

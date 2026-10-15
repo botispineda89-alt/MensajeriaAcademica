@@ -67,7 +67,6 @@ namespace Mensajeria.Views
         private readonly Dictionary<string, int> _paginaRemota = new();
         private readonly Dictionary<string, int> _totalPaginasRemotas = new();
         private readonly SemaphoreSlim _limiteImagenes = new(3, 3);
-        private bool _restauracionUltimoChatPendiente = true;
         /// <summary>UIX-09: cargas de imagen en vuelo por id, cancelables.</summary>
         private readonly Dictionary<string, CancellationTokenSource> _cargasImagen = new();
         private sealed record AnclajeMensajeVisible(MensajeVM Mensaje, double CoordenadaVertical);
@@ -76,6 +75,9 @@ namespace Mensajeria.Views
         {
             _fachada = fachada;
             InitializeComponent();
+            // P4: aquí solo se conoce el código; CargarUsuarios completa el título con el
+            // nombre cuando el directorio lo trae.
+            Title = TextosVentana.TituloChatCon(_fachada.UsuarioActual);
             txtSesion.Text = $"Sesión activa · {_fachada.UsuarioActual}";
             lstUsuarios.ItemsSource = _usuarios;
             lstMensajes.ItemsSource = _mensajes;
@@ -99,7 +101,9 @@ namespace Mensajeria.Views
             // UIX-26: el aviso de éxito/información se cierra solo; los de error
             // y atención no (quedan hasta que el usuario los cierre).
             _timerAviso.Tick += TimerAviso_Tick;
-            // UIX-06: Ctrl+F abre la búsqueda; Esc la cierra si está abierta.
+            // UIX-06: Ctrl+F abre la búsqueda; Esc la cierra si está abierta y, si no,
+            // deselecciona la conversación (T1, 2026-10-14). El orden es el mismo que en
+            // JavaFX: primero se cancela lo que hay abierto, después se suelta el chat.
             PreviewKeyDown += (s, e) =>
             {
                 bool ctrlF = e.Key == System.Windows.Input.Key.F
@@ -110,10 +114,28 @@ namespace Mensajeria.Views
                     MostrarBuscar();
                     e.Handled = true;
                 }
-                else if (e.Key == System.Windows.Input.Key.Escape
-                    && barraBuscar.Visibility == Visibility.Visible)
+                else if (e.Key == System.Windows.Input.Key.Escape)
                 {
-                    CerrarBuscar();
+                    if (barraBuscar.Visibility == Visibility.Visible)
+                    {
+                        CerrarBuscar();
+                    }
+                    else if (_adjuntos.HayAdjuntos)
+                    {
+                        int cantidad = _adjuntos.Adjuntos.Count;
+                        _adjuntos.Limpiar();
+                        ActualizarPanelAdjuntos();
+                        MostrarAvisoInline($"Se descartaron {cantidad} adjunto(s) al deseleccionar.",
+                            TipoAvisoInline.Informacion);
+                    }
+                    else if (bordeRespuesta.Visibility == Visibility.Visible)
+                    {
+                        LimpiarCita();
+                    }
+                    else
+                    {
+                        DeseleccionarConversacion();
+                    }
                     e.Handled = true;
                 }
             };

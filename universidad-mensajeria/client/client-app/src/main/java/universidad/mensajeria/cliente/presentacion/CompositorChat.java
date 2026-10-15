@@ -86,9 +86,20 @@ final class CompositorChat {
     /** Enter envía; Shift+Enter inserta el salto de línea del {@link TextArea}. */
     void alTecla(KeyEvent evento) {
         if (evento.getCode() == KeyCode.ESCAPE) {
-            respuesta.cancelar();
-            adjuntosEntrada.limpiar();
-            evento.consume();
+            // T1 (2026-10-14): Esc cancela lo que haya en el compositor y solo entonces se
+            // come la tecla. Antes la consumía siempre, así que la escena —que es quien
+            // deselecciona la conversación— nunca la veía cuando se escribía en el campo.
+            boolean habiaCita = respuestaSeleccionada.get() != null;
+            boolean habiaAdjunto = adjuntoDisponible.get();
+            if (habiaCita) {
+                respuesta.cancelar();
+            }
+            if (habiaAdjunto) {
+                adjuntosEntrada.limpiar();
+            }
+            if (habiaCita || habiaAdjunto) {
+                evento.consume();
+            }
             return;
         }
         // R2: Shift+Enter NO entra en esta rama y su evento no se consume: eso es

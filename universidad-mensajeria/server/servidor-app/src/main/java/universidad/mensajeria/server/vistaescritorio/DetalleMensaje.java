@@ -94,6 +94,57 @@ final class DetalleMensaje {
         return desplazamiento;
     }
 
+    static java.awt.image.BufferedImage leerBufferedImage(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        try {
+            java.awt.image.BufferedImage bi = javax.imageio.ImageIO.read(new ByteArrayInputStream(bytes));
+            if (bi != null) {
+                return bi;
+            }
+        } catch (Exception ignorada) {
+            // probar con utilerias / ImageMagick
+        }
+        try {
+            java.nio.file.Path temp = java.nio.file.Files.createTempFile("msg_img_", ".bin");
+            try {
+                java.nio.file.Files.write(temp, bytes);
+                return universidad.mensajeria.utilerias.imagen.Imagenes.leer(temp);
+            } finally {
+                try { java.nio.file.Files.deleteIfExists(temp); } catch (Exception ignored) {}
+            }
+        } catch (Exception ignorada) {
+            return null;
+        }
+    }
+
+    static Image decodificarParaVista(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        try {
+            Image img = new Image(new ByteArrayInputStream(bytes), 560, 360, true, true);
+            if (!img.isError() && img.getWidth() > 0) {
+                return img;
+            }
+        } catch (Exception ignorada) {
+            // continuar a decodificación universal
+        }
+        java.awt.image.BufferedImage bi = leerBufferedImage(bytes);
+        if (bi != null) {
+            try {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                if (javax.imageio.ImageIO.write(bi, "png", bos)) {
+                    return new Image(new ByteArrayInputStream(bos.toByteArray()), 560, 360, true, true);
+                }
+            } catch (Exception ignorada) {
+                // fallo en serialización png
+            }
+        }
+        return null;
+    }
+
     void mostrar(MensajeResumenDTO m) {
         seleccionado = m;
         bytesImagen = null;
@@ -150,8 +201,7 @@ final class DetalleMensaje {
             try {
                 bytes = f.bytesArchivoParaVista(m.archivoId());
                 if (bytes != null && VistaEscritorio.esImagen(bytes, m.mime(), nombreParaCarga)) {
-                    imagenCargada = new Image(new ByteArrayInputStream(bytes),
-                            560, 360, true, true);
+                    imagenCargada = decodificarParaVista(bytes);
                 }
             } catch (RuntimeException e) {
                 fallo = e;
@@ -200,8 +250,8 @@ final class DetalleMensaje {
                         ? "No aplica" : m.numPalabras())
                 .append("\nIP remitente (histórica): ")
                 .append(VistaEscritorio.txt(m.ipRemitente()))
-                .append("\nIP destinatario (sesiones activas): ")
-                .append(ips.apply(m.destinatario()));
+                .append("\nIP destinatario (histórica): ")
+                .append(VistaEscritorio.txt(m.ipDestinatario()));
         if (m.nombreArchivo() != null) {
             metaTxt.append("\nArchivo: ").append(m.nombreArchivo());
         }
@@ -249,8 +299,7 @@ final class DetalleMensaje {
             if (!"Original".equals(filtro) && bytesImagen != null && bytesImagen.length > 0) {
                 // PLAN_MEJORAS §3: la descarga respeta el filtro elegido en vista.
                 try {
-                    java.awt.image.BufferedImage base = javax.imageio.ImageIO.read(
-                            new ByteArrayInputStream(bytesImagen));
+                    java.awt.image.BufferedImage base = leerBufferedImage(bytesImagen);
                     if (base == null) {
                         estado.setText("Este formato se puede ver pero no admite"
                                 + " previsualizar filtros; se descarga el original.");
@@ -302,8 +351,7 @@ final class DetalleMensaje {
         }
         String opcion = filtros.getValue();
         try {
-            java.awt.image.BufferedImage base = javax.imageio.ImageIO.read(
-                    new ByteArrayInputStream(bytesImagen));
+            java.awt.image.BufferedImage base = leerBufferedImage(bytesImagen);
             if (base == null) {
                 estado.setText("Este formato se puede ver pero no admite"
                         + " previsualizar filtros; usa Descargar archivo.");

@@ -64,7 +64,8 @@ class RefrescadorContactosChat:
     def _huella_recientes(self, recientes):
         """Cambio real de datos (no de tick de presencia): evita repintar igual."""
         return tuple((r.otro, bool(r.conectado), int(r.no_leidos),
-                      r.fecha_ultimo or "", (r.ultimo_contenido or "")[:40])
+                      r.fecha_ultimo or "", (r.ultimo_contenido or "")[:40],
+                      getattr(r, "ultimo_propio", False))
                      for r in recientes)
 
     def _pintar_recientes_desde_cache(self):
@@ -167,6 +168,10 @@ class RefrescadorContactosChat:
     def _preview_tarjeta(fila):
         """Una línea: espacios colapsados (como `UsuarioCell` de JavaFX)."""
         texto = " ".join((fila.ultimo_contenido or "").split())
+        if not texto:
+            return ""
+        if getattr(fila, "ultimo_propio", False) and not texto.startswith("Tú: "):
+            return f"Tú: {texto}"
         return texto
 
     def _item_por_codigo(self, codigo):
@@ -179,16 +184,6 @@ class RefrescadorContactosChat:
             except RuntimeError:
                 continue
         return None
-
-    def _restaurar_ultima_conversacion(self):
-        if not getattr(self, "_restauracion_ultimo_chat_pendiente", False):
-            return
-        self._restauracion_ultimo_chat_pendiente = False
-        ultimo = self._preferencias_chat.ultimo_chat(self.codigo)
-        if ultimo:
-            item = self._item_por_codigo(ultimo)
-            if item is not None:
-                self.lista_usuarios.setCurrentItem(item)
 
     def _limpiar_insignia(self, codigo):
         """Pone a cero los no-leídos sin reconstruir la lista (UIX-02).

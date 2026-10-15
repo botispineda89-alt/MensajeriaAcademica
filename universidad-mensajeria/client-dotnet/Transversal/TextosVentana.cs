@@ -18,8 +18,21 @@ namespace Mensajeria.Transversal
         /// <summary>Título de la ventana de login.</summary>
         public const string TituloLogin = "Mensajería Académica | Iniciar sesión";
 
-        /// <summary>Título de la ventana de chat.</summary>
-        public const string TituloChat = "Mensajería Académica | Chat";
+        /// <summary>
+        /// Plantilla del título de la ventana de chat (P4, 2026-10-14): lleva la identidad de
+        /// la cuenta con la que se entró. Se rellena con <see cref="TituloChatCon"/>.
+        /// </summary>
+        public const string TituloChat = "Mensajería Académica | {identidad}";
+
+        /// <summary>
+        /// Título del chat con la identidad ya resuelta (<c>Nombre Apellido [CÓDIGO]</c>).
+        /// Sin identidad (todavía no hay cuenta) cae al nombre de la aplicación: un título
+        /// nunca debe mostrar el marcador <c>{identidad}</c> del contrato.
+        /// </summary>
+        public static string TituloChatCon(string? identidad) =>
+            string.IsNullOrWhiteSpace(identidad)
+                ? "Mensajería Académica"
+                : TituloChat.Replace("{identidad}", identidad.Trim());
 
         /// <summary>Título del visor de imagen.</summary>
         public const string TituloVisor = "Imagen";
@@ -50,6 +63,9 @@ namespace Mensajeria.Transversal
 
         /// <summary>Cabecera sin conversación.</summary>
         public const string SeleccionaConversacion = "Selecciona una conversación";
+
+        /// <summary>Botón de responder de la burbuja (§5 paridad).</summary>
+        public const string BotonResponder = "Responder";
 
         /// <summary>Fila de contacto sin mensajes.</summary>
         public const string SinMensajesFila = "Sin mensajes aún";

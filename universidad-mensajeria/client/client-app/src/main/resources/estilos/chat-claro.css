@@ -187,8 +187,8 @@
 }
 
 .message-text {
-    -fx-text-fill: #27363d;
-    -fx-fill: #27363d;
+    -fx-text-fill: #000000;
+    -fx-fill: #000000;
     -fx-font-size: 13px;
 }
 
@@ -200,8 +200,8 @@
 }
 
 .message-out .message-text {
-    -fx-text-fill: #24383D;
-    -fx-fill: #24383D;
+    -fx-text-fill: #000000;
+    -fx-fill: #000000;
 }
 
 .message-quote {
@@ -339,3 +339,42 @@
     -fx-font-weight: 700;
     -fx-padding: 9px 12px;
 }
+
+/* T2 (2026-10-14): las 4 severidades del aviso inline, con los colores del contrato.
+   El ambar de Atencion es el mismo del banner de sin conexion y el que ya usaba .NET;
+   el rojo es el del bloque de error del login. `aviso-inline-* .label` gana a las
+   clases de los labels (reply-heading / session-label), que traen su propio color. */
+.aviso-inline {
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-border-width: 1px;
+    -fx-padding: 8px 12px;
+}
+
+.aviso-inline-error {
+    -fx-background-color: #FDECEA;
+    -fx-border-color: #F1A9A5;
+}
+
+.aviso-inline-error .label { -fx-text-fill: #B91C1C; }
+
+.aviso-inline-atencion {
+    -fx-background-color: #FFFBEB;
+    -fx-border-color: #F2CE84;
+}
+
+.aviso-inline-atencion .label { -fx-text-fill: #B45309; }
+
+.aviso-inline-listo {
+    -fx-background-color: #ECFDF3;
+    -fx-border-color: #A7F3D0;
+}
+
+.aviso-inline-listo .label { -fx-text-fill: #047857; }
+
+.aviso-inline-aviso {
+    -fx-background-color: #EFF6FF;
+    -fx-border-color: #BFDBFE;
+}
+
+.aviso-inline-aviso .label { -fx-text-fill: #1D4ED8; }

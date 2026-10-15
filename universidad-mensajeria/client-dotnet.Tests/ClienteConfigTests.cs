@@ -32,7 +32,6 @@ namespace Mensajeria.Tests
                 Assert.True(ClienteConfig.Booleano("tls.habilitado", false));
                 Assert.Equal(5443, ClienteConfig.Entero("tls.puerto", 5001, 1, 65535));
                 Assert.Equal("C:/confianza/prueba.jks", ClienteConfig.Valor("tls.confianza", ""));
-                Assert.Equal("es", ClienteConfig.Valor("idioma", ""));
                 // clave repetida: gana la ultima linea
                 Assert.Equal("oscuro", ClienteConfig.Valor("tema", ""));
                 // Ningun comentario ni linea vacia se cuela como clave.

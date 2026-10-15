@@ -153,6 +153,14 @@ final class ChatEnvioAccion {
         if (enCurso != null) {
             devolverRestantes(enCurso);
         }
+        if (enCurso != null && enCurso.cancelado()) {
+            estado.accept("Envío cancelado");
+            mostrarAviso.accept("Envío cancelado. Los archivos no enviados volvieron a la bandeja.",
+                    TipoAviso.ADVERTENCIA);
+            paginador.cargarConversacion();
+            pedirFocoEntrada.run();
+            return;
+        }
         estado.accept("No se completó el envío: " + detalle);
         mostrarAviso.accept("No se completó el envío: " + detalle, TipoAviso.ERROR);
         paginador.cargarConversacion();

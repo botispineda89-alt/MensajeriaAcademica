@@ -21,8 +21,8 @@ class Config:
     def save(self):
         try:
             with open(self.filename, 'w', encoding='utf-8') as f:
-                f.write("# client.properties (host · puerto · db.url · idioma · tema · tls — §5.2)\n")
-                for key in ("host", "puerto", "db.url", "idioma", "tema",
+                f.write("# client.properties (host · puerto · db.url · tema · tls — §5.2)\n")
+                for key in ("host", "puerto", "db.url", "tema",
                             "tls.habilitado", "tls.puerto", "tls.confianza"):
                     if key in self.props:
                         f.write(f"{key}={self.props[key]}\n")

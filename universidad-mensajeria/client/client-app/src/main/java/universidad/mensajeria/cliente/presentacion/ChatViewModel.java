@@ -9,6 +9,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import universidad.mensajeria.cliente.fachada.InterfazArchivosConversacion;
 import universidad.mensajeria.cliente.fachada.InterfazChatCliente;
+import universidad.mensajeria.cliente.fachada.InterfazEnvioArchivoCancelable;
+import universidad.mensajeria.cliente.transversal.excepciones.EnvioArchivoCanceladoException;
 import universidad.mensajeria.cliente.transversal.EstadoConexion;
 import universidad.mensajeria.cliente.transversal.records.EventoCliente;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
@@ -26,6 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 /**
  * ViewModel del Chat (Fase 3 del Plan de Arquitectura):
@@ -273,6 +276,20 @@ public class ChatViewModel implements InterfazChatViewModel {
             throws ExcepcionCliente, IOException {
         return fachada.enviarArchivo(destinatario, bytes, nombre, mime,
                 pieConRespuesta(texto, respuesta));
+    }
+
+    @Override
+    public boolean enviarArchivo(String destinatario, byte[] bytes, String nombre, String mime,
+                                 String caption, BooleanSupplier cancelado)
+            throws ExcepcionCliente, IOException {
+        if (fachada instanceof InterfazEnvioArchivoCancelable cancelable) {
+            return cancelable.enviarArchivo(destinatario, bytes, nombre, mime,
+                    caption, cancelado);
+        }
+        if (cancelado != null && cancelado.getAsBoolean()) {
+            throw new EnvioArchivoCanceladoException();
+        }
+        return fachada.enviarArchivo(destinatario, bytes, nombre, mime, caption);
     }
 
     private String pieConRespuesta(String texto, MensajeLocal respuesta) {

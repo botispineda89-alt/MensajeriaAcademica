@@ -167,9 +167,21 @@ public class JpaPersistenciaAdapter implements PersistenciaPort {
     @Override
     public ArchivoDTO guardarArchivo(ArchivoGuardarDTO datos) {
         Usuario propietario = usuarioRequerido(datos.codigoPropietario());
+        Optional<Archivo> previo = archivos.findFirstByRuta(datos.ruta());
+        if (previo.isPresent()) {
+            return aDTO(previo.get());
+        }
         Archivo archivo = new Archivo(datos.nombre(), datos.ruta(), datos.tamano(), datos.tipo(),
                 datos.mime(), datos.hashSha256(), propietario);
-        return aDTO(archivos.save(archivo));
+        try {
+            return aDTO(archivos.save(archivo));
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            return archivos.findFirstByRuta(datos.ruta())
+                    .or(() -> archivos.findFirstByPropietario_CodigoAndHashSha256(
+                            datos.codigoPropietario(), datos.hashSha256()))
+                    .map(JpaPersistenciaAdapter::aDTO)
+                    .orElseThrow(() -> ex);
+        }
     }
 
     @Override

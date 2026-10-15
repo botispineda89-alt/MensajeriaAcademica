@@ -131,6 +131,33 @@ class AvisosInlineChatTest {
     }
 
     @Test
+    void cadaSeveridadLlevaSuClaseDeColor() throws Exception {
+        // T2 (2026-10-14): antes el contenedor reutilizaba `offline-banner` (ámbar) para
+        // todo, así que un error se pintaba igual que una advertencia.
+        iniciarJavaFx();
+        AvisosInlineChat avisos = crearEnJavaFx();
+
+        for (TipoAviso tipo : TipoAviso.values()) {
+            avisos.mostrar("mensaje", tipo);
+            ejecutarEnJavaFx(() -> {
+                assertTrue(contenedor.getStyleClass().contains("aviso-inline"),
+                        "la clase base no se pierde con " + tipo);
+                assertTrue(contenedor.getStyleClass().contains(AvisosInlineChat.claseDe(tipo)),
+                        "falta la clase de " + tipo);
+                assertEquals(2, contenedor.getStyleClass().size(),
+                        "una sola clase de severidad a la vez: " + contenedor.getStyleClass());
+                return null;
+            });
+        }
+    }
+
+    @Test
+    void lasCuatroSeveridadesTienenClaseDistinta() {
+        assertEquals(4, java.util.Arrays.stream(TipoAviso.values())
+                .map(AvisosInlineChat::claseDe).distinct().count());
+    }
+
+    @Test
     void elAnuncioLlevaTituloYMensajeComoEnQtYEnWpf() {
         assertEquals("Atención: Sin red.", AvisosInlineChat.anuncioDe("Atención", "Sin red."));
         assertEquals("Aviso: ya se va", AvisosInlineChat.anuncioDe("Aviso", "ya se va"));

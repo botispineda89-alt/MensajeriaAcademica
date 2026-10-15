@@ -33,6 +33,20 @@
     <SolidColorBrush x:Key="DividerBrush" Color="{{split.divider}}" />
     <SolidColorBrush x:Key="ErrorBgBrush" Color="{{comunes.error_bg}}" />
     <SolidColorBrush x:Key="ErrorFgBrush" Color="{{comunes.error_fg}}" />
+    <!-- T2: las 4 severidades del aviso inline. El ambar de Atencion es el mismo
+         banner_offline_* del banner de sin conexion; Error es el error_* del login. -->
+    <SolidColorBrush x:Key="AvisoErrorBgBrush" Color="{{comunes.error_bg}}" />
+    <SolidColorBrush x:Key="AvisoErrorBorderBrush" Color="{{comunes.error_border}}" />
+    <SolidColorBrush x:Key="AvisoErrorFgBrush" Color="{{comunes.error_fg}}" />
+    <SolidColorBrush x:Key="AvisoAtencionBgBrush" Color="{{comunes.banner_offline_bg}}" />
+    <SolidColorBrush x:Key="AvisoAtencionBorderBrush" Color="{{comunes.banner_offline_border}}" />
+    <SolidColorBrush x:Key="AvisoAtencionFgBrush" Color="{{comunes.banner_offline_fg}}" />
+    <SolidColorBrush x:Key="AvisoListoBgBrush" Color="{{comunes.aviso_exito_bg}}" />
+    <SolidColorBrush x:Key="AvisoListoBorderBrush" Color="{{comunes.aviso_exito_border}}" />
+    <SolidColorBrush x:Key="AvisoListoFgBrush" Color="{{comunes.aviso_exito_fg}}" />
+    <SolidColorBrush x:Key="AvisoInfoBgBrush" Color="{{comunes.aviso_info_bg}}" />
+    <SolidColorBrush x:Key="AvisoInfoBorderBrush" Color="{{comunes.aviso_info_border}}" />
+    <SolidColorBrush x:Key="AvisoInfoFgBrush" Color="{{comunes.aviso_info_fg}}" />
     <SolidColorBrush x:Key="OfflineBannerBgBrush" Color="{{comunes.banner_offline_bg}}" />
     <SolidColorBrush x:Key="OfflineBannerFgBrush" Color="{{comunes.banner_offline_fg}}" />
     <SolidColorBrush x:Key="BadgeBrush" Color="{{comunes.badge_bg}}" />

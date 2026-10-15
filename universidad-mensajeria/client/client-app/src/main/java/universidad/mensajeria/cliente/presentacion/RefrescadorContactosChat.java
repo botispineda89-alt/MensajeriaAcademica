@@ -38,7 +38,6 @@ import universidad.mensajeria.cliente.transversal.utilerias.TextosVentana;
  */
 public final class RefrescadorContactosChat {
 
-    private static final String PREF_ULTIMO = "ultimoChat";
     private static final long INTERVALO_MINIMO_MS = 200;
 
     private static final Logger LOG = Logger.getLogger(RefrescadorContactosChat.class.getName());
@@ -64,6 +63,7 @@ public final class RefrescadorContactosChat {
     private final int limitePagina;
     private boolean refrescoEnCurso;
     private boolean refrescoForzadoPendiente;
+    private boolean actualizandoListaUsuarios;
     private long ultimoRefrescoMs;
 
     public RefrescadorContactosChat(Label etiquetaSesion,
@@ -107,9 +107,45 @@ public final class RefrescadorContactosChat {
         this.respaldo = respaldo;
     }
 
+    /**
+     * Nombre de la cuenta en el sidebar y en el título de la ventana (P4).
+     * <p>
+     * Los dos salen del mismo dato —la identidad de quien entró—, así que se pintan juntos:
+     * por separado ya pasó que el sidebar tenía el nombre completo y el título seguía con el
+     * código a secas. Cuando todavía no hay directorio, {@code nombreVisible} devuelve el
+     * código y el título queda {@code Mensajería Académica | A001234567} hasta el primer
+     * refresco.
+     * </p>
+     */
+    private void pintarIdentidad() {
+        String identidad = nombreVisible.apply(viewModel.codigoActual());
+        etiquetaSesion.setText("Sesión activa · " + identidad);
+        tituloConIdentidad(identidad);
+    }
+
+    /**
+     * P4: el título de la ventana es {@code Mensajería Académica | Nombre Apellido [CÓDIGO]}.
+     * <p>
+     * Se llega por la escena del nodo en vez de inyectar el {@code Stage}: el refrescador ya
+     * recibe la etiqueta y no hace falta otro colaborador; al montar la vista (antes de
+     * {@code setScene}) no hay ventana y entonces no se toca nada.
+     * </p>
+     */
+    private void tituloConIdentidad(String identidad) {
+        if (etiquetaSesion == null || etiquetaSesion.getScene() == null) {
+            return;
+        }
+        javafx.stage.Window ventana = etiquetaSesion.getScene().getWindow();
+        String titulo = TextosVentana.tituloChat(identidad);
+        if (ventana instanceof javafx.stage.Stage escenario
+                && !titulo.equals(escenario.getTitle())) {
+            escenario.setTitle(titulo);
+        }
+    }
+
     /** Filtros, debounce de búsqueda y selección de conversación. */
     public void configurar() {
-        etiquetaSesion.setText("Sesión activa · " + nombreVisible.apply(viewModel.codigoActual()));
+        pintarIdentidad();
         comboFiltro.setItems(FXCollections.observableArrayList("Todos", "Conectados", "No leídos"));
         comboFiltro.getSelectionModel().selectFirst();
         comboFiltro.getSelectionModel().selectedItemProperty()
@@ -120,6 +156,9 @@ public final class RefrescadorContactosChat {
         });
         listaUsuarios.getSelectionModel().selectedItemProperty()
                 .addListener((obs, anterior, actual) -> {
+                    if (actualizandoListaUsuarios) {
+                        return;
+                    }
                     hayDestino.set(actual != null);
                     if (anterior != null && actual != null
                             && !anterior.otro().equals(actual.otro())) {
@@ -146,23 +185,36 @@ public final class RefrescadorContactosChat {
         ObservableList<RecienteChat> vista = FXCollections.observableArrayList(
                 viewModel.filtrar(todos, campoBuscar.getText(), filtro));
         RecienteChat sel = listaUsuarios.getSelectionModel().getSelectedItem();
-        listaUsuarios.setItems(vista);
-        // UIX-13: si el filtro no deja nada, decir por qué en vez de blanco.
-        if (vista.isEmpty()) {
-            Label aviso = new Label(todos.isEmpty()
-                    ? "Sin contactos todavía."
-                    : "Sin resultados para esta búsqueda.");
-            aviso.getStyleClass().add("empty-placeholder");
-            aviso.setWrapText(true);
-            listaUsuarios.setPlaceholder(aviso);
-        }
-        if (sel != null) {
-            for (RecienteChat r : vista) {
-                if (r.otro().equals(sel.otro())) {
-                    listaUsuarios.getSelectionModel().select(r);
-                    return;
+        boolean seleccionVisible = false;
+        actualizandoListaUsuarios = true;
+        try {
+            listaUsuarios.setItems(vista);
+            // UIX-13: si el filtro no deja nada, decir por qué en vez de blanco.
+            if (vista.isEmpty()) {
+                Label aviso = new Label(todos.isEmpty()
+                        ? "Sin contactos todavía."
+                        : "Sin resultados para esta búsqueda.");
+                aviso.getStyleClass().add("empty-placeholder");
+                aviso.setWrapText(true);
+                listaUsuarios.setPlaceholder(aviso);
+            }
+            if (sel != null) {
+                for (RecienteChat r : vista) {
+                    if (r.otro().equals(sel.otro())) {
+                        listaUsuarios.getSelectionModel().select(r);
+                        seleccionVisible = true;
+                        break;
+                    }
                 }
             }
+        } finally {
+            actualizandoListaUsuarios = false;
+        }
+        if (sel != null && !seleccionVisible) {
+            hayDestino.set(false);
+            etiquetaChat.setText(TextosVentana.SELECCIONA_CONVERSACION);
+            etiquetaPresencia.setText("");
+            actualizarFondoForzado();
         }
     }
 
@@ -198,12 +250,11 @@ public final class RefrescadorContactosChat {
                 return null;
             }
         };
-        tarea.setOnSucceeded(e -> {
-            actualizarFondo();
-            if (seleccionado.get() == null) {
-                restaurarUltimo();
-            }
-        });
+        // T1 (2026-10-14): aquí se reabría la última conversación de la cuenta con
+        // `restaurarUltimo()`. Se quitó a propósito: el chat arranca sin selección y el
+        // usuario elige. La preferencia se sigue guardando (CambioConversacionChat), no
+        // se pierde ningún dato.
+        tarea.setOnSucceeded(e -> actualizarFondo());
         tareasFondo.execute(tarea);
     }
 
@@ -214,7 +265,9 @@ public final class RefrescadorContactosChat {
      * encadena otro al terminar para no pintar estado anterior al acuse.
      */
     void actualizarFondoForzado() {
-        refrescoForzadoPendiente = true;
+        if (refrescoEnCurso) {
+            refrescoForzadoPendiente = true;
+        }
         actualizarFondo(true);
     }
 
@@ -259,7 +312,7 @@ public final class RefrescadorContactosChat {
             for (UsuarioLocal u : c.usuarios()) {
                 directorio.put(u.codigo(), u);
             }
-            etiquetaSesion.setText("Sesión activa · " + nombreVisible.apply(viewModel.codigoActual()));
+            pintarIdentidad();
             todos.setAll(c.recientes());
             aplicarFiltro();
             restaurarSeleccion(c.sel());
@@ -297,22 +350,23 @@ public final class RefrescadorContactosChat {
         }
     }
 
-    private void restaurarUltimo() {
-        try {
-            String ultimo = prefs.get(PREF_ULTIMO + "_" + viewModel.codigoActual(), null);
-            if (ultimo == null) {
-                return;
-            }
-            for (RecienteChat r : listaUsuarios.getItems()) {
-                if (r.otro().equals(ultimo)) {
-                    listaUsuarios.getSelectionModel().select(r);
-                    return;
-                }
-            }
-        } catch (SecurityException | IllegalStateException preferenciaOpcional) {
-            LOG.fine(() -> "preferencia de último chat omitida: "
-                    + preferenciaOpcional.getMessage());
+    /**
+     * T1 (2026-10-14): deja la ventana sin conversación (Esc en la escena).
+     * <p>
+     * Solo suelta la selección: el historial local, la preferencia del último chat y la
+     * conversación guardada quedan intactos. El listener de la lista se encarga de apagar
+     * el destino (`hayDestino`) y de volver la cabecera a "Selecciona una conversación";
+     * el refresco forzado vacía la lista de mensajes en el mismo pulso.
+     * </p>
+     */
+    public void deseleccionar() {
+        if (listaUsuarios.getSelectionModel().getSelectedItem() == null) {
+            return;
         }
+        listaUsuarios.getSelectionModel().clearSelection();
+        etiquetaChat.setText(TextosVentana.SELECCIONA_CONVERSACION);
+        etiquetaPresencia.setText("");
+        actualizarFondoForzado();
     }
 
     private record Carga(String sel, List<RecienteChat> recientes, List<UsuarioLocal> usuarios,

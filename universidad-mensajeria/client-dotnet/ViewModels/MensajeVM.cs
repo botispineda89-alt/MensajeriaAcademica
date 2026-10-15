@@ -111,6 +111,16 @@ namespace Mensajeria.ViewModels
         public Brush Fondo => Pincel(EsPropio ? "BubbleOwnBrush" : "BubbleInBrush");
         public Brush ColorEstado => Pincel(EsLeido ? "VistoLeidoBrush" : "VistoOtroBrush");
         public Brush ColorContenido => Pincel(EsPropio ? "BubbleOwnFgBrush" : "BubbleInFgBrush");
+        /// <summary>
+        /// UIX-27: repinta con el tema nuevo sin reconstruir la lista. Los pinceles se
+        /// resuelven al acceder, así que basta con notificar para que el binding relea.
+        /// </summary>
+        public void RefrescarTema()
+        {
+            OnPropertyChanged(nameof(Fondo));
+            OnPropertyChanged(nameof(ColorEstado));
+            OnPropertyChanged(nameof(ColorContenido));
+        }
 
         private static Brush Pincel(string clave)
         {

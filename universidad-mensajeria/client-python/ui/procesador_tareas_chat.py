@@ -18,6 +18,7 @@ from PySide6.QtGui import QPixmap
 from transversal.textos import (
     OTRAS_SESIONES_ESTADO,
     SIN_RED,
+    TITULO_CHAT,
 )
 from ui.estado_aviso_inline import TipoAviso
 
@@ -202,6 +203,8 @@ class ProcesadorTareasChat:
             identidad_propia = (f"{nombre_propio} [{self.codigo}]"
                                 if nombre_propio else self.codigo)
             self.lbl_sesion.setText(f"Mensajería\nSesión activa · {identidad_propia}")
+            # P4: el sidebar y el título de la ventana son la misma identidad.
+            self.setWindowTitle(TITULO_CHAT.format(identidad=identidad_propia))
         self._directorio = [u for u in usuarios if u.get("codigo") != self.codigo]
         self._no_leidos = dict(no_leidos or {})
         # Tarjetas: recientes por fecha con preview (de caché local; la
@@ -220,7 +223,8 @@ class ProcesadorTareasChat:
         self._filtrar_usuarios(seleccionado=self.usuario_seleccionado)
         if self._recientes is not None:
             self._huella_pintada = self._huella_recientes(self._recientes)
-        self._restaurar_ultima_conversacion()
+        # T1 (2026-10-14): aquí se reabría la última conversación de la cuenta. Se
+        # quitó a propósito: el chat arranca sin selección y la elige el usuario.
         online = sum(bool(u.get("conectado")) for u in self._directorio)
         sin_red = error_red is not None
         self.lbl_offline.setVisible(sin_red)

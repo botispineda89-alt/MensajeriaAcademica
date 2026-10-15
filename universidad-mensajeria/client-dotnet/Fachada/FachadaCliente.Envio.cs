@@ -95,26 +95,6 @@ namespace Mensajeria.Fachada
                 adjuntos, progreso, cancelacion, pie).ConfigureAwait(false);
         }
 
-        public async Task DifundirAsync(string contenido)
-        {
-            if (_conexion == null || UsuarioActual == null) throw new InvalidOperationException("inicia sesion primero");
-            if (string.IsNullOrWhiteSpace(contenido)) throw new ArgumentException("el contenido no puede estar vacio");
-            var id = Guid.NewGuid().ToString();
-            var fecha = DateTime.UtcNow.ToString("O");
-            var resp = await _conexion.Pedir(new Dictionary<string, object?>
-            {
-                { "id", id },
-                { "tipo", TipoMensaje.BROADCAST },
-                { "remitente", UsuarioActual },
-                { "contenido", contenido },
-                { "fechaHora", fecha }
-            }).ConfigureAwait(false);
-            LanzarSiError(resp, "difusion rechazada", TipoMensaje.ACK);
-            Historial?.UpsertMensaje(id, UsuarioActual, DestinoBroadcast,
-                TipoMensaje.BROADCAST, contenido, null, null, null,
-                null, null, null, fecha, 1, 1);
-        }
-
         /// <summary>
         /// DESCARGAR_ARCHIVO bajo demanda: respuesta unica para archivos chicos y
         /// secuencia INICIO+PARTES+FIN reensamblada para archivos grandes (&gt;1 MiB).

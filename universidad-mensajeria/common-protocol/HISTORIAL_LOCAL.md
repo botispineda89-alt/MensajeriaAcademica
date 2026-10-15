@@ -21,7 +21,7 @@ Convenciones:
   `contenido` de la **misma** trama `MENSAJE_IMAGEN` / `ARCHIVO_INICIO`. Los adaptadores que aún no
   la lean la ignoran; nunca rompe las queries viejas. **Estado 2026-10-10:** la tienen JavaFX y .NET;
   la copia distribuible de Python **no**, y por eso su test de equivalencia falla
-  (`ESTADO_ROADMAP.md` §5.8).
+  (`../../docs/ESTADO_ROADMAP.md` §5.8).
 
 ## Aislamiento por cuenta
 

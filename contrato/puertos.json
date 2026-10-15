@@ -1087,6 +1087,10 @@
           "lanzar": "ExcepcionCliente, IOException"
         },
         {
+          "firma": "boolean enviarArchivo(String destinatario, byte[] bytes, String nombre, String mime, String caption, BooleanSupplier cancelado)",
+          "lanzar": "ExcepcionCliente, IOException"
+        },
+        {
           "firma": "List<MensajeLocal> cargarConversacion(String otro, int limite, int offset)",
           "lanzar": "ExcepcionCliente, IOException"
         },

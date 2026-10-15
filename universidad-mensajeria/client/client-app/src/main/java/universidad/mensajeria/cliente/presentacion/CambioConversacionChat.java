@@ -27,6 +27,8 @@ final class CambioConversacionChat {
     private final ConfiguradorCeldasChat configuradorCeldas;
     private final CargadorAdjuntoEntradaChat adjuntosEntrada;
     private final java.util.function.Function<String, String> nombreVisible;
+    private final java.util.concurrent.Executor tareasFondo;
+    private final Runnable alMarcarLeidos;
 
     CambioConversacionChat(Label etiquetaChat, Label etiquetaPresencia,
                            InterfazChatViewModel viewModel,
@@ -35,7 +37,9 @@ final class CambioConversacionChat {
                            BusquedaHistorialChat busqueda,
                            ConfiguradorCeldasChat configuradorCeldas,
                            CargadorAdjuntoEntradaChat adjuntosEntrada,
-                           java.util.function.Function<String, String> nombreVisible) {
+                           java.util.function.Function<String, String> nombreVisible,
+                           java.util.concurrent.Executor tareasFondo,
+                           Runnable alMarcarLeidos) {
         this.etiquetaChat = etiquetaChat;
         this.etiquetaPresencia = etiquetaPresencia;
         this.viewModel = viewModel;
@@ -45,6 +49,8 @@ final class CambioConversacionChat {
         this.configuradorCeldas = configuradorCeldas;
         this.adjuntosEntrada = adjuntosEntrada;
         this.nombreVisible = nombreVisible;
+        this.tareasFondo = tareasFondo;
+        this.alMarcarLeidos = alMarcarLeidos;
     }
 
     void aplicar(RecienteChat actual) {
@@ -54,6 +60,9 @@ final class CambioConversacionChat {
         // R3: los adjuntos pendientes eran del chat anterior. Sin esto, un archivo
         // elegido para Joan se enviaría a Sofia sin que nadie lo pidiera.
         adjuntosEntrada.limpiar();
+        // T1 (2026-10-14): la preferencia se sigue guardando (es el último chat, un dato
+        // del usuario) aunque ya nadie la lea para reabrir la conversación al arrancar:
+        // el chat arranca sin selección a propósito.
         Preferences.userNodeForPackage(CambioConversacionChat.class)
                 .put(PREF + viewModel.codigoActual(), actual.otro());
         viewModel.setOffsetActual(0);
@@ -63,5 +72,22 @@ final class CambioConversacionChat {
         etiquetaPresencia.setText(actual.conectado() ? "en línea" : "desconectado");
         paginador.cargarConversacion();
         viewModel.marcarLeidosEnFondo(actual.otro());
+        if (alMarcarLeidos != null) {
+            alMarcarLeidos.run();
+        }
+        if (tareasFondo != null) {
+            tareasFondo.execute(() -> {
+                try {
+                    universidad.mensajeria.cliente.transversal.records.PaginaHistorialRemota remota =
+                            viewModel.traerHistorial(actual.otro(), 0);
+                    if (gestorAdjuntos != null) {
+                        gestorAdjuntos.registrarPaginaRemota(actual.otro(), 1, remota.totalPaginas());
+                    }
+                    javafx.application.Platform.runLater(() -> paginador.recargarSiAlDia(actual.otro()));
+                } catch (Exception e) {
+                    // Si el servidor no responde o está offline, el historial local ya está cargado
+                }
+            });
+        }
     }
 }

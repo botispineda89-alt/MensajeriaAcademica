@@ -16,14 +16,14 @@ hallazgos siguen abiertos. No inferir que un hallazgo descrito en presente conti
 > **Después de esta auditoría.** El 2026-10-10/11 se ejecutó el lote de clientes JavaFX/WPF (envío
 > múltiple en WPF, seis fallos de JavaFX y .NET, WebP de punta a punta) y se fusionó ese trabajo en
 > el roadmap §5.4–§5.8. Lo que se decidió y por qué está en
-> [`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md);
+> [`PLAN_CLIENTES-2026-10-historico.md`](PLAN_CLIENTES-2026-10-historico.md);
 > los planes que lo dirigían (`PLAN3.MD`, `PLAN_AMBOS.md`) se retiraron de la raíz.
 
 > **Estado de aplicación.** Los hallazgos de §1 (`SEC-05`, `SEC-06`), §2 (lotes `MUERTE-1` a
 > `MUERTE-5`), **§3.1 (los 6 bugs P0 de UI)** y **§4 (`PAT-03`)** **se aplicaron el 2026-10-05**:
 > el texto de abajo conserva la foto *antes* del cambio, que es la que sostiene las decisiones. Lo
 > que se aplicó, lo que se corrigió sobre la marcha y lo que se conservó a propósito está en
-> [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) §2, §4.2, §5.1 y §6.1. Cuatro ítems **no** se trataron
+> [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md) §2, §4.2, §5.1 y §6.1. Cuatro ítems **no** se trataron
 > porque las reglas B2/B5 los declaran vivos o porque exceden un lote de limpieza: `MUERT-23`
 > (dobles de prueba que implementan una interfaz que la vista sí llama), `MUERT-37`
 > (`bannerOffline`, que pasó a ser **el objetivo de `UIX-00a`** y por tanto ya no está muerto), la
@@ -448,7 +448,7 @@ proyecto es para una comunidad académica **hispanohablante** y el enunciado no 
 
 El inventario siguiente registra el problema encontrado en la auditoría del 2026-10-05; sus
 conteos y ausencias quedaron **superados por DIAG-07/08**. El índice canónico actual está en
-[`DIAGRAMAS/README.md`](DIAGRAMAS/README.md).
+[`DIAGRAMAS/README.md`](../../DIAGRAMAS/README.md).
 
 - **37 `.mmd` repartidos en 3 carpetas** con solapamiento pesado. `DIAGRAMAS/` gana en todo lo
   duplicado (18 `.mmd` derivados del código y los `.sql` reales; versiones ENTRAGAs y FINALES
@@ -501,8 +501,8 @@ Ver `DIAGRAMAS/README.md` §3. Al ser instantánea de auditoría, este §6 no se
 
 ## 8. Referencias
 
-- [`ESTADO_ROADMAP.md`](ESTADO_ROADMAP.md) — tablero; aquí cada hallazgo tiene su tarea.
-- [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md) — fases, orden y criterios de aceptación.
-- [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) — IDs normativos (`RF-*`, `RNF-*`, `PD-*`).
-- [`DIAGRAMAS/README.md`](DIAGRAMAS/README.md) — catálogo de diagramas y plan de consolidación.
-- [`PLAN.md`](PLAN.md) — arquitectura y decisiones de diseño vigentes.
+- [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md) — tablero; aquí cada hallazgo tiene su tarea.
+- [`PLAN_PATRONES_UI-historico.md`](PLAN_PATRONES_UI-historico.md) - fases, orden y criterios de aceptación.
+- [`REQUERIMIENTOS.md`](../REQUERIMIENTOS.md) — IDs normativos (`RF-*`, `RNF-*`, `PD-*`).
+- [`DIAGRAMAS/README.md`](../../DIAGRAMAS/README.md) — catálogo de diagramas y plan de consolidación.
+- [`PLAN.md`](../PLAN.md) — arquitectura y decisiones de diseño vigentes.

@@ -66,7 +66,6 @@ namespace Mensajeria.Fachada
         Task<ResultadoEnvioMultiple> EnviarAdjuntosAsync(string destinatario,
             IReadOnlyList<AdjuntoPendiente> adjuntos, IProgress<ProgresoEnvio>? progreso = null,
             CancellationToken cancelacion = default, string? pie = null);
-        Task DifundirAsync(string contenido);
         Task<string> DescargarArchivoAsync(string idMensaje, string archivoId, string rutaDestino);
         string? ContenidoImagenLocal(string idMensaje);
     }

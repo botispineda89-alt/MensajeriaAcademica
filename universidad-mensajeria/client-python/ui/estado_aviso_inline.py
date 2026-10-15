@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel
 from qfluentwidgets import PushButton
 
-from ui.tema import tokens
+from ui.tema import TOKENS_CANONICOS, normalizar
 
 
 class TipoAviso(Enum):
@@ -44,6 +44,16 @@ PLAZOS = {
     TipoAviso.INFORMACION: DURACION_INFORMACION_MS,
     TipoAviso.ADVERTENCIA: DURACION_ADVERTENCIA_MS,
     TipoAviso.ERROR: DURACION_ERROR_MS,
+}
+
+#: T2 (2026-10-14): familia de tokens del contrato que pinta cada severidad. El
+#: ámbar de ADVERTENCIA es el mismo del banner de sin conexión y el que ya usaba
+#: .NET; ERROR es el del bloque de error del login.
+FAMILIA_TOKENS = {
+    TipoAviso.ERROR: "error",
+    TipoAviso.ADVERTENCIA: "banner_offline",
+    TipoAviso.EXITO: "aviso_exito",
+    TipoAviso.INFORMACION: "aviso_info",
 }
 
 
@@ -94,6 +104,8 @@ class EstadoAvisoInline(QFrame):
         self.etiqueta_titulo.setText(titulo_de(self._tipo))
         self.etiqueta_titulo.setVisible(True)
         self.etiqueta.setText(texto.strip())
+        # T2: cada severidad se pinta con su familia de tokens.
+        self.actualizar_tema(self._modo, self._tipo)
         self.setVisible(True)
         self._anunciar(anuncio_de(texto.strip(), self._tipo))
         self._temporizador.start(
@@ -117,19 +129,33 @@ class EstadoAvisoInline(QFrame):
         el siguiente turno del bucle de eventos.
         """
         self.setAccessibleDescription("")
-        QTimer.singleShot(0, lambda: self.setAccessibleDescription(texto))
+        def _aplicar():
+            try:
+                self.setAccessibleDescription(texto)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(0, _aplicar)
 
-    def actualizar_tema(self, modo):
+    def actualizar_tema(self, modo, tipo=None):
+        """Pinta el aviso con la familia de tokens de su severidad (T2).
+
+        Antes el fondo era el de la tarjeta en todas las severidades: un error y
+        un \"listo\" se veían igual, aunque el título dijera otra cosa.
+        """
         self._modo = modo
-        t = tokens(modo)
+        self._tipo = TipoAviso(tipo) if tipo is not None else self._tipo
+        t = TOKENS_CANONICOS[normalizar(modo)]
+        familia = FAMILIA_TOKENS[self._tipo]
+        fondo, borde, texto = (t[f"{familia}_bg"], t[f"{familia}_border"],
+                               t[f"{familia}_fg"])
         self.setStyleSheet(
-            f"QFrame {{ background: {t['tarjeta']};"
-            f" border: 1px solid {t['tarjeta_borde']}; border-radius: 6px; }}")
+            f"QFrame {{ background: {fondo};"
+            f" border: 1px solid {borde}; border-radius: 6px; }}")
         self.etiqueta.setStyleSheet(
-            f"color: {t['texto']}; border: none; background: transparent;")
+            f"color: {texto}; border: none; background: transparent;")
         self.etiqueta_titulo.setStyleSheet(
-            f"color: {t['texto']}; font-weight: 700;"
+            f"color: {texto}; font-weight: 700;"
             f" border: none; background: transparent;")
         self.boton_cerrar.setStyleSheet(
-            f"color: {t['texto']}; background: transparent;"
-            f" border: 1px solid {t['tarjeta_borde']};")
+            f"color: {texto}; background: transparent;"
+            f" border: 1px solid {borde};")

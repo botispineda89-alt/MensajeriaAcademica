@@ -56,6 +56,7 @@ Convenciones: `→` en el botón de entrar, `✕` para quitar cita/adjunto,
 
 | Concepto | Java | Python | .NET | Canónico |
 |---|---|---|---|---|
+| Título de la ventana | `Mensajería Académica \| {Nombre Apellidos [código]}` | = | = | Plantilla `Mensajería Académica \| {identidad}` con la identidad de la cuenta abierta; mientras no haya identidad (el directorio todavía no llegó) cae al nombre de la app, nunca al marcador. P4, 2026-10-14 |
 | Sin selección | `Selecciona una conversación` | `Selecciona una conversación` | `Selecciona una conversación` | = (tuteo; se unificó el `Seleccione` de .NET) |
 | Con selección | `Nombre Apellidos [código]` (vía `FormatoUsuario`) | = | = | `Nombre Apellidos [código]`, fallback al código solo |
 | Presencia cabecera | `en línea` / `desconectado` | = | = | = |
@@ -110,6 +111,7 @@ Convenciones: `→` en el botón de entrar, `✕` para quitar cita/adjunto,
 | Error al cerrar otras sesiones | estado propio | estado propio | banner inline `Error`: detalle de la excepción | No se abre un modal de error |
 | Descargando… | estado `Descargando {nombre}…` | botón `Descargando…` → `✓ Descargado` | botón deshabilitado durante la descarga | `Descargando…` como estado transitorio; botón deshabilitado mientras dura |
 | Cierre remoto inactividad | aviso al próximo login `Sesión cerrada por inactividad (10 min), inicie de nuevo. {motivo}` | — | — | Solo Java (RF-C08); se conserva |
+| Aviso inline del chat | banner con título `Error` / `Atención` / `Aviso` / `Listo`, arriba bajo la cabecera | = | = | Las 4 severidades se pintan con la familia de tokens del contrato (`AvisoError`, `AvisoAtencion`, `AvisoListo`, `AvisoInfo`): `Atención` reutiliza el ámbar `banner_offline_*` del banner de sin conexión, que es el que ya usaba .NET (T2, 2026-10-14). El aviso va **arriba, bajo la cabecera**, en los 3 (J1) |
 
 ## 7. Paleta Telegram oscuro liso (3.1, fondo `#0E1621`) + modo Normal (UI-09)
 
@@ -141,7 +143,10 @@ campos `#F7F9FC`, botón `#2456A6`.
   `Shift`, Java `ENTER` sin `Shift` + `defaultButton`).
 - `Shift+Enter` = salto de línea donde el control es multilínea (.NET/Java).
 - `Esc` = cancelar cita/adjunto en los 3 (Java `alTeclaEntrada`, .NET
-  `TxtMensaje_KeyDown`, Python `QShortcut Esc → _cancelar_composicion`).
+  `TxtMensaje_KeyDown`, Python `QShortcut Esc → _cancelar_composicion`). Si no
+  hay nada que cancelar, `Esc` deja la ventana sin conversación: el chat arranca
+  sin selección y `Esc` la suelta (T1, 2026-10-14). La preferencia del último
+  chat se sigue guardando; solo dejó de leerse al arrancar.
 - Doble-click en cualquier burbuja/fila = responder (Telegram Web): Java
   `fila.setOnMouseClicked (2 clicks)`, Python `itemDoubleClicked`, .NET
   `MouseDoubleClick`. El botón Responder/`↩` se conserva.

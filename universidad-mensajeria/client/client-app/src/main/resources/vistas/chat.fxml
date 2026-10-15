@@ -56,6 +56,22 @@
             <ProgressIndicator fx:id="ruedaHistorial" prefWidth="18" prefHeight="18"
                     visible="false" managed="false"/>
         </HBox>
+        <!-- J1 (2026-10-14): los avisos van ARRIBA, bajo la cabecera, como en .NET:
+             abajo competian con el compositor y el aviso se leia tarde. -->
+        <Label fx:id="bannerOffline" text="⛔ Sin conexión — mensajes en cola local, se reintentan solos"
+               visible="false" managed="false" styleClass="offline-banner" maxWidth="Infinity"/>
+        <!-- UIX-26: aviso transitorio con título, texto y ✕.
+             T2 (2026-10-14): la severidad la pone AvisosInlineChat cambiando la clase
+             (`aviso-inline-error/atencion/listo/aviso`), que sale del contrato de diseño. -->
+        <HBox fx:id="avisoInline" spacing="10" alignment="CENTER_LEFT"
+              visible="false" managed="false" styleClass="aviso-inline">
+            <padding><Insets top="8" right="10" bottom="8" left="10"/></padding>
+            <Label fx:id="avisoInlineTitulo" styleClass="reply-heading" maxWidth="Infinity"/>
+            <Label fx:id="avisoInlineTexto" styleClass="session-label" wrapText="true"
+                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+            <Button text="✕" onAction="#alCerrarAvisoInline" styleClass="icon-button"
+                    accessibleText="Cerrar el aviso"/>
+        </HBox>
         <ListView fx:id="listaMensajes" VBox.vgrow="ALWAYS" styleClass="message-list"/>
         <!-- UIX-06: buscar en el historial (Ctrl+F). Oculta hasta invocarla. -->
         <HBox fx:id="barraBuscar" spacing="6" alignment="CENTER_LEFT"
@@ -69,20 +85,6 @@
             <Label fx:id="etiquetaBuscarContador" text="" styleClass="session-label"/>
             <Button text="✕" onAction="#alCerrarBuscar" styleClass="icon-button"
                     accessibleText="Cerrar búsqueda"/>
-        </HBox>
-        <Label fx:id="bannerOffline" text="⛔ Sin conexión — mensajes en cola local, se reintentan solos"
-               visible="false" managed="false" styleClass="offline-banner" maxWidth="Infinity"/>
-        <!-- UIX-26: aviso transitorio con título, texto y ✕. Reutiliza
-             `offline-banner` a proposito: los CSS se generan desde el contrato
-             de diseño y anadir una clase aqui tocaria a los 3 clientes. -->
-        <HBox fx:id="avisoInline" spacing="10" alignment="CENTER_LEFT"
-              visible="false" managed="false" styleClass="offline-banner">
-            <padding><Insets top="8" right="10" bottom="8" left="10"/></padding>
-            <Label fx:id="avisoInlineTitulo" styleClass="reply-heading" maxWidth="Infinity"/>
-            <Label fx:id="avisoInlineTexto" styleClass="session-label" wrapText="true"
-                   maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-            <Button text="✕" onAction="#alCerrarAvisoInline" styleClass="icon-button"
-                    accessibleText="Cerrar el aviso"/>
         </HBox>
         <VBox spacing="8" styleClass="composer-area">
             <HBox fx:id="barraRespuesta" spacing="8" alignment="CENTER_LEFT"

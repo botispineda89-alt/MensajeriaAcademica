@@ -37,7 +37,10 @@ namespace Mensajeria.Views
             // se quedaba esperando al hilo de UI y el socket dejaba de consumirse
             // justo cuando más falta hacía.
             if (_cerrando) return;
-            Dispatcher.BeginInvoke(() => PintarEstadoConexion(estado));
+            // Los cambios se publican desde la red y Dispatcher los procesa después. Si
+            // entretanto llega Conectado, no repintar aquí un SinRed antiguo y dejar el
+            // banner fijo mientras se vacía la cola.
+            Dispatcher.BeginInvoke(() => PintarEstadoConexion(_fachada.EstadoConexion));
         }
 
         /// <summary>UIX-20: la sesión volvió sola tras una caída; hay que repintar.</summary>
@@ -47,6 +50,7 @@ namespace Mensajeria.Views
             Dispatcher.BeginInvoke(() =>
             {
                 if (_cerrando) return;
+                PintarEstadoConexion(_fachada.EstadoConexion);
                 LimpiarAvisoInline();
                 CargarUsuarios();
                 if (UsuarioDestino != null)
@@ -58,16 +62,17 @@ namespace Mensajeria.Views
         {
             bool degrading = EstadoConexionTexto.MuestraBanner(estado);
             bannerOffline.Visibility = degrading ? Visibility.Visible : Visibility.Collapsed;
-            if (degrading)
+            // N2 (2026-10-14): la degradación se cuenta en el banner y en la línea de estado del
+            // sidebar. La cabecera se queda con la presencia del contacto abierto —antes se
+            // pisaba con el texto de conexión y había que adivinar cuándo restaurarla—.
+            if (txtEstadoRed != null)
             {
-                bannerOfflineText.Text = EstadoConexionTexto.Texto(estado);
-                txtEstado.Text = EstadoConexionTexto.Texto(estado);
+                txtEstadoRed.Text = degrading
+                    ? EstadoConexionTexto.Texto(estado)
+                    : $"{_directorio.Count(u => u.Conectado)} contactos en línea";
             }
-            else if (txtEstado.Text == EstadoConexionTexto.Texto(EstadoConexion.SinRed)
-                || txtEstado.Text == EstadoConexionTexto.Texto(EstadoConexion.SesionCerrada))
-            {
-                txtEstado.Text = _usuarios.FirstOrDefault(u => u.Codigo == UsuarioDestino)?.Presencia ?? "";
-            }
+            if (degrading) bannerOfflineText.Text = EstadoConexionTexto.Texto(estado);
+            RefrescarPresenciaCabecera();
         }
 
         private void MostrarAvisoInline(string mensaje, TipoAvisoInline tipo)
@@ -82,17 +87,21 @@ namespace Mensajeria.Views
             };
             txtAvisoInline.Text = _estadoAvisoInline.Mensaje;
 
-            (Color fondo, Color borde, Color texto) = _estadoAvisoInline.Tipo switch
+            // T2 (2026-10-14): los colores de la severidad salen del contrato de diseño
+            // (Themes/Tema*.xaml), no de un switch con literales aquí. El ámbar de
+            // Advertencia es el mismo del banner de sin conexión en los 3 clientes.
+            string familia = _estadoAvisoInline.Tipo switch
             {
-                TipoAvisoInline.Error => (Color.FromRgb(0xFD, 0xEC, 0xEA), Color.FromRgb(0xF1, 0xA9, 0xA5), Color.FromRgb(0xB9, 0x1C, 0x1C)),
-                TipoAvisoInline.Advertencia => (Color.FromRgb(0xFF, 0xFB, 0xEB), Color.FromRgb(0xF2, 0xCE, 0x84), Color.FromRgb(0xB4, 0x53, 0x09)),
-                TipoAvisoInline.Exito => (Color.FromRgb(0xEC, 0xFD, 0xF3), Color.FromRgb(0xA7, 0xF3, 0xD0), Color.FromRgb(0x04, 0x78, 0x57)),
-                _ => (Color.FromRgb(0xEF, 0xF6, 0xFF), Color.FromRgb(0xBF, 0xDB, 0xFE), Color.FromRgb(0x1D, 0x4E, 0xD8))
+                TipoAvisoInline.Error => "AvisoError",
+                TipoAvisoInline.Advertencia => "AvisoAtencion",
+                TipoAvisoInline.Exito => "AvisoListo",
+                _ => "AvisoInfo"
             };
-            bordeAvisoInline.Background = new SolidColorBrush(fondo);
-            bordeAvisoInline.BorderBrush = new SolidColorBrush(borde);
-            txtTituloAvisoInline.Foreground = new SolidColorBrush(texto);
-            txtAvisoInline.Foreground = new SolidColorBrush(texto);
+            bordeAvisoInline.Background = TryFindResource(familia + "BgBrush") as Brush;
+            bordeAvisoInline.BorderBrush = TryFindResource(familia + "BorderBrush") as Brush;
+            Brush? pincelTexto = TryFindResource(familia + "FgBrush") as Brush;
+            txtTituloAvisoInline.Foreground = pincelTexto;
+            txtAvisoInline.Foreground = pincelTexto;
             bordeAvisoInline.Visibility = _estadoAvisoInline.Visible ? Visibility.Visible : Visibility.Collapsed;
             // UIX-26: los avisos de éxito e información se cierran solos; los de
             // error y atención no, porque dependen de que alguien los lea.

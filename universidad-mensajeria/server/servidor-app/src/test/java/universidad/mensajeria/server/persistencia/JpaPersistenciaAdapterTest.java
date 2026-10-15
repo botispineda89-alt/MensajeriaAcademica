@@ -117,6 +117,68 @@ class JpaPersistenciaAdapterTest {
                 mock(ConfiguracionLimitesRepository.class));
     }
 
+    @Test
+    void guardarArchivoReutilizaExistentePorRutaSiYaExiste() throws Exception {
+        UsuarioRepository usuarios = mock(UsuarioRepository.class);
+        ArchivoRepository archivos = mock(ArchivoRepository.class);
+        Usuario propietario = usuario("A001", "Ana");
+        when(usuarios.findByCodigo("A001")).thenReturn(Optional.of(propietario));
+
+        universidad.mensajeria.server.persistencia.entidades.Archivo existente =
+                new universidad.mensajeria.server.persistencia.entidades.Archivo(
+                        "foto.png", "A001/hash/00_original.png", 1024L, "IMAGEN",
+                        "image/png", "hash123", propietario);
+        idArchivo(existente, 42L);
+        when(archivos.findFirstByRuta("A001/hash/00_original.png")).thenReturn(Optional.of(existente));
+
+        JpaPersistenciaAdapter adapter = new JpaPersistenciaAdapter(
+                usuarios, mock(MensajeRepository.class), archivos,
+                mock(RegistroAccionRepository.class), mock(ConfiguracionLimitesRepository.class));
+
+        var resultado = adapter.guardarArchivo(new universidad.mensajeria.common.interno.ArchivoGuardarDTO(
+                "foto.png", "A001/hash/00_original.png", 1024L, "IMAGEN", "image/png", "hash123", "A001"));
+
+        assertEquals(42L, resultado.id());
+        assertEquals("foto.png", resultado.nombre());
+        assertEquals("A001/hash/00_original.png", resultado.ruta());
+        verify(archivos, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void guardarArchivoRecuperaExistenteSiOcurreViolacionDeIntegridad() throws Exception {
+        UsuarioRepository usuarios = mock(UsuarioRepository.class);
+        ArchivoRepository archivos = mock(ArchivoRepository.class);
+        Usuario propietario = usuario("A001", "Ana");
+        when(usuarios.findByCodigo("A001")).thenReturn(Optional.of(propietario));
+
+        universidad.mensajeria.server.persistencia.entidades.Archivo existente =
+                new universidad.mensajeria.server.persistencia.entidades.Archivo(
+                        "foto.png", "A001/hash/00_original.png", 1024L, "IMAGEN",
+                        "image/png", "hash123", propietario);
+        idArchivo(existente, 43L);
+        when(archivos.findFirstByRuta("A001/hash/00_original.png"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(existente));
+        when(archivos.save(any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+
+        JpaPersistenciaAdapter adapter = new JpaPersistenciaAdapter(
+                usuarios, mock(MensajeRepository.class), archivos,
+                mock(RegistroAccionRepository.class), mock(ConfiguracionLimitesRepository.class));
+
+        var resultado = adapter.guardarArchivo(new universidad.mensajeria.common.interno.ArchivoGuardarDTO(
+                "foto.png", "A001/hash/00_original.png", 1024L, "IMAGEN", "image/png", "hash123", "A001"));
+
+        assertEquals(43L, resultado.id());
+        assertEquals("foto.png", resultado.nombre());
+        assertEquals("A001/hash/00_original.png", resultado.ruta());
+    }
+
+    private static void idArchivo(universidad.mensajeria.server.persistencia.entidades.Archivo archivo, Long id) throws Exception {
+        Field campo = universidad.mensajeria.server.persistencia.entidades.Archivo.class.getDeclaredField("id");
+        campo.setAccessible(true);
+        campo.set(archivo, id);
+    }
+
     private static JpaPersistenciaAdapter adapter(UsuarioRepository usuarios,
                                                    MensajeRepository mensajes) {
         return new JpaPersistenciaAdapter(usuarios, mensajes, mock(ArchivoRepository.class),

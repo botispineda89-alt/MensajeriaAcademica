@@ -150,15 +150,6 @@ namespace Mensajeria.Tests
         }
 
         [Fact]
-        public async Task BroadcastPropioMarcadoConDestinoEspecial()
-        {
-            await _f.DifundirAsync("aviso");
-            var propias = _f.CargarHistorial(FachadaCliente.DestinoBroadcast);
-            Assert.Single(propias);
-            Assert.Equal("aviso", propias[0]["contenido"]);
-        }
-
-        [Fact]
         public void BroadcastEntranteApareceEnConversacionConSuRemitente()
         {
             _red.Recibir(Doc(new Dictionary<string, object?>

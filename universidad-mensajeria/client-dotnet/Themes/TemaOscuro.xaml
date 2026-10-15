@@ -33,6 +33,20 @@
     <SolidColorBrush x:Key="DividerBrush" Color="#FF2A3B4D" />
     <SolidColorBrush x:Key="ErrorBgBrush" Color="#FFFDECEA" />
     <SolidColorBrush x:Key="ErrorFgBrush" Color="#FFB91C1C" />
+    <!-- T2: las 4 severidades del aviso inline. El ambar de Atencion es el mismo
+         banner_offline_* del banner de sin conexion; Error es el error_* del login. -->
+    <SolidColorBrush x:Key="AvisoErrorBgBrush" Color="#FFFDECEA" />
+    <SolidColorBrush x:Key="AvisoErrorBorderBrush" Color="#FFF1A9A5" />
+    <SolidColorBrush x:Key="AvisoErrorFgBrush" Color="#FFB91C1C" />
+    <SolidColorBrush x:Key="AvisoAtencionBgBrush" Color="#FFFFFBEB" />
+    <SolidColorBrush x:Key="AvisoAtencionBorderBrush" Color="#FFF2CE84" />
+    <SolidColorBrush x:Key="AvisoAtencionFgBrush" Color="#FFB45309" />
+    <SolidColorBrush x:Key="AvisoListoBgBrush" Color="#FFECFDF3" />
+    <SolidColorBrush x:Key="AvisoListoBorderBrush" Color="#FFA7F3D0" />
+    <SolidColorBrush x:Key="AvisoListoFgBrush" Color="#FF047857" />
+    <SolidColorBrush x:Key="AvisoInfoBgBrush" Color="#FFEFF6FF" />
+    <SolidColorBrush x:Key="AvisoInfoBorderBrush" Color="#FFBFDBFE" />
+    <SolidColorBrush x:Key="AvisoInfoFgBrush" Color="#FF1D4ED8" />
     <SolidColorBrush x:Key="OfflineBannerBgBrush" Color="#FFFFFBEB" />
     <SolidColorBrush x:Key="OfflineBannerFgBrush" Color="#FFB45309" />
     <SolidColorBrush x:Key="BadgeBrush" Color="#FF48A982" />

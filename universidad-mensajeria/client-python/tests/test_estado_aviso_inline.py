@@ -22,11 +22,14 @@ class PruebasEstadoAvisoInline(unittest.TestCase):
 
     def test_aviso_se_cierra_automaticamente_y_tiene_boton_accesible(self):
         aviso = EstadoAvisoInline()
-        aviso.mostrar("No se pudo enviar", duracion_ms=1000)
+        aviso.mostrar("No se pudo enviar", duracion_ms=100)
         self.assertTrue(aviso.isVisible())
         self.assertEqual("Cerrar aviso", aviso.boton_cerrar.accessibleName())
 
-        QTest.qWait(1100)
+        for _ in range(30):
+            if not aviso.isVisible():
+                break
+            QTest.qWait(50)
 
         self.assertFalse(aviso.isVisible())
         aviso.close()
@@ -44,6 +47,31 @@ class PruebasEstadoAvisoInline(unittest.TestCase):
             self.assertEqual(titulo, aviso.etiqueta_titulo.text(), f"título de {tipo}")
             self.assertIs(tipo, aviso.tipo)
         aviso.close()
+
+    def test_cada_severidad_se_pinta_con_su_familia_de_tokens(self):
+        """T2 (2026-10-14): el fondo ya no es el de la tarjeta en todas."""
+        from ui.tema import TOKENS_CANONICOS, MODO_OSCURO
+
+        aviso = EstadoAvisoInline()
+        t = TOKENS_CANONICOS[MODO_OSCURO]
+        for tipo, familia in (
+                (TipoAviso.ERROR, "error"),
+                (TipoAviso.ADVERTENCIA, "banner_offline"),
+                (TipoAviso.EXITO, "aviso_exito"),
+                (TipoAviso.INFORMACION, "aviso_info")):
+            with self.subTest(severidad=tipo):
+                aviso.mostrar("mensaje", tipo)
+                hoja = aviso.styleSheet()
+                self.assertIn(t[f"{familia}_bg"], hoja)
+                self.assertIn(t[f"{familia}_border"], hoja)
+                self.assertIn(t[f"{familia}_fg"], aviso.etiqueta.styleSheet())
+        aviso.close()
+
+    def test_el_ambar_de_la_advertencia_es_el_del_banner_de_sin_conexion(self):
+        """El ámbar unificado de los 3 clientes sale del mismo token."""
+        from ui.estado_aviso_inline import FAMILIA_TOKENS
+
+        self.assertEqual("banner_offline", FAMILIA_TOKENS[TipoAviso.ADVERTENCIA])
 
     def test_el_plazo_depende_de_la_severidad(self):
         aviso = EstadoAvisoInline()

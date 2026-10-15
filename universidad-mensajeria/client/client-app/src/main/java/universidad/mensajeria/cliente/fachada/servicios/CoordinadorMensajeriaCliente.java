@@ -2,7 +2,10 @@ package universidad.mensajeria.cliente.fachada.servicios;
 import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente;
 
 import universidad.mensajeria.cliente.componentes.conexion.InterfazConexionRed;
+import universidad.mensajeria.cliente.componentes.conexion.InterfazRedArchivoCancelable;
+import universidad.mensajeria.cliente.transversal.excepciones.EnvioArchivoCanceladoException;
 import universidad.mensajeria.cliente.componentes.historial.InterfazHistorialLocal;
+import universidad.mensajeria.cliente.fachada.InterfazCoordinadorArchivoCancelable;
 import universidad.mensajeria.cliente.fachada.InterfazCoordinadorMensajeria;
 import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionCliente;
 import universidad.mensajeria.cliente.transversal.excepciones.ExcepcionSesion;
@@ -19,6 +22,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 /**
  * Servicio enfocado en el envío de mensajes 1-a-1 (texto, imagen, archivo) y broadcast (Fase 4).
@@ -28,7 +32,8 @@ import java.util.UUID;
  * No conoce JavaFX ni la UI.
  * </p>
  */
-public final class CoordinadorMensajeriaCliente implements InterfazCoordinadorMensajeria {
+public final class CoordinadorMensajeriaCliente implements InterfazCoordinadorMensajeria,
+        InterfazCoordinadorArchivoCancelable {
 
     private final InterfazConexionRed red;
     private final InterfazHistorialLocal historial;
@@ -150,6 +155,13 @@ public final class CoordinadorMensajeriaCliente implements InterfazCoordinadorMe
     public boolean enviarArchivo(String yo, String destinatario, byte[] bytes,
                                  String nombreArchivo, String mime, String caption)
             throws ExcepcionCliente {
+        return enviarArchivo(yo, destinatario, bytes, nombreArchivo, mime, caption, () -> false);
+    }
+
+    @Override
+    public boolean enviarArchivo(String yo, String destinatario, byte[] bytes,
+                                 String nombreArchivo, String mime, String caption,
+                                 BooleanSupplier cancelado) throws ExcepcionCliente {
         ValidacionCliente.destinatario(destinatario);
         if (bytes == null || bytes.length == 0) {
             throw new ExcepcionValidacion("el archivo esta vacio");
@@ -165,14 +177,27 @@ public final class CoordinadorMensajeriaCliente implements InterfazCoordinadorMe
                 nombreArchivo, null, (long) bytes.length, ahora, true, true,
                 EstadoMensaje.PENDIENTE.name(), null, null, pie));
         try {
-            RespuestaRed resultado = red.enviarArchivoFragmentado(id, yo, destinatario,
-                    nombreArchivo, mime == null ? MIME_POR_DEFECTO : mime, bytes, pie);
+            RespuestaRed resultado;
+            if (red instanceof InterfazRedArchivoCancelable redCancelable) {
+                resultado = redCancelable.enviarArchivoFragmentado(id, yo, destinatario,
+                        nombreArchivo, mime == null ? MIME_POR_DEFECTO : mime, bytes, pie,
+                        cancelado);
+            } else {
+                if (cancelado != null && cancelado.getAsBoolean()) {
+                    throw new EnvioArchivoCanceladoException();
+                }
+                resultado = red.enviarArchivoFragmentado(id, yo, destinatario,
+                        nombreArchivo, mime == null ? MIME_POR_DEFECTO : mime, bytes, pie);
+            }
             exigirAceptado(resultado, "envio rechazado");
             if (resultado.archivoId() != null) {
                 historial.actualizarArchivoId(id, resultado.archivoId());
             }
             historial.marcarEstado(id, EstadoMensaje.ENVIADO.name());
             return true;
+        } catch (EnvioArchivoCanceladoException cancelacion) {
+            historial.marcarEstado(id, EstadoMensaje.ERROR.name());
+            throw cancelacion;
         } catch (IOException sinRed) {
             historial.marcarEstado(id, EstadoMensaje.PENDIENTE.name());
             historial.registrarPendiente(new PendienteEnvio(id,

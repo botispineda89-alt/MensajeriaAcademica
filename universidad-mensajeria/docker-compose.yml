@@ -35,14 +35,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
-
-  # Servidor de mensajeria: JAR + JRE 21. Requiere mysql sano.
-  # Credenciales de desarrollo; en produccion usa secretos y otro compose.
-  # Configuracion efectiva (args Spring Boot, prevalecen sobre el JAR):
-  #   --db.active / --db.mysql.url / --db.mysql.user / --db.mysql.pass -> MySQL interno mysql:3306
-  #   --red.puerto=5000 -> TCP de mensajeria (clientes). Cambiar aqui + mapeo de ports.
-  #   uploads/logs -> volumenes nombrados uploads_data/logs_data (persisten entre actualizaciones).
-  #   TLS opcional: descomenta el mapeo 5001 y anade --red.tls.habilitado=true + keystore en /app/config.
   servidor:
     image: mensajeria-servidor:1.0.0
     build:

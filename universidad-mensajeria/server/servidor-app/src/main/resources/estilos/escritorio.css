@@ -2,6 +2,15 @@
     -fx-font-family: "Segoe UI", sans-serif;
     -fx-font-size: 13px;
     -fx-background-color: #F3F6FA;
+    -fx-text-base-color: #1E293B;
+}
+
+.label {
+    -fx-text-fill: #1E293B;
+}
+
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
 }
 
 .server-header {
@@ -124,7 +133,7 @@
     -fx-border-radius: 12px;
     -fx-padding: 18px 20px;
     -fx-min-height: 88px;
-    -fx-pref-width: 900px;
+    -fx-max-width: infinity;
     -fx-effect: dropshadow(gaussian, rgba(24, 45, 70, 0.06), 12, 0, 0, 3);
 }
 
@@ -190,10 +199,12 @@
 
 .text-field, .combo-box, .date-picker {
     -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
+    -fx-prompt-text-fill: #64748B;
     -fx-border-color: #C9D4E0;
     -fx-border-radius: 8px;
     -fx-background-radius: 8px;
-    -fx-padding: 7px 10px;
+    -fx-padding: 8px 12px;
 }
 
 .text-field:focused, .combo-box:focused, .date-picker:focused {
@@ -203,6 +214,7 @@
 
 .text-area {
     -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
     -fx-border-color: #D5DEE8;
     -fx-border-radius: 9px;
     -fx-background-radius: 9px;
@@ -210,7 +222,24 @@
 
 .text-area .content {
     -fx-background-color: #FFFFFF;
+    -fx-text-fill: #0F172A;
     -fx-background-radius: 9px;
+}
+
+.logs-terminal {
+    -fx-font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    -fx-font-size: 12px;
+    -fx-background-color: #0F172A;
+    -fx-text-fill: #38BDF8;
+    -fx-border-color: #1E293B;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+}
+
+.logs-terminal .content {
+    -fx-background-color: #0F172A;
+    -fx-text-fill: #38BDF8;
+    -fx-background-radius: 8px;
 }
 
 .table-view, .list-view {
@@ -350,4 +379,66 @@
     -fx-padding: 8px 10px;
     -fx-text-fill: #405A73;
     -fx-line-spacing: 4px;
+}
+
+/* ====================================================================
+   DIFUSION INSTITUCIONAL (BROADCAST)
+   ==================================================================== */
+.broadcast-card {
+    -fx-background-color: #FFFFFF;
+    -fx-background-radius: 12px;
+    -fx-border-color: #DCE5EF;
+    -fx-border-radius: 12px;
+    -fx-padding: 24px 28px;
+    -fx-max-width: 960px;
+    -fx-effect: dropshadow(gaussian, rgba(24, 45, 70, 0.06), 12, 0, 0, 3);
+}
+
+.broadcast-title {
+    -fx-font-size: 17px;
+    -fx-font-weight: 700;
+    -fx-text-fill: #0F172A;
+}
+
+.broadcast-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #475569;
+    -fx-line-spacing: 3px;
+}
+
+.broadcast-status-banner {
+    -fx-padding: 10px 14px;
+    -fx-background-radius: 8px;
+    -fx-border-radius: 8px;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+}
+
+.banner-info {
+    -fx-background-color: #EFF6FF;
+    -fx-border-color: #BFDBFE;
+    -fx-text-fill: #1E40AF;
+}
+
+.banner-success {
+    -fx-background-color: #ECFDF5;
+    -fx-border-color: #A7F3D0;
+    -fx-text-fill: #065F46;
+}
+
+.banner-warning {
+    -fx-background-color: #FFFBEB;
+    -fx-border-color: #FDE68A;
+    -fx-text-fill: #92400E;
+}
+
+.banner-error {
+    -fx-background-color: #FEF2F2;
+    -fx-border-color: #FECACA;
+    -fx-text-fill: #991B1B;
+}
+
+.broadcast-hint {
+    -fx-font-size: 12px;
+    -fx-text-fill: #64748B;
 }

@@ -103,6 +103,8 @@ public final class FragmentoArchivoCaso {
                     "no se pudo iniciar la transferencia: " + e.getMessage());
             return;
         }
+        LOG.info("Transferencia iniciada: {} ({} bytes, {} partes, id {}) de {}",
+                nombreArchivo, tamanoTotal, totalPartes, idTransferencia, sesion.codigo());
         responder.exito(sesion, idTransferencia, TipoMensaje.ACK);
     }
 
@@ -114,7 +116,17 @@ public final class FragmentoArchivoCaso {
                     "transferencia desconocida: " + idTransferencia);
             return;
         }
+        if (!t.remitente.equals(sesion.codigo())) {
+            responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                    "la transferencia pertenece a otra sesión");
+            return;
+        }
         synchronized (t) {
+            if (transferencias.get(idTransferencia) != t) {
+                responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                        "la transferencia ya no está activa");
+                return;
+            }
             if (indice < 0 || indice >= t.totalPartes || t.recibidas.get(indice)) {
                 responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
                         "indice de parte invalido o duplicado: " + indice);
@@ -148,10 +160,24 @@ public final class FragmentoArchivoCaso {
 
     public void finalizar(IdSesion sesion, String idTransferencia, String hashEsperado,
                           String idSolicitud, String ip) {
-        Transferencia t = transferencias.remove(idTransferencia);
+        if (hashEsperado == null) {
+            cancelar(sesion, idTransferencia, idSolicitud);
+            return;
+        }
+        Transferencia t = transferencias.get(idTransferencia);
         if (t == null) {
             responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
                     "transferencia desconocida: " + idTransferencia);
+            return;
+        }
+        if (!t.remitente.equals(sesion.codigo())) {
+            responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                    "la transferencia pertenece a otra sesión");
+            return;
+        }
+        if (!transferencias.remove(idTransferencia, t)) {
+            responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                    "la transferencia ya no está activa");
             return;
         }
         synchronized (t) {
@@ -193,8 +219,33 @@ public final class FragmentoArchivoCaso {
             // el remitente quedaba esperando FIN para siempre (timeout) aunque el
             // archivo si habia llegado. El archivoId real viaja al destinatario
             // en el MENSAJE_ARCHIVO entregado.
+            LOG.info("Transferencia finalizada: {} ({} bytes, id {}) de {}",
+                    t.nombreArchivo, t.tamanoTotal, idTransferencia, sesion.codigo());
             responder.exito(sesion, idSolicitud, TipoMensaje.ACK);
         }
+    }
+
+    private void cancelar(IdSesion sesion, String idTransferencia, String idSolicitud) {
+        Transferencia t = transferencias.get(idTransferencia);
+        if (t == null) {
+            responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                    "transferencia desconocida: " + idTransferencia);
+            return;
+        }
+        if (!t.remitente.equals(sesion.codigo())) {
+            responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                    "la transferencia pertenece a otra sesión");
+            return;
+        }
+        synchronized (t) {
+            if (!transferencias.remove(idTransferencia, t)) {
+                responder.fallo(sesion, idSolicitud, TipoMensaje.ERROR,
+                        "la transferencia ya no está activa");
+                return;
+            }
+            borrar(t);
+        }
+        responder.exito(sesion, idSolicitud, TipoMensaje.ACK);
     }
 
     int transferenciasActivas() {

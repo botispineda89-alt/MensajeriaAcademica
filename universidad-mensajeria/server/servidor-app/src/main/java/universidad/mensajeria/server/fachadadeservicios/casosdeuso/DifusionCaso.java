@@ -55,6 +55,9 @@ public final class DifusionCaso {
     }
 
     public void difundir(Mensaje trama, IdSesion origen) {
+        String ipRemitente = origen != null && origen.direccionIp() != null
+                && !origen.direccionIp().isBlank()
+                ? origen.direccionIp() : trama.ipRemitente();
         if (FachadaDeServicios.CUENTA_SISTEMA.equals(trama.remitente())
                 || "ADMINISTRADOR".equals(trama.remitente())) {
             // Difusión del servidor A TODOS los registrados (no solo conectados):
@@ -71,7 +74,7 @@ public final class DifusionCaso {
             int hito = Math.max(1, destinos.size() / 4);
             for (String codigo : destinos) {
                 futuros.add(mensajes.procesarTexto(FachadaDeServicios.CUENTA_SISTEMA, codigo,
-                                trama.contenido(), trama.ipRemitente())
+                                trama.contenido(), ipRemitente, trama.id())
                         .thenAcceptAsync(dto -> {
                             Mensaje entregaMsg = Mensaje.builder()
                                     .tipo(TipoMensaje.BROADCAST)
@@ -79,14 +82,14 @@ public final class DifusionCaso {
                                     .fechaHora(LocalDateTime.now().toString())
                                     .remitente(FachadaDeServicios.CUENTA_SISTEMA)
                                     .contenido(trama.contenido())
-                                    .ipRemitente(trama.ipRemitente())
+                                    .ipRemitente(ipRemitente)
                                     .build();
                             entrega.entregar(codigo, entregaMsg);
                             int hechos = entregados.incrementAndGet();
                             if (hechos % hito == 0 || hechos == destinos.size()) {
                                 eventos.registrar(TipoAccion.BROADCAST,
                                         "Difusión " + hechos + "/" + destinos.size() + " usuarios",
-                                        null, trama.ipRemitente(), trama.id());
+                                        null, ipRemitente, trama.id());
                             }
                         }, poolEntrega)
                         .exceptionally(fallo -> {
@@ -105,7 +108,7 @@ public final class DifusionCaso {
                                 "Difusion administrativa a " + destinos.size()
                                         + " usuarios (" + sesiones + " sesiones vivas"
                                         + ", fallos persistencia: " + fallidos.size() + ")",
-                                null, trama.ipRemitente(), trama.id());
+                                null, ipRemitente, trama.id());
                         LOG.info("Difusion administrativa {} a {} usuarios (fallos: {})",
                                 trama.id(), destinos.size(), fallidos.size());
                     });
@@ -119,7 +122,7 @@ public final class DifusionCaso {
         for (String codigo : destinos) {
             String ipDestinatario = entrega.fotoIpDestinatario(codigo);
             futuros.add(mensajes.procesarTexto(trama.remitente(), codigo,
-                            trama.contenido(), trama.ipRemitente(), ipDestinatario, trama.id())
+                            trama.contenido(), ipRemitente, ipDestinatario, trama.id())
                     .thenAcceptAsync(dto -> {
                         Mensaje entregaMsg = Mensaje.builder()
                                 .tipo(TipoMensaje.BROADCAST)
@@ -127,7 +130,7 @@ public final class DifusionCaso {
                                 .fechaHora(LocalDateTime.now().toString())
                                 .remitente(trama.remitente())
                                 .contenido(trama.contenido())
-                                .ipRemitente(trama.ipRemitente())
+                                .ipRemitente(ipRemitente)
                                 .build();
                         for (IdSesion s : conexiones.sesionesDe(codigo)) {
                             if (origen != null && s.id().equals(origen.id())) {
@@ -143,7 +146,7 @@ public final class DifusionCaso {
                             eventos.registrar(TipoAccion.BROADCAST,
                                     "Broadcast " + entregados.get() + "/" + destinos.size()
                                             + " usuarios",
-                                    null, trama.ipRemitente(), trama.id());
+                                    null, ipRemitente, trama.id());
                         }
                     }, poolEntrega)
                     .exceptionally(fallo -> {

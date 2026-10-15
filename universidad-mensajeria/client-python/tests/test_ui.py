@@ -13,6 +13,7 @@ from PySide6.QtCore import QBuffer, QCoreApplication, QEvent, QEventLoop, QIODev
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QLabel
 
+from transversal.textos import SELECCIONA_CONVERSACION, TITULO_CHAT
 from ui.chat_window import ChatWindow
 from ui.estado_aviso_inline import TipoAviso
 from ui.lista_virtual import ROL_ITEM
@@ -49,9 +50,6 @@ class FachadaFalsa:
 
     def enviar_imagen(self, usuario, ruta):
         self.enviados.append(("imagen", usuario, ruta))
-
-    def difundir(self, texto):
-        self.enviados.append(("difusion", texto))
 
     def desconectar(self):
         pass
@@ -229,7 +227,8 @@ class PruebasUI(unittest.TestCase):
 
             self.assertEqual(esperado, self.chat._divisor_lateral.sizes())
 
-    def test_restaurar_ultimo_chat_de_la_cuenta(self):
+    def test_arranque_sin_seleccion_aunque_haya_ultimo_chat(self):
+        """T1: la preferencia se guarda, pero no se reabre sola al arrancar."""
         import tempfile
         from PySide6.QtCore import QSettings
         from ui.preferencias_chat import PreferenciasChat
@@ -241,14 +240,44 @@ class PruebasUI(unittest.TestCase):
             )
             self.chat._preferencias_chat = PreferenciasChat(ajustes)
             self.chat._preferencias_chat.guardar_ultimo_chat("A001", "B002")
-            self.chat._restauracion_ultimo_chat_pendiente = True
             self.chat._directorio = [{"codigo": "B002", "conectado": 1}]
             self.chat._no_leidos = {}
             self.chat._filtrar_usuarios()
+            self.chat._entregar_directorio(
+                (self.chat._gen_directorio, self.chat._directorio, {}, None), None)
 
-            self.chat._restaurar_ultima_conversacion()
+            self.assertIsNone(self.chat.usuario_seleccionado)
+            self.assertEqual("Mensajería Académica | {identidad}", TITULO_CHAT)
+            self.assertEqual(SELECCIONA_CONVERSACION,
+                             self.chat.lbl_conversacion.text())
 
-            self.assertEqual("B002", self.chat.usuario_seleccionado)
+    def test_escape_deselecciona_la_conversacion(self):
+        """T1: con la ventana limpia, Esc deja la conversación sin selección."""
+        self.chat.show()
+        self._wait(30)
+        self.chat.lista_usuarios.setCurrentRow(0)
+        self._wait(10)
+        self.assertIsNotNone(self.chat.usuario_seleccionado)
+
+        self.chat._al_pulsar_escape()
+
+        self.assertIsNone(self.chat.usuario_seleccionado)
+        self.assertFalse(self.chat.cita_container.isVisible())
+        self.assertEqual(0, self.chat._modelo_mensajes.rowCount())
+
+    def test_escape_cancela_la_cita_antes_de_deseleccionar(self):
+        """El primer Esc se lleva la cita; el segundo sí suelta el chat."""
+        self.chat.show()
+        self._wait(30)
+        self.chat.lista_usuarios.setCurrentRow(0)
+        self._wait(10)
+        self.chat._responder({"sender": "Luis García [B002]", "text": "hola",
+                              "is_image": False})
+
+        self.chat._al_pulsar_escape()
+
+        self.assertEqual("", self.chat._cita_actual())
+        self.assertIsNotNone(self.chat.usuario_seleccionado)
 
     def test_evento_del_hilo_de_red_se_aplica_en_la_vista(self):
         self.chat.lista_usuarios.setCurrentRow(0)

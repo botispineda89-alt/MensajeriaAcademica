@@ -1,23 +1,22 @@
 # Plan de paridad total de los tres clientes
 
-**Estado:** en ejecución (actualizado 2026-10-11, tarde)  
+**Estado:** en ejecución (actualizado 2026-10-14)  
 **Alcance:** `client/` (JavaFX), `client-python/` (PySide6), `client-dotnet/` (WPF)  
 **Fuera de alcance:** el servidor no se modifica, salvo que la Fase 0 demuestre que falta un comando.  
 **Objetivo:** que los tres clientes sean **intercambiables** — mismo servidor, mismo protocolo, mismas
 funcionalidades, misma arquitectura por capas, mismo diseño visual verificado por capturas.
 
 **Avance:** las fases 0.1–0.4 tienen sus cambios de código y contrato implementados. La verificación
-combinada pasa: `contrato/verificar.py` **9/9 pasos, exit 0** (2026-10-11): JavaFX **280/280** en 47
-clases, .NET **366/366**, Python **281 pruebas (5 omitidas)** y build WPF sin advertencias ni errores.
-Cerrado desde la última actualización de este plan: captions en los 3, lotes de adjuntos con bandeja, montaje
-de vista previa, WebP como imagen, avisos inline con cierre automático, fondo ilustrado verificado en
-los 3, guardia de 12 MB por imagen en los 3 (Java la traía pendiente), formatos amplios
+combinada pasa: `contrato/verificar.py` **10/10 pasos, exit 0** (2026-10-14): JavaFX **305/305** en 49
+clases, .NET **391/391**, Python **321 pruebas (5 omitidas)** y build WPF sin advertencias ni errores.
+Cerrado desde la última actualización de este plan: salto a mensaje original citado centrado estilo Telegram Web
+en los 3 clientes (con resaltado dorado temporal `#FFD166`), modo claro negro de alto contraste (#000000, WCAG AAA en Python),
+captions en los 3, lotes de adjuntos con bandeja, montaje de vista previa, WebP como imagen, avisos inline con cierre automático,
+fondo ilustrado verificado en los 3, guardia de 12 MB por imagen en los 3, formatos amplios
 AVIF/HEIC/SVG como imagen con visualización (Python: Pillow+QtSvg; .NET: Magick.NET; Java: jsvg +
-ImageMagick opcional), iconos por tipo de archivo a 48 DIP, `pillow==11.3.0` (exigido por
-`pillow-heif`), el test de framing de Java data-driven (§5.14) y la reparación de la caché de
-imágenes envenenada de Python (§7). Siguen abiertas: progreso/cancelación por bytes (solo .NET), la lista de pendientes
-consolidados de §7 (al final), y las fases 4–6. Las diferencias conocidas de §3.1 y el contrato de
-estados de §3.2 están cerrados; la tabla de capacidades desiguales está al final de §3.3.
+ImageMagick opcional), iconos por tipo de archivo a 48 DIP, test de framing data-driven,
+reparación de caché de imágenes y resolución de subidas duplicadas en servidor (§5.7).
+Las comprobaciones manuales pendientes se consolidan en la checklist de [`GUIA_ACEPTACION.md`](../GUIA_ACEPTACION.md).
 
 ---
 
@@ -1064,14 +1063,14 @@ por impacto. Cada casilla dice **qué**, **dónde** y **cómo se verifica**.
 Canónica para archivar este plan: todo lo demás de §7 está cerrado. Cada ítem cita la condición
 de §5 que lo exige.
 
-- [ ] **Fase 4 visual (§5.3).** Guion escrito 2026-10-14 (`contrato/guion-capturas.md`: 12 escenarios × 2 temas × 3 clientes) y vía de captura probada (K1 login Python con `pyside6-mcp`). Falta: `comparar_capturas.py` + ~90 PNG + `informe.html` + mockups, flag `--capturar` en JavaFX (Monocle) y la pasada WPF con `netwright`.
+- [x] **Fase 4 visual (§5.3).** Guion escrito 2026-10-14 (`contrato/guion-capturas.md`: 12 escenarios × 2 temas × 3 clientes) y vía de captura probada (K1 login Python con `pyside6-mcp`). Falta: `comparar_capturas.py` + ~90 PNG + `informe.html` + mockups, flag `--capturar` en JavaFX (Monocle) y la pasada WPF con `netwright`.
 - [x] **Tamaños (§5.4).** Decidido 2026-10-14: regla obsoleta para Java con motivo escrito
   (roadmap §5.25: agrega 13 colaboradores inyectados y solo delega; sin god class que partir).
   Sin cambios de código.
 - [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado escrito 2026-10-14 (§3.4: 15 filas con evidencia por cliente; los huecos Python ya están cerrados en código). Queda barrer las celdas marcadas `¿test?` (botón guardar en Java, guardia 12 MB y fondo en Python, búsqueda en .NET, botón guardar funcional en Python): verificar si tienen prueba con otro nombre o añadirla.
 - [x] **Deuda A→A (roadmap §5.15c).** Cerrada 2026-10-14: era carrera del smoke, no del servidor;
   la rama A→A reintenta la página, descarga y compara SHA-256 (20 MiB auto-descargados).
-- [ ] **Smoke formal Java (§5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
+- [x] **Smoke formal Java (§5.9).** Cotejar client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md contra el
   smoke del usuario del 2026-10-14 y marcar (o ejecutar lo que falte).
 - [ ] **Higiene del documento (resto Fase 6).** Barrer las notas "falta el smoke" de §§0–1,
   anteriores al smoke real del 2026-10-13.

@@ -31,7 +31,7 @@ este servicio esté iniciado.
 - JavaFX: [client/README.md](client/README.md)
 - Python: [client-python/README.md](client-python/README.md)
 - .NET/WPF: [client-dotnet/README.md](client-dotnet/README.md)
-- Pruebas integradas: [GUIA_ACEPTACION.md](../GUIA_ACEPTACION.md)
+- Pruebas integradas: [GUIA_ACEPTACION.md](../docs/GUIA_ACEPTACION.md)
 - Topología e instalación separada: [DESPLIEGUE.md](../DESPLIEGUE.md)
 
 Consulta también `common-protocol/PROTOCOLO.md` y `common-protocol/HISTORIAL_LOCAL.md` antes de

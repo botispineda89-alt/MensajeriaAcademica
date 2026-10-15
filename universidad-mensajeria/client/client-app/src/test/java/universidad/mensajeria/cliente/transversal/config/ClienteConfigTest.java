@@ -21,7 +21,6 @@ class ClienteConfigTest {
         assertEquals("localhost", cfg.host());
         assertEquals(5000, cfg.puerto());
         assertEquals("jdbc:h2:~/mensajeria_cliente;AUTO_SERVER=TRUE", cfg.dbUrl());
-        assertEquals("es", cfg.idioma());
         assertEquals(false, cfg.tlsHabilitado());
         assertEquals(5001, cfg.tlsPuerto());
     }
@@ -57,7 +56,6 @@ class ClienteConfigTest {
         props.setProperty("host", "192.168.1.10");
         props.setProperty("puerto", "99999");
         props.setProperty("db.url", "jdbc:h2:mem:x");
-        props.setProperty("idioma", "es");
 
         ClienteConfig cfg = ClienteConfig.desde(props);
 
@@ -116,7 +114,6 @@ class ClienteConfigTest {
         assertEquals(true, cfg.tlsHabilitado());
         assertEquals(5443, cfg.tlsPuerto());
         assertEquals("C:/confianza/prueba.jks", cfg.tlsConfianza());
-        assertEquals("es", cfg.idioma());
         // clave repetida: gana la ultima linea
         assertEquals("oscuro", props.getProperty("tema"));
     }

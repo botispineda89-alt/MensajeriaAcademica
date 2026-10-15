@@ -3,7 +3,7 @@
 > **Documento histórico.** El 2026-10-10 se retiraron de la raíz `PLAN_AMBOS.md` y `PLAN3.MD`
 > porque sus fases están implementadas. Este archivo conserva **qué se decidió y qué se cambió**
 > para que nadie tenga que releer los planes; **el estado vigente y los pendientes viven en
-> [`ESTADO_ROADMAP.md`](../../ESTADO_ROADMAP.md)**. No es normativa: si algo de aquí contradice al
+> [`ESTADO_ROADMAP.md`](../ESTADO_ROADMAP.md)**. No es normativa: si algo de aquí contradice al
 > roadmap, manda el roadmap.
 
 Alcance del lote: `universidad-mensajeria/client/` (JavaFX), `universidad-mensajeria/client-dotnet/`

@@ -5,6 +5,7 @@ import universidad.mensajeria.common.tipos.Mensaje;
 import universidad.mensajeria.common.tipos.TipoMensaje;
 import universidad.mensajeria.cliente.transversal.records.RespuestaRed;
 import universidad.mensajeria.cliente.transversal.records.TipoMensajeCliente;
+import universidad.mensajeria.cliente.transversal.excepciones.EnvioArchivoCanceladoException;
 import universidad.mensajeria.cliente.transversal.utilerias.ValidarTls;
 
 import java.io.EOFException;
@@ -30,9 +31,10 @@ import java.util.concurrent.TimeoutException;
  * demultiplexa: tramas con id pendiente completan su futuro; el resto va al
  * {@code ReceptorMensajes}. Escritura sincronizada por socket (§4.3).
  */
-public final class ConexionCliente implements InterfazConexionRed {
+public final class ConexionCliente implements InterfazConexionRed, InterfazRedArchivoCancelable {
 
     private static final int TIMEOUT_RESPUESTA_SEG = 15;
+    private static final int TIMEOUT_ARCHIVO_SEG = 180;
 
     /**
      * Bytes crudos por {@code ARCHIVO_PARTE}. 1 MiB es el mismo corte que usan Python y .NET:
@@ -48,6 +50,8 @@ public final class ConexionCliente implements InterfazConexionRed {
 
     private final Object candadoSalida = new Object();
     private final ConcurrentHashMap<String, CompletableFuture<Mensaje>> pendientes =
+            new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ColectorFragmentos> colectoresDescarga =
             new ConcurrentHashMap<>();
 
     private volatile Socket socket;
@@ -257,6 +261,15 @@ public final class ConexionCliente implements InterfazConexionRed {
     public RespuestaRed enviarArchivoFragmentado(String id, String remitente, String destinatario,
                                              String nombreArchivo, String mime, byte[] contenido,
                                              String caption) throws IOException {
+        return enviarArchivoFragmentado(id, remitente, destinatario, nombreArchivo, mime,
+                contenido, caption, () -> false);
+    }
+
+    @Override
+    public RespuestaRed enviarArchivoFragmentado(String id, String remitente, String destinatario,
+                                             String nombreArchivo, String mime, byte[] contenido,
+                                             String caption, java.util.function.BooleanSupplier cancelado)
+            throws IOException {
         byte[] datos = contenido == null ? new byte[0] : contenido;
         if (datos.length == 0) {
             throw new IOException("el archivo esta vacio");
@@ -266,32 +279,75 @@ public final class ConexionCliente implements InterfazConexionRed {
         int totalPartes = (datos.length + PARTE_MAX_BYTES - 1) / PARTE_MAX_BYTES;
         Base64.Encoder encoder = Base64.getEncoder();
 
-        RespuestaRed inicio = adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_INICIO)
-                .id(archivoId).remitente(remitente).destinatario(destinatario)
-                .nombreArchivo(nombreArchivo).mime(mime).contenido(caption)
-                .tamanoArchivo((long) datos.length)
-                .totalPartes(totalPartes).fechaHora(fecha).build()));
-        if (!aceptado(inicio)) {
-            return inicio;
-        }
-
-        for (int indice = 0; indice < totalPartes; indice++) {
-            int desde = indice * PARTE_MAX_BYTES;
-            int hasta = Math.min(desde + PARTE_MAX_BYTES, datos.length);
-            RespuestaRed parte = adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_PARTE)
-                    .id(archivoId + "#p" + indice).remitente(remitente).archivoId(archivoId)
-                    .indiceParte(indice)
-                    .contenidoImagen(encoder.encodeToString(
-                            Arrays.copyOfRange(datos, desde, hasta)))
-                    .fechaHora(fecha).build()));
-            if (!aceptado(parte)) {
-                return parte;
+        boolean inicioEnviado = false;
+        try {
+            exigirNoCancelado(cancelado);
+            inicioEnviado = true;
+            RespuestaRed inicio = adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_INICIO)
+                    .id(archivoId).remitente(remitente).destinatario(destinatario)
+                    .nombreArchivo(nombreArchivo).mime(mime).contenido(caption)
+                    .tamanoArchivo((long) datos.length)
+                    .totalPartes(totalPartes).fechaHora(fecha).build(), TIMEOUT_ARCHIVO_SEG));
+            if (!aceptado(inicio)) {
+                return inicio;
             }
-        }
 
-        return adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_FIN)
-                .id(archivoId + "#fin").remitente(remitente).archivoId(archivoId)
-                .hashSha256(sha256Hex(datos)).fechaHora(fecha).build()));
+            for (int indice = 0; indice < totalPartes; indice++) {
+                exigirNoCancelado(cancelado);
+                int desde = indice * PARTE_MAX_BYTES;
+                int hasta = Math.min(desde + PARTE_MAX_BYTES, datos.length);
+                RespuestaRed parte = adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_PARTE)
+                        .id(archivoId + "#p" + indice).remitente(remitente).archivoId(archivoId)
+                        .indiceParte(indice)
+                        .contenidoImagen(encoder.encodeToString(
+                                Arrays.copyOfRange(datos, desde, hasta)))
+                        .fechaHora(fecha).build(), TIMEOUT_ARCHIVO_SEG));
+                if (!aceptado(parte)) {
+                    return parte;
+                }
+            }
+
+            exigirNoCancelado(cancelado);
+            return adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_FIN)
+                    .id(archivoId + "#fin").remitente(remitente).archivoId(archivoId)
+                    .hashSha256(sha256Hex(datos)).fechaHora(fecha).build(), TIMEOUT_ARCHIVO_SEG));
+        } catch (EnvioArchivoCanceladoException cancelacion) {
+            if (inicioEnviado) {
+                cancelarTransferencia(remitente, archivoId, fecha);
+            }
+            throw cancelacion;
+        } catch (IOException fallo) {
+            if (cancelado != null && cancelado.getAsBoolean()) {
+                if (inicioEnviado) {
+                    cancelarTransferencia(remitente, archivoId, fecha);
+                }
+                throw new EnvioArchivoCanceladoException();
+            }
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.interrupted();
+                if (inicioEnviado) {
+                    cancelarTransferencia(remitente, archivoId, fecha);
+                }
+                throw new EnvioArchivoCanceladoException();
+            }
+            throw fallo;
+        }
+    }
+
+    private static void exigirNoCancelado(java.util.function.BooleanSupplier cancelado) {
+        if (cancelado != null && cancelado.getAsBoolean()) {
+            throw new EnvioArchivoCanceladoException();
+        }
+    }
+
+    private void cancelarTransferencia(String remitente, String archivoId, String fecha) {
+        try {
+            pedir(Mensaje.builder().tipo(TipoMensaje.ARCHIVO_FIN)
+                    .id(archivoId + "#cancel").remitente(remitente).archivoId(archivoId)
+                    .exito(false).fechaHora(fecha).build(), 5);
+        } catch (IOException ignorada) {
+            // Es best-effort: el servidor también expira temporales abandonados.
+        }
     }
 
     private static boolean aceptado(RespuestaRed respuesta) {
@@ -341,8 +397,38 @@ public final class ConexionCliente implements InterfazConexionRed {
 
     @Override
     public RespuestaRed descargarArchivo(String archivoId) throws IOException {
-        return adaptar(pedir(Mensaje.builder().tipo(TipoMensaje.DESCARGAR_ARCHIVO)
-                .archivoId(archivoId).build()));
+        String idSolicitud = UUID.randomUUID().toString();
+        ColectorFragmentos colector = new ColectorFragmentos(idSolicitud);
+        colectoresDescarga.put(idSolicitud, colector);
+        try {
+            Mensaje respuesta = pedir(Mensaje.builder().tipo(TipoMensaje.DESCARGAR_ARCHIVO)
+                    .id(idSolicitud)
+                    .archivoId(archivoId).build());
+            if (respuesta.tipo() == TipoMensaje.ARCHIVO_INICIO) {
+                colector.alimentar(respuesta);
+                byte[] bytesCompletos = colector.esperar(TIMEOUT_ARCHIVO_SEG, TimeUnit.SECONDS);
+                Mensaje reensamblado = Mensaje.builder()
+                        .tipo(TipoMensaje.DESCARGAR_ARCHIVO_RESPUESTA)
+                        .id(idSolicitud)
+                        .fechaHora(LocalDateTime.now().toString())
+                        .exito(true)
+                        .nombreArchivo(colector.nombreArchivo() != null ? colector.nombreArchivo() : respuesta.nombreArchivo())
+                        .mime(colector.mime() != null ? colector.mime() : respuesta.mime())
+                        .contenidoImagen(Base64.getEncoder().encodeToString(bytesCompletos))
+                        .archivoId(archivoId)
+                        .tamanoArchivo((long) bytesCompletos.length)
+                        .build();
+                return adaptar(reensamblado);
+            }
+            return adaptar(respuesta);
+        } catch (Exception e) {
+            if (e instanceof IOException ioe) {
+                throw ioe;
+            }
+            throw new IOException("Fallo en la descarga de archivo " + archivoId + ": " + e.getMessage(), e);
+        } finally {
+            colectoresDescarga.remove(idSolicitud);
+        }
     }
 
     @Override
@@ -382,6 +468,10 @@ public final class ConexionCliente implements InterfazConexionRed {
 
     /** Envía correlacionando por id y bloquea hasta la respuesta o el timeout. */
     Mensaje pedir(Mensaje solicitud) throws IOException {
+        return pedir(solicitud, TIMEOUT_RESPUESTA_SEG);
+    }
+
+    private Mensaje pedir(Mensaje solicitud, int timeoutSegundos) throws IOException {
         Socket actual = socket;
         if (actual == null || actual.isClosed()) {
             throw new EOFException("sin conexion con el servidor");
@@ -395,10 +485,10 @@ public final class ConexionCliente implements InterfazConexionRed {
             synchronized (candadoSalida) {
                 TramaCodec.escribir(actual.getOutputStream(), conId);
             }
-            return futuro.get(TIMEOUT_RESPUESTA_SEG, TimeUnit.SECONDS);
+            return futuro.get(timeoutSegundos, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             pendientes.remove(id);
-            throw new IOException("sin respuesta del servidor en " + TIMEOUT_RESPUESTA_SEG + " s");
+            throw new IOException("sin respuesta del servidor en " + timeoutSegundos + " s");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             pendientes.remove(id);
@@ -453,6 +543,17 @@ public final class ConexionCliente implements InterfazConexionRed {
             }
             return;
         }
+        // Despachar a colectores de descarga fragmentada activa (> 1 MiB)
+        String idTrama = trama.archivoId() != null ? trama.archivoId() : trama.id();
+        if (idTrama != null) {
+            ColectorFragmentos colector = colectoresDescarga.get(idTrama);
+            if (colector != null) {
+                colector.alimentar(trama);
+                if (trama.tipo() == TipoMensaje.ARCHIVO_PARTE || trama.tipo() == TipoMensaje.ARCHIVO_FIN) {
+                    return;
+                }
+            }
+        }
         if (trama.id() != null) {
             CompletableFuture<Mensaje> futuro = pendientes.remove(trama.id());
             if (futuro != null) {
@@ -470,8 +571,11 @@ public final class ConexionCliente implements InterfazConexionRed {
                  DESCARGAR_ARCHIVO_RESPUESTA, MENSAJE_ENTREGADO,
                  MENSAJE_LEIDO, PRESENCIA,
                  LISTAR_USUARIOS_RESPUESTA, LISTAR_CONECTADOS_RESPUESTA ->
-                       obs.alRecibir(adaptar(trama));
+                        obs.alRecibir(adaptar(trama));
             case ERROR -> obs.alError(trama.mensajeError());
+            case ARCHIVO_INICIO, ARCHIVO_PARTE, ARCHIVO_FIN -> {
+                // Fragmentos de descarga procesados por ColectorFragmentos
+            }
             default -> obs.alError("trama inesperada: " + trama.tipo());
         }
     }

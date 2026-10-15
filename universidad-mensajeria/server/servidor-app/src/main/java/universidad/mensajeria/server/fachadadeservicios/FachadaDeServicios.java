@@ -379,9 +379,10 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
     }
 
     private void procesarTexto(Mensaje trama, IdSesion origen) {
+        String ipRemitente = ipRemitenteDe(trama, origen);
         String ipDestinatario = casos.entrega().fotoIpDestinatario(trama.destinatario());
         mensajes.procesarTexto(trama.remitente(), trama.destinatario(),
-                        trama.contenido(), trama.ipRemitente(), ipDestinatario, trama.id())
+                        trama.contenido(), ipRemitente, ipDestinatario, trama.id())
                 .thenAccept(dto -> {
                     Mensaje entrega = Mensaje.builder()
                             .tipo(TipoMensaje.MENSAJE_TEXTO)
@@ -393,7 +394,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
                             .hashSha256(dto.hashSha256())
                             .numCaracteres(dto.numCaracteres())
                             .numPalabras(dto.numPalabras())
-                            .ipRemitente(trama.ipRemitente())
+                            .ipRemitente(ipRemitente)
                             .build();
                     casos.entrega().entregar(trama.destinatario(), entrega, origen);
                     eventos.registrar(TipoAccion.MENSAJE_TEXTO,
@@ -401,7 +402,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
                                     trama.remitente(), trama.destinatario(), dto.hashSha256(),
                                     "%d caracteres, %d palabras".formatted(
                                             dto.numCaracteres(), dto.numPalabras())),
-                            trama.remitente(), trama.ipRemitente(), null);
+                            trama.remitente(), ipRemitente, null);
                     casos.entrega().responder(origen, trama.id(), TipoMensaje.ACK);
                 })
                 .exceptionally(fallo -> {
@@ -411,6 +412,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
     }
 
     private void procesarImagen(Mensaje trama, IdSesion origen) {
+        String ipRemitente = ipRemitenteDe(trama, origen);
         byte[] bytes;
         try {
             bytes = java.util.Base64.getDecoder().decode(trama.contenidoImagen());
@@ -421,7 +423,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
         String ipDestinatario = casos.entrega().fotoIpDestinatario(trama.destinatario());
         mensajes.procesarImagen(trama.remitente(), trama.destinatario(), bytes,
                         trama.nombreArchivo(), trama.mime(), trama.contenido(),
-                        trama.ipRemitente(), ipDestinatario, trama.id())
+                        ipRemitente, ipDestinatario, trama.id())
                 .thenAccept(dto -> {
                     Mensaje entrega = Mensaje.builder()
                             .tipo(TipoMensaje.MENSAJE_IMAGEN)
@@ -436,14 +438,14 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
                             .hashSha256(dto.hashSha256())
                             .etapasFiltrado(EntregaCaso.etapasJson(dto))
                             .archivoId(dto.archivoId() == null ? null : String.valueOf(dto.archivoId()))
-                            .ipRemitente(trama.ipRemitente())
+                            .ipRemitente(ipRemitente)
                             .build();
                     casos.entrega().entregar(trama.destinatario(), entrega, origen);
                     eventos.registrar(TipoAccion.MENSAJE_IMAGEN,
                             bloque("IMAGEN", LocalDateTime.now().toString(),
                                     trama.remitente(), trama.destinatario(), dto.hashSha256(),
                                     rutasResultado(dto)),
-                            trama.remitente(), trama.ipRemitente(), null);
+                            trama.remitente(), ipRemitente, null);
                     casos.entrega().responderImagen(origen, trama, dto);
                 })
                 .exceptionally(fallo -> {
@@ -453,6 +455,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
     }
 
     private void procesarArchivo(Mensaje trama, IdSesion origen) {
+        String ipRemitente = ipRemitenteDe(trama, origen);
         byte[] bytes;
         try {
             bytes = java.util.Base64.getDecoder().decode(trama.contenidoImagen());
@@ -463,7 +466,7 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
         String ipDestinatario = casos.entrega().fotoIpDestinatario(trama.destinatario());
         mensajes.procesarArchivo(trama.remitente(), trama.destinatario(), bytes,
                         trama.nombreArchivo(), trama.mime(), trama.contenido(),
-                        trama.ipRemitente(), ipDestinatario, trama.id())
+                        ipRemitente, ipDestinatario, trama.id())
                 .thenAccept(dto -> {
                     Mensaje entrega = Mensaje.builder()
                             .tipo(TipoMensaje.MENSAJE_ARCHIVO)
@@ -478,20 +481,29 @@ public class FachadaDeServicios implements Fachada, SalidaClienteServidor.Fachad
                             .tamanoArchivo((long) bytes.length)
                             .hashSha256(dto.hashSha256())
                             .archivoId(dto.archivoId() == null ? null : String.valueOf(dto.archivoId()))
-                            .ipRemitente(trama.ipRemitente())
+                            .ipRemitente(ipRemitente)
                             .build();
                     casos.entrega().entregar(trama.destinatario(), entrega, origen);
                     eventos.registrar(TipoAccion.MENSAJE_IMAGEN,
                             bloque("ARCHIVO", LocalDateTime.now().toString(),
                                     trama.remitente(), trama.destinatario(), dto.hashSha256(),
                                     trama.nombreArchivo() == null ? "archivo" : trama.nombreArchivo()),
-                            trama.remitente(), trama.ipRemitente(), null);
+                            trama.remitente(), ipRemitente, null);
                     casos.entrega().responder(origen, trama.id(), TipoMensaje.ACK);
                 })
                 .exceptionally(fallo -> {
                     casos.entrega().responderError(origen, trama, fallo);
                     return null;
                 });
+    }
+
+    /** La dirección del socket es la identidad histórica del remitente. */
+    private static String ipRemitenteDe(Mensaje trama, IdSesion origen) {
+        if (origen != null && origen.direccionIp() != null
+                && !origen.direccionIp().isBlank()) {
+            return origen.direccionIp();
+        }
+        return trama.ipRemitente();
     }
 
     /**

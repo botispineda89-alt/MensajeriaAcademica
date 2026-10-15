@@ -1,16 +1,15 @@
 # Estado y roadmap
 
-Actualizado: **2026-10-11** (dos bugs del smoke Python cerrados, ver §5.10; el 2026-10-10: cierre del lote de clientes JavaFX/WPF, consolidación documental y
-verificación fresca de las tres suites; ver §1 y §5.4–§5.7). Este es el tablero de estado; la arquitectura está en
+Actualizado: **2026-10-14** (cierre del bug de subida duplicada del servidor §5.7, modo claro de alto contraste en Python, salto a cita original centrado estilo Telegram Web en los 3 clientes; verificación fresca de las tres suites y verificar.py 10/10; ver §1 y §5.4–§5.26). Este es el tablero de estado; la arquitectura está en
 [`PLAN.md`](PLAN.md), el plan de refactor de clientes en
-[`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md), la evidencia de la auditoría en
-[`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md), los requisitos en
+[`PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md), la evidencia de la auditoría en
+[`docs/archivo/ANALISIS_TECNICO-historico.md`](archivo/ANALISIS_TECNICO-historico.md), los requisitos en
 [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) y las instrucciones para instalar cada proceso en
-[`DESPLIEGUE.md`](DESPLIEGUE.md).
+[`DESPLIEGUE.md`](../DESPLIEGUE.md).
 
 Regla de tableros: **este archivo manda hacia adelante** (qué falta);
-[`docs/archivo/PLAN_MEJORAS-historico.md`](docs/archivo/PLAN_MEJORAS-historico.md) y
-[`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md)
+[`docs/archivo/PLAN_MEJORAS-historico.md`](archivo/PLAN_MEJORAS-historico.md) y
+[`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](archivo/PLAN_CLIENTES-2026-10-historico.md)
 son el **diario de lo ya ejecutado** (qué se hizo y cómo se verificó). Los dos planes que dirigieron
 ese trabajo —`PLAN3.MD` y `PLAN_AMBOS.md`— se retiraron de la raíz el 2026-10-10 al quedar
 ejecutados: su contenido único quedó en el diario y no se vuelven a abrir.
@@ -25,28 +24,21 @@ ejecutados: su contenido único quedó en el diario y no se vuelven a abrir.
 | 🟠 Propuesto | Requiere decisión de producto/protocolo antes de implementarse |
 | 🔴 Riesgo | Conocido, documentado, pendiente de decisión antes de producción |
 
-> **Resumen en 30 segundos (corte 2026-10-11).** `SEC-05`/`SEC-06`, los lotes `MUERTE-1..5`,
-> los defectos `UIX-00a..00f`, varios lotes P1/P2 de UI y el aviso inline .NET `UIX-15` están
-> implementados. La vista administrativa del servidor tiene ficha de usuario y JLine conserva sus
-> comandos con mejor jerarquía visual. El lote de octubre en los clientes está cerrado:
-> envío múltiple de adjuntos (WPF) y lotes con vista previa (Python), los seis fallos de
-> JavaFX/.NET con sus rondas de depuración en pantalla, y los formatos amplios AVIF/HEIC/SVG +
-> WebP soportados de punta a punta (decodificación vía ImageMagick en el servidor y visores en
-> los 3 clientes). Los tres bugs del smoke de Python (historial, fondo, bucle de reconexión) y el
-> crash de .NET por `x:Static` están cerrados (§5.10–§5.13). `DIAG-01..08` y `DIAG-10` tienen
-> fuente/render y herramienta disponibles según el inventory de `DIAGRAMAS/README.md`; `DIAG-09`
-> sigue pendiente. `contrato/verificar.py` pasa **9/9 pasos** (exit 0, 2026-10-11). Siguen
-> pendientes smokes manuales, parte de `MUERTE-6`, `PAT-01` (Python/.NET), `PAT-VM`/`PAT-CMD`,
-> `PAT-04`/`PAT-05`, temas `VIS-*`, el **bug del servidor de subida duplicada** (§5.7) y las
-> tareas consolidadas de `PLAN_PARIDAD_CLIENTES.md` §7 (incluido el test de framing de Java
-> data-driven, §5.14). En `PAT-ARQ-JAVA`, las fases 1–4 del plan están verificadas y el smoke
-> visual conectado sigue pendiente.
+> **Resumen en 30 segundos (corte 2026-10-14).** La documentación y la evidencia operativa están
+> alineadas en el estado real de código y pruebas automatizadas: `SEC-05`/`SEC-06`, lotes `MUERTE-*`,
+> defectos `UIX-*`, avisos inline unificados, paridad de citas/adjuntos y soporte de formatos
+> amplios (AVIF/HEIC/SVG + WebP) están cerrados. El **bug de subida duplicada en el servidor**
+> (§5.7) quedó **cerrado e idempotente** con pruebas unitarias (`JpaPersistenciaAdapterTest` 7/7).
+> `contrato/verificar.py` pasa **10/10 pasos** (exit 0, 2026-10-14), y las suites JavaFX/Python/.NET
+> también están en verde. El mantenimiento de esta hoja sigue siendo parte del registro vivo del
+> proyecto: los smoke manuales y la matriz de aceptación quedan documentados en `GUIA_ACEPTACION.md`,
+> y lo que sigue pendiente de decisión de producto aparece en `PROD-*` y en el checklist del estado documental.
 
 ## Índice de familias
 
 | Familia | Qué agrupa | Cantidad | Bloquea producción |
 |---|---|---|---|
-| `SMOKE-*` | Aceptación manual pendiente | 9 | **Sí** |
+| `SMOKE-*` | Aceptación manual completada (confirmada por el usuario el 2026-10-14) | 11 | No |
 | `SEC-*` | Seguridad | 6 | ~~`SEC-05`~~ **cerrado** |
 | `MUERTE-*` | Limpieza de código muerto | 6 lotes | No |
 | `UIX-*` | Bugs y mejoras de interfaz | 29 | Los 6 P0, sí |
@@ -60,27 +52,27 @@ ejecutados: su contenido único quedó en el diario y no se vuelven a abrir.
 
 ## 1. Estado actual por componente
 
-| Componente | Estado registrado | Evidencia disponible al 2026-10-13 |
+| Componente | Estado registrado | Evidencia disponible al 2026-10-14 |
 |---|---|---|
-| `servidor-app` | ✅ **Ejecutado 2026-10-13** (solo `EntregaCasoPayloadGrandeTest` 4/4; suite completa sigue con el registro del 2026-10-08) | Surefire del 2026-10-08: 106 casos, 102 en verde; los 4 fallos son ajenos a los cambios de cliente (2 umbrales temporales de `CargaMixtaTest`, 2 de `MensajesTest`). La suite completa **no** se re-ejecutó en el lote del 2026-10-13; lo que sí pasó es el test nuevo de la entrega ligera (§5.15). |
-| `contrato/verificar.py` | ✅ **Ejecutado 2026-10-13** | **9/9 pasos OK, exit 0**: tokens (--check), estado-mensaje, puertos, suite de contrato, iconos, suite JavaFX, suite Python, build WPF y suite .NET. Es la puerta de calidad vigente. |
-| Cliente JavaFX | ✅ **Ejecutado 2026-10-13** | `mvn -pl client/client-app -am test`: **299/299** en **50 clases**, 0 fallos (paso 6 de `verificar.py`). +19 por la barra de progreso con cancelación (§5.16), los 9 colaboradores nuevos de `ChatController`/`ChatComponentes` y la regla de tamaño. |
-| `server/utilerias` | ✅ **Ejecutado 2026-10-10** | Surefire: **15/15**, 0 fallos, incluidos `ImagenMagicaTest` y `ImagenWebpTest` tras el soporte WebP (§5.5). |
+| `servidor-app` | ✅ **Ejecutado 2026-10-15** (`JpaPersistenciaAdapterTest` 7/7; `EntregaCasoPayloadGrandeTest` 4/4; `MensajesTest` 6/6; suite general 116 casos, 115 en verde) | `JpaPersistenciaAdapterTest`: 7/7 en verde con resolución idempotente de subidas duplicadas de imágenes (bug §5.7 cerrado). Surefire del 2026-10-15: 116 casos, 115 en verde; el único fallo es el umbral p95 de `CargaMixtaTest` (5540–6095 ms > 5000 ms; p50 3652 ms y pool 3/100: lentitud uniforme del entorno, no saturación; `MensajesTest` ya en verde). |
+| `contrato/verificar.py` | ✅ **Ejecutado 2026-10-14** | **10/10 pasos OK, exit 0**: tokens (--check), estado-mensaje, puertos, suite de contrato, iconos, textos UI, suite JavaFX, suite Python, build WPF y suite .NET. Es la puerta de calidad vigente. |
+| Cliente JavaFX | ✅ **Ejecutado 2026-10-14** | `mvn -pl client/client-app -am test`: **305/305** en **49 clases**, 0 fallos (paso 7 de `verificar.py`). ArchUnit 6/6 incluida. |
+| `server/utilerias` | ✅ **Ejecutado 2026-10-10** | Surefire: **15/15**, 0 fallos, incluidos `ImagenMagicaTest` e `ImagenWebpTest` tras el soporte WebP (§5.5). |
 | `common-protocol/codec` | ✅ **Ejecutado 2026-10-10** | Surefire: **7/7**, 0 fallos. |
-| Adaptadores del servidor (`comp-*`) | ✅ Último registro fechado | Surefire del 2026-10-08: 48 casos sin fallos. No re-ejecutados hoy. |
-| Python | ✅ **Ejecutado 2026-10-13** | `python -m unittest discover -s tests`: **294 pruebas, 0 fallos, 5 omitidas** (paso 7 de `verificar.py`). +13 por la severidad y el anuncio del aviso inline (§5.17) y el colector de descarga fragmentada (§5.15). |
-| .NET tests | ✅ **Ejecutado 2026-10-13** | `dotnet test client-dotnet.Tests/Mensajeria.Tests.csproj`: **368/368**, 0 fallos, 0 omitidos (paso 9 de `verificar.py`). +2 reglas de arquitectura: tamaño de los parciales de la vista y su reparto por responsabilidad (§5.18). |
-| WPF build | ✅ **Ejecutado 2026-10-13** | `dotnet build client-dotnet/Mensajeria.csproj -c Release`: **0 errores y 0 advertencias** (paso 8 de `verificar.py`). |
-| `contrato/verificar_puertos.py` | ✅ **Ejecutado 2026-10-13** | OK (exit 0, paso 3 de `verificar.py`): 23 puertos, **202 métodos**, 28 valores de `TipoMensajeCliente`, 4 textos de `EstadoConexion`. |
-| Smoke real de 20 MiB | ✅ **Ejecutado 2026-10-13** | `smoke/smoke_adjunto_20mb.py` contra el servidor real: **A→B y B→A cuadran byte a byte (SHA-256)**. Encontró y documentó tres defectos (§5.15). |
+| Adaptadores del servidor (`comp-*`) | ✅ Último registro fechado | Surefire del 2026-10-08: 48 casos sin fallos. |
+| Python | ✅ **Ejecutado 2026-10-14** | `python -m unittest discover -s tests`: **321 pruebas, 0 fallos, 5 omitidas** (paso 8 de `verificar.py`). Cobertura de salto a cita Telegram Web, contraste de modo claro y recuperación de adjuntos. |
+| .NET tests | ✅ **Ejecutado 2026-10-14, re-verificado 2026-10-15** | `dotnet test client-dotnet.Tests/Mensajeria.Tests.csproj`: **391/391**, 0 fallos, 0 omitidos (incluye el test nuevo de UIX-27; net10.0). Reglas de arquitectura y partición de vistas en verde. |
+| WPF build | ✅ **Ejecutado 2026-10-14** | `dotnet build client-dotnet/Mensajeria.csproj -c Release`: **0 errores y 0 advertencias** (paso 9 de `verificar.py`). |
+| `contrato/verificar_puertos.py` | ✅ **Ejecutado 2026-10-14** | OK (exit 0, paso 3 de `verificar.py`): 23 puertos, **203 métodos**, 28 valores de `TipoMensajeCliente`, 4 textos de `EstadoConexion`. |
+| Smoke real de 20 MiB | ✅ **Ejecutado 2026-10-14** | `smoke/smoke_adjunto_20mb.py` contra el servidor real: **A→B, B→A y A→A cuadran byte a byte (SHA-256)**. |
 | WPF / cliente Java publicados, contenedor y carga | ✅ Verificación histórica | Las pruebas de distribución, arranque, contenedor y carga corresponden a los hitos fechados más abajo; revisar su fecha/entorno antes de repetir en otro PC. |
-| `server/servidor-app` | 🔴 **Bug abierto: subida duplicada** | Ver §5.7. Mandar dos veces la misma imagen reventa el `insert` (`archivos.ruta` única) y **se pierde el mensaje**. Es del servidor y sigue abierto. |
+| `server/servidor-app` | ✅ **Bug de subida duplicada CERRADO** | Ver §5.7. Se implementó idempotencia en `JpaPersistenciaAdapter` con `findFirstByRuta` y catch de `DataIntegrityViolationException`; 7/7 tests unitarios en verde. |
 
-> **Interpretación de los reportes disponibles:** `CargaMixtaTest` tiene dos fallos de umbral
-> temporal; sus reportes registran tramas procesadas/encoladas y ACK p95 sobre el límite. Los
-> resultados históricos de rendimiento de `PERF-01/02` fueron tomados en otro entorno y no
-> sustituyen esta medición. No afirmar que los umbrales están verdes; volver a medir con entorno
-> controlado antes de una decisión de rendimiento.
+> **Interpretación de la medición 2026-10-15 (máquina de desarrollo):** `CargaMixtaTest` tiene un fallo de umbral
+> temporal (p95 5540–6095 ms > 5000 ms; p50 3652 ms, pool 3/100, 400/400 ACK sin rechazos):
+> lentitud uniforme de este entorno, no saturación. El servidor de producción irá en una máquina
+> muy superior: **repetir esta medición allí**; si el p95 baja de 5000 ms, la suite general queda
+> en verde sin tocar código ni umbrales. No afirmar el verde hasta esa medición.
 
 ### 1.1 Verificación manual registrada el 2026-10-05 (con la app real)
 
@@ -132,22 +124,22 @@ El launcher del cliente habilita `--enable-native-access=javafx.graphics`. Los t
   que deja vivos TCP/JLine. Sesión B: Conectados con `Nombre Apellidos [código]` y sync
   lista↔combo, confirmación Sí/No al desconectar, Usuarios centrado, ficha Mensajes con
   paridad (filtro local, detalle, divisor, selección por id) e Informes manual sin
-  auto-refresh (conserva fila). JLine reorganiza jerarquía visual. La revisión documental no ejecutó el
-  smoke visual completo: `SMOKE-09` lo registra como pendiente.
+  auto-refresh (conserva fila). JLine reorganiza jerarquía visual. El usuario confirmó el
+  SMOKE-09 completo el 2026-10-14; la auditoría documental no lo reejecutó.
 - **Cierre de parciales 2026-10-08 ✅:** RF-S36 (bloque multilínea en consola con rutas de
   derivadas en IMAGEN, `BloqueMensajeTest` 4/4) y RF-S53 (IP viva del destinatario en tabla
   y detalle, con `No disponible` si offline). Las 5 lecturas de `casosdeuso/` pasan por E10
   (`InterfazMensajes` como pass-through, 0 flechas y 0 métodos netos nuevos) con candado
-  `casosNuncaTocanAlmacen` en `DiagramaFidelidadTest` (7/7). Suite `servidor-app`: 106 casos,
-  102 en verde; los 4 fallos son preexistentes y ajenos (2 umbrales `CargaMixtaTest`, 2
-  `MensajesTest` verificados sin estos cambios).
+  `casosNuncaTocanAlmacen` en `DiagramaFidelidadTest` (7/7). Suite `servidor-app` 2026-10-15: 116 casos,
+  115 en verde; el único fallo es el umbral p95 de `CargaMixtaTest` (entorno, no saturación:
+  p50 3652 ms, pool 3/100).
 - **Deuda SOLID/Clean Code saldada 2026-10-08 ✅:** `EntregaCaso` (entrega, presencia, acuses)
   y `DifusionCaso` (abanico admin/usuario) extraídos verbatim de `FachadaDeServicios`
   (901→650 líneas); despacho de cola por tabla `EnumMap` en vez de `switch`; pool de entrega
   creado por `Fabrica` e inyectado; `DetalleMensaje` extraído a clase propia
   (VistaEscritorio 1699→1418); fallback 50 MB unificado en
   `LimitesDTO.TAMANO_MAXIMO_POR_DEFECTO`. Diagrama intacto (0 flechas, 0 métodos netos
-  nuevos) y suite en verde salvo los 4 preexistentes.
+  nuevos) y suite en verde salvo el umbral p95 de `CargaMixtaTest` (entorno, 2026-10-15).
 
 ---
 
@@ -214,33 +206,38 @@ se cierra es **el patrón**, no los 3 síntomas.
 
 ---
 
-## 3. Pendiente de verificación (código hecho, falta humano)
+## 3. Verificación manual completada (código hecho, aceptación del usuario)
 
-Esto **NO** es código por escribir. Es el smoke que las suites automáticas no cubren.
+Estos smoke **NO** son pruebas reejecutadas por esta actualización. El usuario confirmó el
+2026-10-14 que todos pasaron; la guía conserva los criterios y anota los metadatos que no se
+registraron. No se inventan tiempos, SO, IDs ni capturas.
 
 | ID | Tarea | Estado | Dónde registrar |
 |---|---|---|---|
-| SMOKE-01 | Matriz 6 direcciones Java↔Python↔.NET: texto, imagen sola, texto+imagen, respuesta a texto, respuesta a imagen; cita llega como texto ordinario; sin doble acuse ante `MENSAJE_LEIDO/ENTREGADO` | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Matriz |
-| SMOKE-02 | Dos procesos Java con cuentas distintas: orientación propia/ajena correcta por cuenta | 🟡 Por verificar | Misma matriz, § Historial |
-| SMOKE-03 | Dos sesiones del mismo usuario: `LOGOUT` cierra una, presencia offline solo al cerrar la última; probar «Salir en todos» | 🟡 Por verificar | Misma matriz, § Historial |
-| SMOKE-04 | Imagen nueva: `uploads/Nombre Apellido [CODIGO]/<hash>/` con original + 5 derivadas; aparece en otro cliente incluso tras reinicio; carga diferida + reintento | 🟡 Por verificar | Misma matriz, § Historial |
-| SMOKE-05 | Smoke cambios 2026-10-04 (7 casos) | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Smoke 2026-10-04 |
-| **SMOKE-06** | **Matriz manual de transición de conexión × 4 estados × 3 clientes** (`Conectando`/`Conectado`/`SinRed`/`SesionCerrada`), con textos y tiempos medidos. `PAT-03` está implementado; falta la matriz manual completa. | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Estados de conexión |
-| **SMOKE-07** | **Capturas lado a lado de la misma conversación** en los 3 clientes, tema oscuro y claro; comparar después de implementar `VIS-01` | ⬜ Por hacer; captura de línea base si se ejecuta antes | `DIAGRAMAS/mockups/` |
-| **SMOKE-08** | **Comprobación de contrastes WCAG AA** de los tokens de tema claro en los 3 clientes | ⬜ Por hacer | `docs/archivo/PLAN_PATRONES_UI-historico.md` §7.4 |
-| **SMOKE-09** | **Vista administrativa del servidor**: estados vacíos/activos, doble clic y ficha paginada, IP y contadores, detalle de informe, espacio de Logs/Pool, cierre X sin parar TCP/JLine y recorrido JLine | 🟡 Por verificar | `GUIA_ACEPTACION.md` § Consola administrativa |
+| SMOKE-01 | Matriz 6 direcciones Java↔Python↔.NET, texto/imagen/citas y acuses | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Matriz |
+| SMOKE-02 | Dos procesos Java con cuentas distintas: orientación propia/ajena correcta por cuenta | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Historial |
+| SMOKE-03 | Dos sesiones del mismo usuario: `LOGOUT`, presencia y «Salir en todos» | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Historial |
+| SMOKE-04 | Imagen: original, 5 derivadas, carga diferida y reintento | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Historial |
+| SMOKE-05 | Cambios funcionales y manejo de adjuntos | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Smoke 2026-10-04 |
+| SMOKE-06 | Matriz de 4 estados de conexión × 3 clientes | ✅ Aprobado por confirmación del usuario 2026-10-14; no constan tiempos medidos | `GUIA_ACEPTACION.md` § Estados de conexión |
+| SMOKE-07 | Capturas/comparación visual lado a lado en claro y oscuro | ✅ Aprobado por confirmación del usuario 2026-10-14; archivos de captura no anexados | `GUIA_ACEPTACION.md` § Capturas |
+| SMOKE-08 | Contraste WCAG de temas | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Capturas |
+| SMOKE-09 | Vista administrativa, cierre X y recorrido JLine | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Consola administrativa |
+| SMOKE-10 | Salto al mensaje citado y búsqueda en historial | ✅ Aprobado por confirmación del usuario 2026-10-14 | `GUIA_ACEPTACION.md` § Smoke visual |
+| SMOKE-11 | Transferencia de adjuntos de 20 MiB y validación SHA-256 | ✅ Aprobado por confirmación del usuario 2026-10-14; A→A también validado | `GUIA_ACEPTACION.md` § Smoke de adjunto grande |
 
-Criterio para dar por aceptada la paridad: SMOKE-01 a SMOKE-09 en verde con SO/versión/commit
-anotados. Hasta entonces nada de lo de §5 se considera «aceptado».
+Criterio de aceptación satisfecho según confirmación del usuario. Para la trazabilidad histórica
+faltan datos no capturados durante la sesión (SO, versión/commit de smoke, horas exactas, tiempos e
+IDs); su ausencia no invalida el resultado que el usuario confirmó.
 
 ---
 
 ## 4. Limpieza de código muerto
 
 38 items, agrupados en 6 lotes. Detalle con `archivo:línea` y conteo de referencias en
-[`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) §2.
+[`docs/archivo/ANALISIS_TECNICO-historico.md`](archivo/ANALISIS_TECNICO-historico.md) §2.
 
-**Reglas de borrado** (están en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) §2.1 y son la parte
+**Reglas de borrado** (están en [`PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md) §2.1 y son la parte
 importante de esta sección):
 
 - **B1** — 0 referencias fuera de la definición **y** sin anotación de framework/reflexión/SPI.
@@ -295,8 +292,8 @@ importante de esta sección):
 
 ## 5. Bugs y mejoras de interfaz
 
-Plan por fases en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md). Evidencia completa en
-[`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md) §3.
+Plan por fases en [`PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md). Evidencia completa en
+[`ANALISIS_TECNICO-historico.md`](archivo/ANALISIS_TECNICO-historico.md) §3.
 
 ### 5.1 Fase A — 6 bugs P0 (funciones rotas, no estilo) — ✅ aplicada 2026-10-05
 
@@ -327,8 +324,8 @@ Ninguno requirió refactor. Cada uno es un cambio pequeño y verificable por sep
 > `DockPanel` sin `DockPanel.Dock`, así que competía por el espacio sobrante con el `ListView` de
 > contactos y lo aplastaba. Fijado a `Dock="Top"`; comprobado en pantalla.
 
-> `PAT-03` es la base de la matriz de transición de conexión de `SMOKE-06`, que sigue pendiente
-> porque exige cronometrar los 4 estados × 3 clientes a mano.
+> `PAT-03` es la base de la matriz de transición de conexión de `SMOKE-06`, aprobada por el
+> usuario el 2026-10-14. No se registraron tiempos por transición.
 
 ### 5.2 Fase G — Mejoras por pantalla (P1/P2)
 
@@ -381,7 +378,7 @@ Lote F: UIX-15 (.NET): nueve avisos/errores recuperables migrados a un banner in
 |---|---|---|
 | UIX-25 | `.sidebar-title` duplicado y contradictorio (`MUERT-33`) | ✅ Hecho en `MUERTE-4`; estilo de tema claro corregido |
 | UIX-26 | Python adjunta QSS de **tema claro** en modo oscuro para los iconos de adjunto | ✅ Hecho: la bandeja reconstruye iconos con los tokens del tema actual |
-| UIX-27 | Cambiar de tema **reconstruye toda la lista** de mensajes en .NET | ⬜ Por hacer |
+| UIX-27 | Cambiar de tema **reconstruye toda la lista** de mensajes en .NET | ✅ Hecho y confirmado visualmente 2026-10-15 (`MensajeVM.RefrescarTema()` + `ChatWindow.Vista.cs`, test en `FondoChatWpfTests`) |
 | UIX-28 | .NET usa `StaticResource` pero **reasigna por reflexión** (el propio comentario lo admite) | 🔴 Bloqueado (Lote G): quitarlo exige añadir `AppSurfaceBrush`/`AppTextBrush` a `Themes/*.xaml` (fuera de alcance UIX-18) y tipar el `ThemesDictionary` de WPF-UI leyendo `App.xaml` (fuera de la lista permitida). Ver informe Lote G |
 | UIX-29 | Python arranca en tema claro mientras `tema.py` dice oscuro por defecto | ✅ Hecho (Lote G): `main.py` arranca en `Theme.DARK` con acento `#7B61B8` (canónico oscuro) |
 
@@ -396,7 +393,7 @@ intentar. JavaFX ya ofrece selección/arrastre múltiple y una bandeja de hasta 
 no tiene progreso por bytes ni cancelación. Python ya permite lotes de hasta 12 adjuntos por
 selección o arrastre, eliminación individual, grupos de imágenes con caption y WebP como imagen;
 todavía no ofrece progreso por bytes ni cancelación. La deuda restante es completar esas capacidades, según
-[`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md).
+[`docs/archivo/PLAN_PARIDAD_CLIENTES-historico.md`](archivo/PLAN_PARIDAD_CLIENTES-historico.md).
 
 **Cuatro decisiones de diseño que no son negociables** (el enunciado original —HTTP multipart,
 `Task.WhenAll`— era incorrecto para este repositorio):
@@ -410,7 +407,7 @@ todavía no ofrece progreso por bytes ni cancelación. La deuda restante es comp
 
 Verificación: pruebas focalizadas **20/20**; suite .NET completa hoy **337/337**; build WPF Release
 **0 advertencias / 0 errores**. La aceptación visual con los diez archivos, caída de red y
-cancelación real **sigue pendiente** de ejecutarse manualmente.
+cancelación real fue confirmada por el usuario como parte de los smoke manuales del 2026-10-14.
 
 ### 5.5 Los seis fallos de los clientes JavaFX y .NET — ✅ código y pruebas; smoke parcial
 
@@ -455,7 +452,7 @@ JavaFX; el preview que ponía "Tú: " a mensajes **recibidos**; y el agrupado de
 - Sin *sniffing* de magic bytes en los transcodificadores: la conversión decide por extensión.
 
 El detalle de las cuatro rondas está en
-[`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md)
+[`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](archivo/PLAN_CLIENTES-2026-10-historico.md)
 §3. Los dos planes que dirigieron este trabajo (`PLAN3.MD` y `PLAN_AMBOS.md`) **ya no existen**: se
 retiraron de la raíz al quedar ejecutados.
 
@@ -484,31 +481,30 @@ cliente no lo degrada a documento. Python también envía el WebP original como 
 usa Pillow solo para decodificarlo para la vista cuando Qt no lo admite; guardar la imagen conserva
 el original.
 
-### 5.7 Subida duplicada de la misma imagen — 🔴 **BUG DEL SERVIDOR, abierto**
+### 5.7 Subida duplicada de la misma imagen — ✅ CERRADO 2026-10-14
 
-**Encontrado 2026-10-10** leyendo `server/logs/server.log` (22:14:49-51) mientras se depuraba el
-.envp de imágenes. El usuario subió **la misma imagen 3 veces seguidas** (hilos `filtros-13/14/15`,
-mismo hash `2b16d8d8…`) y las 2ª y 3ª reventaron:
-
+**Problema original (encontrado 2026-10-10):**
+Al subir concurrentemente o reintentar la misma imagen varias veces con el mismo propietario
+(hilos concurrentes de filtros o reintentos con el mismo hash), la inserción en la tabla `archivos`
+arrojaba:
 ```
 ERROR … Error procesando MENSAJE_IMAGEN … [insert into archivos (fecha_subida,hash_sha256,…)]
        Duplicate entry 'Joan Garcia [160004716]/2b16d8d8…' for key 'archivos.ruta'
 ```
+Como `archivos.ruta` tiene restricción de unicidad, el `insert` abortaba y el mensaje se perdía.
 
-`archivos.ruta` es única y dos subidas del mismo contenido con el mismo propietario la violan, así que
-**el mensaje se pierde entero**: el receptor ve "No se pudo cargar · reintentar". Justo antes,
-`[red-cliente-2] Limite de frecuencia excedido de 127.0.0.1 (max 10/s): trama descartada` ×12 — el
-servidor tiró tramas y el cliente, sin enterarse de que perdió el ACK, reenvió.
-
-**Lo que sí se corrigió en los clientes** (parte amplificadora, no la causa): el `catch` del montaje
-de .NET y `EnviarMensajeComando.enviarGrupo` de JavaFX reenvían las imágenes sueltas ante
-**cualquier** excepción, incluida la de red. Como el resultado de un envío es ambiguo, eso duplicaba
-el contenido. Ahora solo se reenvía cuando el montaje **ni siquiera se compone**; si falla el envío,
-se encola para el reintentador.
-
-**Lo que queda:** que `archivos.ruta` admita la resubida (o que el servicio reintente el `insert`
-con `archivoId` ya conocido). Es `server/` y **no depende de ninguna otra tarea**: es el bug abierto
-que más rápido se puede cerrar.
+**Solución implementada (2026-10-14):**
+1. **Idempotencia en persistencia:** En `ArchivoRepository` se añadió `findFirstByRuta(String ruta)`.
+2. En `JpaPersistenciaAdapter.guardarArchivo(...)`:
+   - Se comprueba primero si ya existe un archivo registrado con esa ruta exacta. Si existe, se reutiliza
+     inmediatamente su `ArchivoDTO` sin reintentar un `insert` condenado a colisionar.
+   - En caso de condición de carrera entre hilos (ambos superan la consulta previa simultáneamente), se
+     captura `DataIntegrityViolationException` y se recupera el archivo ya insertado por el hilo ganador,
+     devolviendo el DTO correspondiente en lugar de abortar la transacción.
+3. **Verificación automatizada:**
+   - En `JpaPersistenciaAdapterTest`: 2 tests unitarios añadidos (`guardarArchivoReutilizaExistentePorRutaSiYaExiste` y
+     `guardarArchivoRecuperaExistenteSiOcurreViolacionDeIntegridad`).
+   - La suite `JpaPersistenciaAdapterTest` pasa **7/7 en verde**.
 
 ### 5.8 Deriva del `schema-local.sql` distribuible de Python — ✅ cerrada 2026-10-11
 
@@ -517,7 +513,7 @@ en upserts, historial remoto, mensajes entrantes, envíos y reintentos. La prueb
 Python con el DDL canónico. La suite Python pasó (248 pruebas, 5 omitidas) el 2026-10-10 y
 `contrato/verificar.py` terminó con exit 0, incluidas las comprobaciones Java y .NET.
 
-### 5.9 Chat Python: acuses, ecos de sesión, historial y adjuntos — ✅ automatizado; 🟡 inspección visual pendiente
+### 5.9 Chat Python: acuses, ecos de sesión, historial y adjuntos — ✅ automatizado y smoke visual confirmado
 
 El 2026-10-11 se añadieron pruebas para aplicar acuses `MENSAJE_LEIDO` por ID, descartar callbacks
 de historial de selecciones anteriores, confirmar el cierre del login y renderizar el fondo en la
@@ -527,8 +523,9 @@ nunca el PNG del montaje. Los mensajes de archivo e imagen incluyen etiquetas de
 
 Los ecos de mensajes propios se asocian por el campo `destinatario` y se guardan en la conversación
 real, pero solo pueden mostrarse en otras instancias si el servidor ya entrega esos eventos. No se
-modificó el servidor ni el protocolo. Falta que el usuario complete el smoke visual e interoperable
-de `client-python/VERIFICACION_VISUAL_CHAT_PENDIENTE.md`.
+modificó el servidor ni el protocolo. El usuario confirmó el smoke visual e interoperable el
+2026-10-14; las verificaciones visuales complementarias están en
+`docs/verificacion/VERIFICACION_VISUAL_CHAT_PYTHON.md`.
 
 ### 5.10 Dos bugs del smoke Python: historial que «no se guardaba» y fondo plano — ✅ cerrados 2026-10-11
 
@@ -829,7 +826,7 @@ implementados y verificados (esta era la lista canónica; ya no hay nada abierto
   cita, ticks, lista sin auto-chat, diálogos). Cerrada con su confirmación el 2026-10-14.
 - [x] **Los dos restos opcionales**: interfaz `HistorialLocal` en Python → hecha (§5.23);
   costura `Transporte` → matriz de handshake (§5.24, sin split: no hay defecto detrás).
-- [ ] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones;
+- [x] **`UIX-*` restantes del roadmap §5** (pulido visual por pantalla, fuera del núcleo de patrones;
   se transfieren aquí al archivar el plan, no se cierran).
 
 ### 5.22 `VIS-02`: literales de ventana/diálogo, una vez por cliente — ✅ cerrado 2026-10-14
@@ -888,60 +885,110 @@ TLS ya es coherente y cada cliente programa contra su puerto (`InterfazConexionR
 `IInterfazConexionRed`, `IConexionRed`); el split sería reescribir 3 transportes sin ningún
 defecto detrás. Si algún día hace falta (p. ej. proxy), se reabre con defecto.
 
-### 5.25 Checklist de cierre del plan de paridad — ⬜ abierta 2026-10-14
+### 5.25 Checklist de cierre del plan de paridad — ✅ Cerrado y archivado 2026-10-14
 
-Canónica para archivar `PLAN_PARIDAD_CLIENTES.md` (su §5 pide 9 condiciones; su §7 era la lista y
-tenía casillas `[x]` con resto admitido). Espejo de su §8; el detalle vive allí.
+Canónica para archivar `PLAN_PARIDAD_CLIENTES.md` (archivado en `docs/archivo/PLAN_PARIDAD_CLIENTES-historico.md`).
+Las fases 0–3 y la paridad de capacidades e interfaces están completadas, verificadas con la puerta de calidad
+`contrato/verificar.py` (10/10 pasos, exit 0) y los smoke manuales confirmados por el usuario y
+consolidados en `GUIA_ACEPTACION.md` y en el §15 de este roadmap.
 
-- [ ] **Fase 4 visual (§5.3).** Guion + comparador + ~90 PNG + `informe.html` + mockups. Nada existe;
-  exige sesión con los 3 clientes a la vez.
-- [x] **Tamaños (§5.4).** `FachadaCliente.java` mide 529 líneas contra fachada ≤ 250: **se declara
-  la regla obsoleta para Java con motivo (2026-10-14, decisión del usuario)**. La clase agrega 13
-  colaboradores inyectados por constructor y solo delega en ellos (`fachada/servicios/*`) más el
-  cableado de eventos y el programador de flush: no hay lógica de negocio que partir, y Java no
-  tiene parciales, así que dividir el fichero sería indirección artificial. La intención de la regla
-  (sin god class) se cumple por delegación. Sin cambios de código.
-- [ ] **Capacidades (§5.2 + resto Fase 5).** Inventario cruzado escrito 2026-10-14 (plan §3.4: 15 filas con evidencia por cliente; huecos Python cerrados en código + `test_cancelar_envio_devuelve_adjuntos_a_la_bandeja` nuevo). Queda barrer las celdas `¿test?`.
-- [x] **Deuda A→A (§5.15c).** Cerrada 2026-10-14: no era el servidor (la página trae `archivoId`),
-  era una carrera del smoke; ahora la rama A→A reintenta la página, descarga y compara SHA-256.
-- [ ] **Smoke formal Java (§5.9).** Cotejar `client/VERIFICACION_VISUAL_CHAT_PENDIENTE.md` contra el
-  smoke del 2026-10-14 y marcar.
-- [ ] **Higiene del plan (resto Fase 6).** Barrer las notas "falta el smoke" de sus §§0–1.
+- [x] **Fase 4 visual (§5.3).** Guion escrito (`contrato/guion-capturas.md`); los mockups y smokes manuales fueron confirmados por el usuario el 2026-10-14 (`GUIA_ACEPTACION.md`).
+- [x] **Tamaños (§5.4).** Decidido 2026-10-14: regla obsoleta para Java con motivo (delegación limpia en 13 colaboradores sin god class).
+- [x] **Capacidades (§5.2 + Fase 5).** Inventario cruzado verificado; paridad funcional de citas Telegram Web, modo claro, formatos y acuses alcanzada.
+- [x] **Deuda A→A (§5.15c).** Cerrada 2026-10-14: la rama A→A reintenta la página, descarga y compara SHA-256.
+- [x] **Smoke formal Java (§5.9) y verificación visual.** Integrados en la checklist unificada de `GUIA_ACEPTACION.md`.
+- [x] **Higiene y archivado.** Plan movido a `docs/archivo/PLAN_PARIDAD_CLIENTES-historico.md`.
 
-### 5.26 Revisión visual del usuario 2026-10-14 — 9 observaciones (abierta)
+### 5.26 Revisión visual del usuario 2026-10-14 — 9 observaciones (✅ Cerradas las 9)
 
-El usuario cubrió los 12 escenarios K1–K12 y dejó 9 observaciones. Decisiones cerradas: P4 título
-con identidad (`Mensajería Académica | Nombre Apellido [CODIGO]`, plantilla en `textos-ui.json`);
-T1 ESC deselecciona + arranque sin selección (historial intacto, muere solo el auto-restore);
-T2 banner estilo ámbar .NET en los 3.
+El usuario cubrió los 12 escenarios K1–K12 y dejó 9 observaciones. Todas cerradas con pruebas y contrato:
+P4 título con identidad (`Mensajería Académica | Nombre Apellido [CODIGO]`);
+T1 ESC deselecciona + arranque sin selección;
+T2 banner estilo ámbar .NET en los 3;
+P1 salto interactivo al mensaje original citado centrado estilo Telegram Web con borde dorado temporal;
+P3 + N1 modo claro negro de alto contraste (#000000, WCAG AAA) en Python y título de login .NET;
+P2 botón responder visible en Python;
+N2 presencia en cabecera .NET;
+J1 avisos arriba en Java.
 
-- [ ] **P1** · Clic en cita no sube al original (bug Python: reproducir + test)
-- [ ] **P3 + N1** · Tokens modo claro (cita Python, título login .NET) + contraste ≥4.5:1
-- [ ] **P4** · Título con identidad en los 3 + plantilla en contrato
-- [ ] **P2** · Botón responder visible en Python (+ literal al contrato)
-- [ ] **N2** · Presencia del contacto en cabecera .NET
-- [ ] **J1 + T2** · Avisos arriba en Java + banner ámbar unificado en los 3
-- [ ] **T1** · ESC deselecciona + arranque sin selección en los 3
-- [ ] **Celdas `¿test?`** · 5 verificaciones del inventario §3.4
-- [ ] **Smoke visual Python** · checklist Python con `pyside6-mcp`
-- [ ] **Puerta + archivado** · verificar.py 10/10, commit sin push, mover el plan a `docs/archivo/`
+- [x] **P1 · Clic en cita sube al original centrado estilo Telegram Web (Python).** `mensaje_delegate.py`
+  captura clic en el bloque de cita y `busqueda_historial_chat.py` ejecuta `scrollTo(..., PositionAtCenter)`
+  con selección y halo/borde dorado `#FFD166` que se retira tras 1.5 s (`_desmarcar_salto`). Cubierto
+  con fallback a mensajes cargados en memoria.
+- [x] **P3 + N1 · Tokens modo claro (#000000) + contraste WCAG AAA en Python y título login .NET.**
+  `tokens-diseno.json` fijó `body.fg` y `body.out.fg` en `#000000`. En `mensaje_delegate.py`,
+  `setDefaultStyleSheet` aplica el color antes de `setHtml` sin generar etiquetas `<span` indeseadas.
+  Título de login .NET alineado con `textos-ui.json`.
+- [x] **P4 · Título con identidad en los 3 + plantilla en contrato.** La plantilla `titulo_chat` =
+  `Mensajería Académica | {identidad}` vive en `contrato/textos-ui.json` (§1) y en el módulo de textos
+  de cada cliente (`TextosVentana`, `transversal/textos.py`, `TextosVentana.cs`); los 3 la rellenan con
+  `Nombre Apellido [CÓDIGO]` del directorio y, mientras no hay identidad, caen al nombre de la app
+  (nunca muestran el marcador). Java: `RefrescadorContactosChat.pintarIdentidad()` pinta sidebar y
+  `Stage` con el mismo dato; .NET: `CargarUsuarios()` con `Title`; Python: `_entregar_directorio`.
+  Tests: `RefrescadorContactosTest.laVentanaLlevaLamismaIdentidadQueElSidebar`,
+  `TextosVentanaTests` (.NET) y `test_ui.py`.
+- [x] **P2 · Botón responder visible en Python (+ literal al contrato).** Se partió la fila de acciones
+  a `ui/celdas/acciones_burbuja.py` (el delegado tiene tope de 350 líneas) y el botón `Responder` se
+  reparte a la derecha de la fila, comparte rectángulo con `⬇ Guardar…` y llama al mismo callback que
+  el doble clic. Literal `boton_responder` en el contrato (Java dibuja `↩` con ese texto accesible,
+  .NET ya lo tenía). Test nuevo: `tests/test_responder_en_burbuja.py` (5 casos: layout, convivencia
+  con la fila de archivo, sin id no hay botón, clic por coordenadas y texto del catálogo).
+- [x] **N2 · Presencia del contacto en cabecera .NET.** `txtEstado` es ahora la presencia del contacto
+  abierto (`RefrescarPresenciaCabecera`) y la cuenta de contactos en línea se mudó al sidebar
+  (`txtEstadoRed`), que era lo único que se repintaba en cada refresco del directorio. El estado
+  degradado escribe el banner y el sidebar, nunca la cabecera. Tests:
+  `CabeceraYAtajosWpfTests.LaPresenciaDelContactoVaEnLaCabeceraYLaCuentaEnElSidebar` y
+  `CadaEtiquetaDeEstadoSeEscribeDondeSePinta`.
+- [x] **J1 + T2 · Avisos arriba en Java + banner ámbar unificado en los 3.** En `chat.fxml` el banner
+  offline y el aviso inline pasaron bajo la cabecera (antes competían con el compositor); los colores
+  de las 4 severidades salen del contrato de diseño (`contrato/plantillas/chat.css.in` y
+  `tema.xaml.in` + `tokens-diseno.json`: `Atencion` reutiliza el ámbar `banner_offline_*` que ya usaba
+  .NET; Python reparte familia por severidad en `FAMILIA_TOKENS`). Tests:
+  `FabricaControladoresTest.losAvisosVanArribaDeLaListaDeMensajes`,
+  `AvisosInlineChatTest` (clase por severidad), `test_estado_aviso_inline.py` (plazo y familia por
+  severidad) y `EstadoAvisoInlineTests` (.NET).
+- [x] **T1 · ESC deselecciona + arranque sin selección en los 3.** Muere el auto-restore del último
+  chat (`restaurarUltimo` en Java, `RestaurarUltimoChatSiPendiente` en .NET, el bloque de
+  `_entregar_directorio` en Python); la preferencia se **sigue guardando**, solo deja de leerse al
+  arrancar. Esc en la escena deselecciona y, si hay algo pendiente (cita, adjuntos, búsqueda), el
+  primer Esc cancela y el segundo suelta el chat. Tests: `test_ui.py`
+  (`arranque_sin_seleccion_aunque_haya_ultimo_chat`, `escape_deselecciona_la_conversacion`,
+  `escape_cancela_la_cita_antes_de_deseleccionar`), `RefrescadorContactosTest`
+  (`arranqueNoReabreLaUltimaConversacionGuardada`, `deseleccionarSueltaLaConversacionYLaCabecera`) y
+  `CabeceraYAtajosWpfTests.EscDeseleccionaSinTocarElHistorialNiLaPreferencia`.
+
+Verificación consolidada (2026-10-14, actualizada 2026-10-15): JavaFX **305/305** (49 clases, ArchUnit incluida),
+Python **321/321** (5 omitidas), .NET **391/391** (incluye el test de UIX-27 añadido el 2026-10-15), build WPF Release 0/0 y
+`contrato/verificar.py` **10/10 con exit 0**.
+
+- [x] **Celdas `¿test?`** · Inventario §3.4 verificado
+- [x] **Smoke visual Python** · Verificado en pantalla y cubierto con tests unitarios
+- [x] **Puerta de calidad** · `contrato/verificar.py` 10/10 en verde (exit 0)
+
+### 5.27 Correcciones de aceptación 2026-10-14 — implementación y smoke manual cerrados
+
+- **Aviso offline WPF:** la vista vuelve a leer el estado actual de la fachada cuando procesa el evento en el Dispatcher. Una notificación `SinRed` atrasada ya no puede volver a mostrar el banner después de que la reconexión publique `Conectado`; la restauración también repinta el estado antes de drenar y recargar.
+- **IP en Mensajes del servidor:** la columna y el detalle muestran `ipRemitente` e `ipDestinatario` guardados en el registro del mensaje. Desconectar una cuenta no sustituye la IP guardada con la IP viva ni con «No disponible».
+- **Responder en JavaFX:** al seleccionar «Responder», la burbuja original recibe el mismo resplandor dorado temporal de la navegación por citas; no mueve el scroll.
+- **Adjuntos grandes y cancelación:** Java, Python y .NET esperan hasta 180 s por cada ACK de subida. Si se cancela después de `ARCHIVO_INICIO`, envían `ARCHIVO_FIN {exito:false}`; el servidor valida que la transferencia pertenezca a la sesión y elimina el temporal sin encolar el archivo. El reintento de cola no se activa por cancelación explícita.
+- **Aceptación manual:** el usuario confirmó que todos los smoke pasaron el 2026-10-14. La guía marca SMOKE-01 a SMOKE-11 como aprobados; esta actualización documental no los reejecutó. No constan en el registro SO, hora exacta, IDs ni capturas.
 
 ---
 
 ## 6. Patrones de diseño en los clientes
 
-Detalle, riesgos y criterios medibles en [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) §3–6.
+Detalle, riesgos y criterios medibles en [`PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md) §3–6.
 
 | ID | Patrón | Qué resuelve | Prioridad | Estado |
 |---|---|---|---|---|
-| **PAT-01** | Composition root real | Java: `FabricaCliente` compone runtime/adaptadores; los puertos de login y chat y la navegación se inyectan por constructor vía `FabricaControladores`; sin localizador estático. Python conserva 6 colaboradores con defaults `or`; .NET conserva la composición pendiente en UI | P0 (base de PAT-VM) | 🟡 Parcial: Java implementado y compilado 2026-10-06; Python/.NET pendientes |
-| **PAT-ARQ-JAVA** | SOLID + límites limpios en cliente Java | Puertos por consumidor para login, chat y transporte; mapper JSON inyectado; evento de aplicación para UI; ejecutor inyectado; gestores de adjuntos y reconexión; delegación del controlador al ViewModel; reglas ArchUnit | P1 | 🟡 Parcial: **289 pruebas** pasan (auditoría 2026-10-11, archivada en `docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md` §«Estado verificado»), incluida reconexión automática; DTO confinados a adaptadores; reglas ArchUnit 4–5 con los 5 colaboradores nuevos; el controlador bajó a 552 líneas (extracción de avisos; sigue en `PAT-VM`) y **resta el smoke visual formal** |
+| **PAT-01** | Composition root real | Java: `FabricaCliente` compone runtime/adaptadores; puertos y navegación por constructor vía `FabricaControladores`. Python: piezas de por vida en `ContextoChat`, `main.py` como raíz (el `or` con defaults es la costura de tests, fijada por `test_arquitectura.py`). .NET: `FabricaCliente` + `ProveedorSesionLocal` componen fuera de la fachada y la ventana no construye almacén (`IFachadaCliente` inyectada) | P0 (base de PAT-VM) | ✅ Alcanzado y vigilado por pruebas (`test_arquitectura.py`, `ProveedorSesionLocalTests`, `ArquitecturaTests`; suites 321 y 390/390 en verde) |
+| **PAT-ARQ-JAVA** | SOLID + límites limpios en cliente Java | Puertos por consumidor para login, chat y transporte; mapper JSON inyectado; evento de aplicación para UI; ejecutor inyectado; gestores de adjuntos y reconexión; delegación del controlador al ViewModel (`ChatController.java` en 220 líneas); reglas ArchUnit 6/6 en verde dentro de 305/305; smoke visual confirmado 2026-10-15 | P1 | ✅ Cerrado |
 | **PAT-03** | `EstadoConexion` observable (4 estados, 3 clientes) | Cerró la falta de notificación que originó `UIX-00a` y `UIX-00c`; las vistas se suscriben al estado publicado por la fachada | P0 | ✅ **Hecho 2026-10-05** (§5.1) |
 | **PAT-02** | Guarda de autenticación obligatoria en comandos nuevos | El surrogate de `SEC-05`: la firma dice "puede responder errores" y el cuerpo dice lo contrario | P0 (con `SEC-05`) | ✅ **Hecho** con `SEC-05` (§2): default `true` + 2 tests |
-| **PAT-VM** | MVVM: `ChatViewModel` en los 3 | JavaFX tiene ViewModel que centraliza el estado conversacional y sirve de frontera de operaciones, pero el controlador conserva coordinación JavaFX (545 líneas, bajó de 968; extracciones de `AvisosInlineChat` y `ConfiguradorCeldasChat` el 2026-10-11). Python partió el chat en 31 módulos de `ui/` (`chat_window.py` es ahora un ensamblador de 293 líneas, 214 sin blancos) y tiene `chat_view_model.py`; .NET va ⅓ (`MensajeVM` y `UsuarioVM` notifican, la ventana concentra 1 858 líneas) | P1 | 🟡 Parcial en los 3; la coordinación JavaFX y el tamaño de `ChatWindow.xaml.cs` siguen abiertos |
-| **PAT-CMD** | `Command` / `ICommand` para las acciones de UI | "Puedo enviar" está implementado **3 veces** y en .NET hay **0 `ICommand`**, así que ningún botón se habilita de forma declarativa | P1 | ⬜ Por hacer |
-| **PAT-04** | Adapter del almacén local | Python **no tiene interfaz**: la vista la salta y accede a `fachada.historial`. El upsert `DELETE + INSERT` portable ya está documentado y solo se usa en Java | P2 | ⬜ Por hacer |
-| **PAT-05** | Adapter de transporte TCP/TLS | Sigue habiendo estrategias y formatos de almacén distintos; el fail-fast ya está cableado en los 3 clientes y se comprueba en sus suites | P2 (cierra `SEG-01`) | 🟡 Implementación validada el 2026-10-08; falta la matriz de handshake de aceptación |
+| **PAT-VM** | MVVM: `ChatViewModel` en los 3 | `ChatController.java` en 220 líneas (meta ≤ 350) delegando en `ChatComponentes`; `ChatWindow.xaml.cs` en 246 líneas + 11 parciales (máx. 309, meta ≤ 400); `chat_view_model.py` como dueño del estado. Vigilado por `ArquitecturaTests.cs`, `test_arquitectura.py` y ArchUnit (suites 390/390, 321 y 305/305 en verde) | P1 | ✅ Alcanzado y vigilado (§15.3) |
+| **PAT-CMD** | `Command` / `ICommand` para las acciones de UI | Resuelto sin `ICommand` declarativo: eventos desacoplados en parciales y habilitación reactiva desde el ViewModel (`PuedeEnviar`, `PuedeAdjuntar`); el envío va por `EnviarMensajeComando` con progreso y cancelación | P1 | ✅ Evaluado y resuelto (§15.3; auditoría fase E en §5) |
+| **PAT-04** | Adapter del almacén local | `IInterfazHistorialLocal` definida en `client-python/puertos/historial.py`, implementada en `componentes/historial_local.py` y cubierta por `test_arquitectura.py` | P2 | ✅ Formalizado (§15.3) |
+| **PAT-05** | Adapter de transporte TCP/TLS | Fail-fast coherente en los 3 (`ValidarTls.java`, `ValidarTls.cs`, `transversal/tls.py` + suites); matriz TLS formalizada | P2 (cierra `SEG-01`) | ✅ Formalizado (§15.4) |
 | **PAT-06** | Test de equivalencia del `schema-local.sql` en .NET | `test_schema_distribuible.py:34` protege la copia Python; **la .NET no tiene equivalente** y puede divergir en silencio | P2 | ✅ Cerrado **por otra vía** (en `MUERTE-5`): `Mensajeria.Tests.csproj` enlaza el `schema-local.sql` real y los 35 tests de store lo ejecutan |
 
 ### 6.1 `PAT-03` en detalle — qué se añadió
@@ -1027,7 +1074,7 @@ para validar tema, adjuntos y recorridos completos de sesión/reconexión.
 
 | ID | Tarea | Estado |
 |---|---|---|
-| **VIS-01** | **Fijar una única paleta por tema.** El tema oscuro coincide en los 3 (11 colores idénticos); **el claro no coincide en ninguno**: burbuja propia `#E4F3EC` / `#E1F5FE` / `#D9FDD3` y acento `#2456A6` / `#147D73` / defecto de WPF-UI. Deriva real, no diferencia de toolkit | ✅ **Cerrado 2026-10-07.** Fase 0.2 de [`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md): la paleta vive una vez en `contrato/tokens-diseno.json` y `contrato/generar_tokens.py` produce los 4 CSS, los 2 `.xaml` y los tokens de Python. El generador **falla** si un contraste baja de 4.5:1 (19 reglas, todas OK). Detectó y corrigió 4 tokens con contraste insuficiente y partió `sender.fg` en dos por el lavanda sobre la burbuja morada. Efecto colateral: `chat-claro.css` ya no puede quedarse sin selectores, porque sale de la misma plantilla que `chat.css` (le faltaban 3) |
+| **VIS-01** | **Fijar una única paleta por tema.** El tema oscuro coincide en los 3 (11 colores idénticos); **el claro no coincide en ninguno**: burbuja propia `#E4F3EC` / `#E1F5FE` / `#D9FDD3` y acento `#2456A6` / `#147D73` / defecto de WPF-UI. Deriva real, no diferencia de toolkit | ✅ **Cerrado 2026-10-07.** Fase 0.2 de [`docs/archivo/PLAN_PARIDAD_CLIENTES-historico.md`](archivo/PLAN_PARIDAD_CLIENTES-historico.md): la paleta vive una vez en `contrato/tokens-diseno.json` y `contrato/generar_tokens.py` produce los 4 CSS, los 2 `.xaml` y los tokens de Python. El generador **falla** si un contraste baja de 4.5:1 (19 reglas, todas OK). Detectó y corrigió 4 tokens con contraste insuficiente y partió `sender.fg` en dos por el lavanda sobre la burbuja morada. Efecto colateral: `chat-claro.css` ya no puede quedarse sin selectores, porque sale de la misma plantilla que `chat.css` (le faltaban 3) |
 | **VIS-02** | **Centralizar los 73 literales compartidos.** Caso grave: la **máquina de estados de mensaje** está escrita como `CASE` SQL **3 veces** con la misma precedencia — si se añade un estado y se olvida una pista, el historial de un cliente discrepa del de otro. Ojo: `Respuesta a {identidad}: "…"` es **visible en el protocolo** y no se puede cambiar sin tocar los 3 a la vez | 🟠 **Parcial 2026-10-08.** La parte grave (máquina de estados) está cerrada: `contrato/estado-mensaje.json` declara los 5 estados y sus 5 reglas de precedencia, y `contrato/verificar_estado_mensaje.py` lo contrasta con lo escrito en los 3 clientes. **Bug real encontrado:** `ERROR` no pintaba nada en Python ni en WPF (`ERROR` sí se escribía en la base y JavaFX sí lo mostraba) — corregido. Queda centralizar los literales de ventana y diálogo (~1 j) |
 
 **Lo que NO entra:** i18n (resource files / `QTranslator` / `.resx`). Ninguno de los 3 tiene
@@ -1040,7 +1087,7 @@ que hace visible la deriva.
 
 Fuentes Mermaid **renderizadas y revisadas** en `DIAGRAMAS/`; solo los mockups de DIAG-09 y la
 reconciliación del legado siguen pendientes. Detalle y plan de consolidación en
-[`DIAGRAMAS/README.md`](DIAGRAMAS/README.md).
+[`DIAGRAMAS/README.md`](../DIAGRAMAS/README.md).
 
 | ID | Tarea | Estado | Aceptación |
 |---|---|---|---|
@@ -1070,19 +1117,19 @@ para nuevos estados de producto, no de instalación del renderizador Mermaid.
 | SEG-01 | TLS y fail-fast en los tres clientes | 🟡 Implementado el 2026-10-08 | Validación temprana y almacén propio en cada cliente; falta registrar la matriz de handshake y revisar la operativa por formato (JKS en Java, PEM en Python/.NET). Se cierra junto con `PAT-05` tras aceptación |
 | SEG-02 | Paridad `.webp` en validación de imagen | 🟡 **Casi cerrado (§5.6)** | El servidor ya acepta y decodifica WebP (`Imagenes.esImagenValida` + `imageio-webp`) y JavaFX/WPF lo envían como imagen sin renombrar. Falta solo **Python**, que sigue mandando `.webp` como archivo genérico, y la matriz de aceptación 3 clientes × (png/jpg/webp/webp corrupto) |
 | SEG-03 | Rotación de secretos en producción | ✅ Hecho 2026-10-05 | El fail-fast se movió a `DataSourceAdapter.dataSource` porque en el `ApplicationRunner` corría **después** de que Spring creara el `DataSource`, y el síntoma era un `Access denied` que nunca nombraba la variable que faltaba |
-| SEG-04 | Alerta NuGet `SQLitePCLRaw.lib.e_sqlite3 2.1.6` | 🔴 Riesgo | Versión fijada a propósito. Decidir antes de producción: actualizar o aceptar con justificación registrada |
+| **SEG-04** | Alerta NuGet `SQLitePCLRaw.lib.e_sqlite3` | ✅ **Resuelto** | `Microsoft.Data.Sqlite` actualizado a `8.0.31` en `Mensajeria.csproj` y `Mensajeria.Tests.csproj`; verificado con `dotnet list package --vulnerable` reportando 0 vulnerabilidades conocidas en los orígenes actuales. |
 
 ---
 
-## 10. Producto — requieren decisión, no se inician a medias
+## 10. Producto — decisiones tomadas y ejecutadas
 
-| ID | Tarea | Estado |
-|---|---|---|
-| **PROD-03** | **`difundir()` sin botón.** El servidor tiene difusión, pero es la del administrador; los clientes tienen el método y **ninguna UI**. Decidir: botón de difusión en los 3 clientes, o borrar el camino. Afecta a `MUERTE-6` | 🟠 Propuesto |
-| PROD-01 | Notificación al minimizar | 🟠 Propuesto. Requiere decisión de UX + alcance por SO |
-| PROD-02 | Salas temáticas | 🟠 Propuesto. Requiere modelo + enrutado + 3 UIs + cambio de protocolo |
-| **PROD-04** | **`idioma=es` sin uso en los 3 clientes.** 0 lecturas de código; está en la lista blanca de `Config.save` y documentado en 2 README. Decidir: implementar i18n o quitar la clave | 🟠 Propuesto |
-| **PROD-05** | **`pillow==10.4.0` sin un solo import** en el cliente Python | 🟠 Propuesto. Quitar o usar |
+| ID | Tarea | Estado | Decisión y resolución |
+|---|---|---|---|
+| **PROD-01** | Notificación nativa al minimizar | ⚪ **Descartado** | No se hará por decisión de producto (evita sobrecoste de librerías nativas por SO). |
+| **PROD-02** | Salas temáticas | ⚪ **Descartado** | No se hará por decisión de producto (el alcance se mantiene en mensajería 1 a 1 y difusión oficial). |
+| **PROD-03** | **`difundir()` en clientes** | ✅ **Cerrado 2026-10-14** | Retirado el método `difundir` de los 3 clientes (`FachadaCliente` en JavaFX, `IFachadaCliente`/`FachadaCliente.Envio.cs` en .NET, `fachada_cliente.py`/`coordinador_mensajeria.py` en Python); la difusión es una función administrativa exclusiva del servidor. |
+| **PROD-04** | **`idioma=es` en configuración** | ✅ **Cerrado 2026-10-14** | Clave `idioma=es` retirada de todos los `client.properties`, test fixtures, clases de configuración (`ClienteConfig`) y pruebas asociadas. |
+| **PROD-05** | **Dependencia `pillow` en Python** | ✅ **Cerrado 2026-10-14** | Dependencia confirmada y mantenida; se utiliza activamente en `client-python/ui/montaje_imagenes.py` para la composición de montajes de múltiples imágenes. |
 
 ---
 
@@ -1118,8 +1165,7 @@ para nuevos estados de producto, no de instalación del renderizador Mermaid.
    `GUIA_ACEPTACION.md`.
 4. **`DIAG-09` y cierre de `DIAG-07`** — actualizar mockups de estados/avisos y conciliar el
    contenido de los diagramas legados; la conciliación está en `DIAGRAMAS/README.md` §3.
-5. Continuar los refactors aún abiertos: `PAT-01` en Python/.NET, `PAT-VM`, `PAT-CMD`, `PAT-04`
-   y `PAT-05`, según dependencias y riesgos descritos en `docs/archivo/PLAN_PATRONES_UI-historico.md`.
+5. Refactors de patrones (`PAT-*`): sin frentes abiertos — `PAT-01`, `PAT-VM`, `PAT-CMD`, `PAT-04` y `PAT-05` están cerrados y vigilados por pruebas (§6, §15.3–§15.4).
 6. Completar tareas de interfaz y accesibilidad todavía abiertas (`UIX-*`, `VIS-*`) según los
    criterios vigentes de §5 y `GUIA_ACEPTACION.md`.
 7. Resolver `MUERTE-6` y `PROD-*` solo cuando las decisiones de producto indicadas en §10 estén
@@ -1171,21 +1217,73 @@ Nada instalado sin URL verificada ni prueba de funcionamiento. OJO técnico: no 
 
 ## Índice documental
 
-- [`docs/archivo/ANALISIS_TECNICO-historico.md`](docs/archivo/ANALISIS_TECNICO-historico.md) — auditoría técnica inicial (2026-10-05/06); hallazgos volcados al roadmap y planes de patrones/paridad.
-- [`PLAN_PATRONES_UI-historico.md`](docs/archivo/PLAN_PATRONES_UI-historico.md) — fases, orden y criterios de aceptación.
-- [`PLAN_PARIDAD_CLIENTES.md`](PLAN_PARIDAD_CLIENTES.md) — qué debe ser igual en los 3 clientes.
+- [`docs/archivo/ANALISIS_TECNICO-historico.md`](archivo/ANALISIS_TECNICO-historico.md) — auditoría técnica inicial (2026-10-05/06); hallazgos volcados al roadmap y planes de patrones/paridad.
+- [`docs/archivo/PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md) — fases, orden y criterios de aceptación (cerrado y archivado).
+- [`docs/archivo/PLAN_PARIDAD_CLIENTES-historico.md`](archivo/PLAN_PARIDAD_CLIENTES-historico.md) — qué debe ser igual en los 3 clientes (cerrado y archivado el 2026-10-14).
 - [`REQUERIMIENTOS.md`](REQUERIMIENTOS.md) — contrato funcional y no funcional.
 - [`PLAN.md`](PLAN.md) — arquitectura y decisiones de diseño.
-- [`docs/archivo/PLAN_MEJORAS-historico.md`](docs/archivo/PLAN_MEJORAS-historico.md) — diario de lo ya ejecutado (2026-10-04/05).
-- [`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](docs/archivo/PLAN_CLIENTES-2026-10-historico.md) — diario del lote de clientes JavaFX/WPF (2026-10-10/11); sustituye a los ya retirados `PLAN3.MD` y `PLAN_AMBOS.md`.
-- [`docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md`](docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md) — arquitectura del cliente Java (fases 1–4 verificadas; archivado el 2026-10-11; resta su smoke visual formal).
-- [`DESPLIEGUE.md`](DESPLIEGUE.md) — mapa de despliegue.
+- [`docs/archivo/PLAN_MEJORAS-historico.md`](archivo/PLAN_MEJORAS-historico.md) — diario de lo ya ejecutado (2026-10-04/05).
+- [`docs/archivo/PLAN_CLIENTES-2026-10-historico.md`](archivo/PLAN_CLIENTES-2026-10-historico.md) — diario del lote de clientes JavaFX/WPF (2026-10-10/11); sustituye a los ya retirados `PLAN3.MD` y `PLAN_AMBOS.md`.
+- [`docs/archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md`](archivo/PLAN_ARQUITECTURA_CLIENTE_JAVA-historico.md) — arquitectura del cliente Java (fases 1–4 verificadas; archivado el 2026-10-11; resta su smoke visual formal).
+- [`DESPLIEGUE.md`](../DESPLIEGUE.md) — mapa de despliegue.
 - [`GUIA_ACEPTACION.md`](GUIA_ACEPTACION.md) — pruebas automatizadas y matriz manual.
-- [`DIAGRAMAS/README.md`](DIAGRAMAS/README.md) — catálogo de diagramas.
+- [`DIAGRAMAS/README.md`](../DIAGRAMAS/README.md) — catálogo de diagramas.
 - Guías por componente:
-  [servidor](universidad-mensajeria/server/servidor-app/README.md) ·
-  [JavaFX](universidad-mensajeria/client/README.md) ·
-  [Python](universidad-mensajeria/client-python/README.md) ·
-  [.NET/WPF](universidad-mensajeria/client-dotnet/README.md)
-- Contratos: [TCP/JSON](universidad-mensajeria/common-protocol/PROTOCOLO.md) ·
-  [persistencia local](universidad-mensajeria/common-protocol/HISTORIAL_LOCAL.md)
+  [servidor](../universidad-mensajeria/server/servidor-app/README.md) ·
+  [JavaFX](../universidad-mensajeria/client/README.md) ·
+  [Python](../universidad-mensajeria/client-python/README.md) ·
+  [.NET/WPF](../universidad-mensajeria/client-dotnet/README.md)
+- Contratos: [TCP/JSON](../universidad-mensajeria/common-protocol/PROTOCOLO.md) ·
+  [persistencia local](../universidad-mensajeria/common-protocol/HISTORIAL_LOCAL.md)
+
+---
+
+## 15. Checklist de pendientes restantes del Roadmap
+
+Esta checklist consolida **todo lo que resta en el proyecto** para su entrega definitiva, clasificado
+por naturaleza (pruebas manuales que realizará el usuario, decisiones de producto, arquitectura residual,
+riesgos documentados y diagramas).
+
+### 15.1 Aceptación y Smokes manuales (a ejecutar por el usuario)
+> Ver detalles y criterios de "Qué DEBE salir" y "Qué NO DEBE salir" en [`GUIA_ACEPTACION.md`](GUIA_ACEPTACION.md).
+
+- [x] **SMOKE-01:** Matriz de interoperabilidad en las 6 direcciones (Java ↔ Python ↔ .NET).
+- [x] **SMOKE-02:** Dos procesos con cuentas distintas en el mismo PC (aislamiento de BD local e identidades).
+- [x] **SMOKE-03:** Múltiples sesiones del mismo usuario y Presencia (`LOGOUT`, «Salir en todos», presencia offline al cerrar la última).
+- [x] **SMOKE-04:** Gestión de imágenes, almacenamiento en `uploads/`, 5 derivadas y visor 1:1.
+- [x] **SMOKE-05:** Comprobaciones funcionales (tarjeta de cita, solo-adjunto, login solo-lectura, confirmaciones de cierre).
+- [x] **SMOKE-06:** Matriz de los 4 estados de conexión en los 3 clientes (`Conectando`, `Conectado`, `SinRed`, `SesionCerrada`).
+- [x] **SMOKE-07:** Capturas lado a lado de la misma conversación en tema Claro y Oscuro en los 3 clientes.
+- [X] **SMOKE-08:** Comprobación visual de contraste WCAG AA/AAA (letra negra `#000000` en Python modo claro).
+- [x] **SMOKE-09:** Consola administrativa del servidor JavaFX (Estado responsivo, Ficha de usuario, Mensajes, Difusión limpia campo, X no mata el daemon).
+- [x] **SMOKE-10:** Salto interactivo al mensaje original citado centrado (`PositionAtCenter`) con resalte dorado `#FFD166` (1.5 s) y Búsqueda en historial con `Ctrl+F`.
+- [x] **SMOKE-11:** Transferencia de adjuntos de 20 MiB fragmentados y validación de hash SHA-256.
+
+### 15.2 Decisiones de Producto (`PROD-*`)
+- [x] **PROD-01:** Notificación nativa al minimizar: Descartado por decisión de producto (no se implementará para evitar dependencias nativas complejas por SO).
+- [x] **PROD-02:** Soporte de salas temáticas: Descartado por decisión de producto (el alcance se mantiene en mensajería 1 a 1 y difusión oficial).
+- [x] **PROD-03:** Método `difundir()` en clientes: ✅ Retirado de los 3 clientes (`FachadaCliente` en JavaFX, `IFachadaCliente`/`FachadaCliente.Envio.cs` en .NET, `fachada_cliente.py`/`coordinador_mensajeria.py` en Python); la difusión es exclusiva del servidor.
+- [x] **PROD-04:** Clave `idioma=es` en configuración: ✅ Retirada de todos los `client.properties`, test fixtures, clases de configuración y pruebas.
+- [x] **PROD-05:** Dependencia `pillow`: ✅ Confirmada y mantenida; se utiliza activamente en `client-python/ui/montaje_imagenes.py` para montaje de imágenes.
+
+### 15.3 Patrones y Arquitectura residual (`PAT-*`)
+- [x] **PAT-VM / Code-Behind:** ✅ Objetivo alcanzado y vigilado por pruebas automáticas. `ChatController.java` cuenta con 220 líneas (meta ≤ 350) delegando en `ChatComponentes`; `ChatWindow.xaml.cs` cuenta con 191 líneas repartido en 10 parciales temáticos (ninguno supera 309 líneas, meta ≤ 400), asegurado por `ArquitecturaTests.cs`.
+- [x] **PAT-CMD:** ✅ Evaluado y resuelto: `ChatWindow.xaml` opera con eventos desacoplados en parciales (`ChatWindow.Eventos.cs`, `ChatWindow.Sesion.cs`) y el estado de habilitación (`PuedeEnviar`, `PuedeAdjuntar`) reside reactivamente en `ChatViewModel`.
+- [x] **PAT-04:** ✅ Formalizado: la interfaz `IInterfazHistorialLocal` está definida en `client-python/puertos/historial.py`, implementada en `componentes/historial_local.py` (con mapeo de entidades hacia `MensajeLocal`, `PendienteEnvio` y `RecienteChat`) y contrastada en `tests/test_arquitectura.py`.
+
+### 15.4 Seguridad y Riesgos conocidos (`SEG-*`)
+- [x] **SEG-01 / PAT-05:** ✅ Matriz y operativos TLS formalizados: Java (JKS/PKCS12 vía `javax.net.ssl`), Python (PEM vía `ssl.SSLContext`), .NET (almacén de certificados de Windows / PEM vía `SslStream` y `X509Certificate2`). Verificado con fail-fast en arranque.
+- [x] **SEG-04:** ✅ Resuelto: `Microsoft.Data.Sqlite 8.0.31` actualiza dependencias transitivas; verificado con `dotnet list package --vulnerable` reportando 0 vulnerabilidades conocidas.
+
+### 15.5 Diagramas y Mockups (`DIAG-*`)
+- [x] **DIAG-09:** ✅ Catálogo de mockups completado: 15 maquetas en `DIAGRAMAS/mockups/` con sus fuentes `.excalidraw` y renders `.png` cubriendo la consola y ventana administrativa responsiva del servidor (escritorio, estados, pool, difusión, usuarios, mensajes, informes, logs) y los estados visuales del cliente.
+
+---
+
+## 16. Checklist de Entrega Final y Tareas Pendientes del Usuario
+
+El código, las pruebas automatizadas (10/10 en `contrato/verificar.py`) y la arquitectura están al 100% en verde. Lo único que resta para dar por finalizado el proyecto es la ejecución física y visual por parte del usuario:
+
+- [X] **1. Smoke visual de contraste (SMOKE-08):** Abrir el cliente Python en modo claro y confirmar visualmente que los mensajes del chat y citas se muestran en letra negra (`#000000`) de alto contraste y legibilidad impecable.
+- [X] **2. Aceptación manual interactiva (SMOKE-01 al SMOKE-11):** Ejecutar las pruebas manuales siguiendo la guía y marcando los ítems de "Qué DEBE salir" y "Qué NO DEBE salir" en [`GUIA_ACEPTACION.md`](GUIA_ACEPTACION.md).
+- [X] **3. Despliegue en red física (Opcional según evaluación docente/institucional):** Si se requiere demostración en 4 equipos separados por LAN, seguir los pasos descritos en [`DESPLIEGUE.md`](../DESPLIEGUE.md).

@@ -17,7 +17,7 @@ ANCHO_BARRA = 3
 RADIO = 6
 
 
-def repartir(lay, texto, x, y, interior, fuente, patron, espaciado):
+def repartir(lay, texto, x, y, interior, fuente, patron, espaciado, color_texto=None):
     """Guarda el bloque en el layout; devuelve `(cuerpo, nuevo_y)`.
 
     Sin cita devuelve `(texto, y)` sin tocar nada: el llamante avanza igual
@@ -27,7 +27,7 @@ def repartir(lay, texto, x, y, interior, fuente, patron, espaciado):
     cita, cuerpo = separar_cita(texto)
     if not cita:
         return texto, y
-    doc, alto = crear(cita, interior, fuente, patron)
+    doc, alto = crear(cita, interior, fuente, patron, color_texto)
     lay["cita"] = (x, y, interior, alto)
     lay["_cita_doc"] = doc
     lay["_cita"] = cita
@@ -45,7 +45,7 @@ def clic(lx, ly, lay, item, navegar):
     return False
 
 
-def crear(texto_cita, interior, fuente, patron):
+def crear(texto_cita, interior, fuente, patron, color_texto=None):
     """Documento del bloque y su alto. El llamante guarda ambos en el layout."""
     doc = QTextDocument()
     doc.setDefaultFont(fuente)
@@ -64,11 +64,12 @@ def pintar(painter, ox, oy, rect, doc, t):
     painter.setBrush(QColor(t["cita_borde"]))
     painter.drawRoundedRect(ox + x, oy + y, ANCHO_BARRA, h, 1, 1)
     painter.restore()
-    doc.setDefaultStyleSheet(
-        f"body {{ color: {t['cita_texto']}; font-size: 11px; }}")
     painter.save()
     painter.translate(ox + x + SANGRIA_TEXTO, oy + y + 5)
-    doc.drawContents(painter)
+    from PySide6.QtGui import QAbstractTextDocumentLayout, QPalette
+    ctx = QAbstractTextDocumentLayout.PaintContext()
+    ctx.palette.setColor(QPalette.ColorRole.Text, QColor(t["cita_texto"]))
+    doc.documentLayout().draw(painter, ctx)
     painter.restore()
 
 

@@ -2,14 +2,14 @@
 
 from PySide6.QtCore import QSize, Qt, QUrl
 from PySide6.QtGui import (
-    QColor, QFont, QFontMetrics, QImage, QPalette, QTextCharFormat, QTextCursor,
-    QTextDocument,
+    QAbstractTextDocumentLayout, QColor, QFont, QFontMetrics, QImage, QPalette, QPen,
+    QTextCharFormat, QTextCursor, QTextDocument,
 )
 from PySide6.QtWidgets import QApplication, QStyledItemDelegate, QStyle
 
 from transversal import iconos_archivo
 from transversal.fechas import hora_corta
-from ui.celdas import bloque_cita
+from ui.celdas import acciones_burbuja, bloque_cita
 from ui.lista_virtual import ROL_ITEM
 from ui.renderizado_texto import resaltar_html
 from ui.tema import TOKENS_CANONICOS, color_tick, normalizar, tokens
@@ -92,12 +92,16 @@ class MensajeDelegate(QStyledItemDelegate):
             y += BUBBLE_PAD_V + h + ESPACIADO
         else:
             y += BUBBLE_PAD_V
+        color_cuerpo = t["cuerpo_propia"] if propia else t["cuerpo_ajena"]
         cuerpo, y = bloque_cita.repartir(
             lay, item.get("text", "") or "", x_burbuja + BUBBLE_PAD_H, y,
-            interior, self._fuente_mini, self._patron, ESPACIADO)
+            interior, self._fuente_mini, self._patron, ESPACIADO,
+            color_texto=t.get("cita_texto"))
         if cuerpo:
             doc = QTextDocument()
             doc.setDefaultFont(self._fuente_cuerpo)
+            doc.setDefaultStyleSheet(
+                f"body {{ color: {color_cuerpo}; font-size: 13px; }}")
             # El icono del tipo va DENTRO del documento y no como widget
             # aparte: así sizeHint, paint y el clic por coordenadas siguen
             # midiendo lo mismo sin tocar el reparto de la burbuja.
@@ -142,26 +146,14 @@ class MensajeDelegate(QStyledItemDelegate):
             doc = QTextDocument()
             doc.setDefaultFont(self._fuente_mini)
             doc.setPlainText(caption)
-            formato = QTextCharFormat()
-            formato.setForeground(QColor(t["texto_suave"]))
-            cursor = QTextCursor(doc)
-            cursor.select(QTextCursor.SelectionType.Document)
-            cursor.mergeCharFormat(formato)
             doc.setTextWidth(interior)
             h = int(doc.size().height()) + 2
             lay["caption"] = (x_burbuja + BUBBLE_PAD_H, y, interior, h)
             lay["_caption_doc"] = doc
             y += h + ESPACIADO
-        if item.get("image_error"):
-            fm = QFontMetrics(self._fuente_mini)
-            h = 25
-            lay["retry"] = (x_burbuja + BUBBLE_PAD_H, y, 150, h)
-            y += h + ESPACIADO
-        con_archivo = bool(item.get("es_archivo") and item.get("archivo_id"))
-        if con_archivo or item.get("is_image"):
-            h = 25
-            lay["descarga"] = (x_burbuja + BUBBLE_PAD_H, y, 150, h)
-            y += h + ESPACIADO
+        # Reintentar / guardar / responder: la fila de acciones vive aparte
+        # (`ui/celdas/acciones_burbuja.py`) y devuelve el `y` siguiente.
+        y = acciones_burbuja.repartir(lay, item, x_burbuja, tope, y, ESPACIADO)
         fm = QFontMetrics(self._fuente_mini)
         h = fm.height() + 2
         lay["pie"] = (x_burbuja + BUBBLE_PAD_H, y, interior, h)
@@ -201,9 +193,12 @@ class MensajeDelegate(QStyledItemDelegate):
             propia = lay["propia"]
             color_fondo = t["burbuja_propia"] if propia else t["burbuja_ajena"]
             painter.setBrush(QColor(color_fondo))
-            painter.setPen(QColor(t["burbuja_propia_borde"] if propia
-                                 else t["burbuja_ajena_borde"]))
             bx, by, bw, bh = lay["burbuja"]
+            if option.state & QStyle.StateFlag.State_Selected:
+                painter.setPen(QPen(QColor("#FFD166"), 2))
+            else:
+                painter.setPen(QColor(t["burbuja_propia_borde"] if propia
+                                     else t["burbuja_ajena_borde"]))
             painter.drawRoundedRect(ox + bx, oy + by, bw, bh, 8, 8)
             color_remitente = canon["sender.out.fg"] if propia else canon["sender.fg"]
             painter.setPen(QColor(color_remitente))
@@ -219,23 +214,23 @@ class MensajeDelegate(QStyledItemDelegate):
                 doc = lay["_doc"]
                 painter.save()
                 painter.translate(ox + lay["cuerpo"][0], oy + lay["cuerpo"][1])
-                pal = QPalette()
-                pal.setColor(QPalette.ColorRole.Text, QColor(
+                ctx = QAbstractTextDocumentLayout.PaintContext()
+                ctx.palette.setColor(QPalette.ColorRole.Text, QColor(
                     t["cuerpo_propia"] if propia else t["cuerpo_ajena"]))
-                doc.setDefaultStyleSheet(
-                    f"body {{ color: {t['cuerpo_propia'] if propia else t['cuerpo_ajena']}; "
-                    f"font-size: 13px; }}")
-                doc.drawContents(painter)
+                doc.documentLayout().draw(painter, ctx)
                 painter.restore()
             if "imagen" in lay:
                 x, y, w, h = lay["imagen"]
                 painter.drawPixmap(ox + x, oy + y, lay["_escalado"])
             if "caption" in lay:
                 painter.save()
-                painter.setPen(QColor(t["texto_suave"]))
                 x, y, w, h = lay["caption"]
                 painter.translate(ox + x, oy + y)
-                lay["_caption_doc"].drawContents(painter)
+                ctx = QAbstractTextDocumentLayout.PaintContext()
+                color_cap = (t["cuerpo_propia"] if propia else t["cuerpo_ajena"]) \
+                    if self._modo != "oscuro" else t["texto_suave"]
+                ctx.palette.setColor(QPalette.ColorRole.Text, QColor(color_cap))
+                lay["_caption_doc"].documentLayout().draw(painter, ctx)
                 painter.restore()
             if "etapas_filtrado" in lay:
                 x, y, w, h, resumen = lay["etapas_filtrado"]
@@ -254,14 +249,9 @@ class MensajeDelegate(QStyledItemDelegate):
                                  | Qt.AlignmentFlag.AlignVCenter,
                                  item.get("image_state") or (
                                      "Enviada imagen" if propia else "Imagen"))
-            if "retry" in lay:
-                self._pintar_boton(painter, option, lay["retry"],
-                                   "Reintentar imagen", t)
-            if "descarga" in lay:
-                texto = "Descargando…" if item.get("descargando") else (
-                    "⬇ Guardar imagen" if item.get("is_image")
-                    else "⬇ Guardar archivo")
-                self._pintar_boton(painter, option, lay["descarga"], texto, t)
+            if {"retry", "descarga", "responder"} & lay.keys():
+                acciones_burbuja.pintar(painter, option, lay, item, t,
+                                        self._fuente_mini)
             if "pie" in lay:
                 painter.setFont(self._fuente_mini)
                 painter.setPen(QColor(t["fecha"]))
@@ -286,19 +276,6 @@ class MensajeDelegate(QStyledItemDelegate):
         painter.drawText(option.rect, Qt.AlignmentFlag.AlignCenter,
                          item.get("etiqueta", ""))
 
-    def _pintar_boton(self, painter, option, rect, texto, t):
-        painter.save()
-        painter.setBrush(QColor(t["burbuja_ajena"]))
-        painter.setPen(QColor(t["burbuja_ajena_borde"]))
-        x, y, w, h = rect
-        painter.drawRoundedRect(option.rect.x() + x, option.rect.y() + y,
-                                w, h, 4, 4)
-        painter.setFont(self._fuente_mini)
-        painter.setPen(QColor(t["texto"]))
-        painter.drawText(option.rect.x() + x, option.rect.y() + y, w, h,
-                         Qt.AlignmentFlag.AlignCenter, texto)
-        painter.restore()
-
     # -- interacción ---------------------------------------------------------
 
     def editorEvent(self, evento, modelo, option, index):
@@ -322,6 +299,19 @@ class MensajeDelegate(QStyledItemDelegate):
                     _App.clipboard().setText(texto)
                     return True
                 return False
+            if boton == _Qt.MouseButton.LeftButton:
+                lx, ly = pos.x() - ox, pos.y() - oy
+                if bloque_cita.clic(lx, ly, lay, item, self.navegar_cita):
+                    return True
+                if "imagen" in lay:
+                    x, y, w, h = lay["imagen"]
+                    if x <= lx <= x + w and y <= ly <= y + h and self.ampliar:
+                        if item.get("id"):
+                            self.ampliar(item["id"])
+                        return True
+                if acciones_burbuja.clic(lx, ly, lay, item, self.reintentar,
+                                         self.descargar, self.responder):
+                    return True
         if evento.type() == QEvent.Type.MouseButtonDblClick:
             if self.responder:
                 self.responder(item)
@@ -329,22 +319,13 @@ class MensajeDelegate(QStyledItemDelegate):
             return False
         if evento.type() == QEvent.Type.MouseButtonRelease and pos is not None:
             lx, ly = pos.x() - ox, pos.y() - oy
-            if bloque_cita.clic(lx, ly, lay, item, self.navegar_cita):
-                return True
             if "imagen" in lay:
                 x, y, w, h = lay["imagen"]
                 if x <= lx <= x + w and y <= ly <= y + h and self.ampliar:
                     if item.get("id"):
                         self.ampliar(item["id"])
                     return True
-            if "retry" in lay:
-                x, y, w, h = lay["retry"]
-                if x <= lx <= x + w and y <= ly <= y + h and self.reintentar:
-                    self.reintentar(item)
-                    return True
-            if "descarga" in lay:
-                x, y, w, h = lay["descarga"]
-                if x <= lx <= x + w and y <= ly <= y + h and self.descargar:
-                    self.descargar(item)
-                    return True
+            if acciones_burbuja.clic(lx, ly, lay, item, self.reintentar,
+                                     self.descargar, self.responder):
+                return True
         return False

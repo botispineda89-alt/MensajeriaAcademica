@@ -50,7 +50,7 @@ import java.util.logging.Logger;
  * lo enviado con red se guarda local (enviado), sin red va a pendientes y
  * lo recibido se persiste para el modo offline. Avisos a la UI vía Observer.
  */
-public final class FachadaCliente implements InterfazFachadaCliente {
+public final class FachadaCliente implements InterfazFachadaCliente, InterfazEnvioArchivoCancelable {
 
     /** Marcador de destino para broadcasts propios (sin destinatario único). */
     public static final String DESTINO_BROADCAST = "*";
@@ -452,30 +452,21 @@ public final class FachadaCliente implements InterfazFachadaCliente {
                 nombreArchivo, mime, caption);
     }
 
-    /** Broadcast a todos los conectados (req. servidor #9). */
-    public void difundir(String contenido) throws ExcepcionCliente, IOException {
+    @Override
+    public boolean enviarArchivo(String destinatario, byte[] bytes, String nombreArchivo,
+                                 String mime, String caption,
+                                 java.util.function.BooleanSupplier cancelado)
+            throws ExcepcionCliente {
         exigirSesion();
-        ValidacionCliente.contenido(contenido);
-        String id = java.util.UUID.randomUUID().toString();
-        historial.guardar(new MensajeLocal(id, codigoActual(),
-                DESTINO_BROADCAST, TipoMensajeCliente.BROADCAST.name(), contenido, null,
-                contenido.length(), TextoCliente.contarPalabras(contenido), null, null, null,
-                LocalDateTime.now().toString(), true, true, EstadoMensaje.PENDIENTE.name()));
-        try {
-            RespuestaRed ack = red.difundir(id, codigoActual(), contenido);
-            if (!Boolean.TRUE.equals(ack.exito())) {
-                throw new ExcepcionSesion(ack.mensajeError() != null
-                        ? ack.mensajeError() : "difusion rechazada");
-            }
-            historial.marcarEstado(id, EstadoMensaje.ENVIADO.name());
-        } catch (ExcepcionCliente | java.io.IOException e) {
-            try {
-                historial.marcarEstado(id, EstadoMensaje.ERROR.name());
-            } catch (ExcepcionCliente marca) {
-                LOG.fine(() -> "no se pudo marcar ERROR: " + marca.getMessage());
-            }
-            throw e;
+        if (coordinadorMensajeria instanceof InterfazCoordinadorArchivoCancelable cancelable) {
+            return cancelable.enviarArchivo(codigoActual(), destinatario, bytes,
+                    nombreArchivo, mime, caption, cancelado);
         }
+        if (cancelado != null && cancelado.getAsBoolean()) {
+            throw new universidad.mensajeria.cliente.transversal.excepciones.EnvioArchivoCanceladoException();
+        }
+        return coordinadorMensajeria.enviarArchivo(codigoActual(), destinatario, bytes,
+                nombreArchivo, mime, caption);
     }
 
     /** Recientes con presencia de CACHÉ (nunca red: el push PRESENCIA la mantiene). */

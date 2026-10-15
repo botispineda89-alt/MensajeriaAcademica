@@ -70,6 +70,14 @@ arranca con un `PATH` recortado, se le puede dar la ruta exacta con la propiedad
 Ejecuta desde `universidad-mensajeria/`, en la máquina de compilación:
 
 ```powershell
+cmd server\distribuir-servidor.cmd
+```
+
+Usa `mvn install` (nunca `package`) para resolver los módulos hermanos desde el repo local
+y deja `dist\MensajeriaServidor\` (`servidor.jar` + `start-server.cmd` + `config\` +
+`uploads\` + `logs\` + `README.md`). Equivalente manual (solo si el script no aplica):
+
+```powershell
 mvn -pl server/servidor-app -am clean package -DskipTests
 $dist = "$env:USERPROFILE\Desktop\MensajeriaServidor"
 New-Item -ItemType Directory -Force -Path $dist
@@ -182,7 +190,7 @@ debe tener acceso a MySQL.
   Antes, la trama se rechazaba y **el servidor expulsaba la sesión del destinatario**. Si ves
   `No se pudo entregar a <código>: Payload de N bytes excede el maximo de 16777216` en el log, mira
   también la línea siguiente: si no hay reintento ligero, el problema no es de tamaño sino de la
-  sesión. Detalle en `ESTADO_ROADMAP.md` §5.15.
+  sesión. Detalle en `../../../docs/ESTADO_ROADMAP.md` §5.15.
 
 ## Funcionamiento
 

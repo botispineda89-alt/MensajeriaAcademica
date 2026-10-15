@@ -20,6 +20,7 @@ namespace Mensajeria.Fachada.Servicios
     public sealed class CoordinadorMensajeriaCliente
     {
         public const int ParteArchivoBytes = 1024 * 1024;
+        private static readonly TimeSpan EsperaArchivo = TimeSpan.FromSeconds(180);
 
         private readonly Func<IHistorialLocal?> _historialActual;
 
@@ -162,6 +163,14 @@ namespace Mensajeria.Fachada.Servicios
                 historial?.MarcarEstado(id, "ERROR");
                 throw;
             }
+            catch (Exception error) when (cancelacion.IsCancellationRequested)
+            {
+                // Si el socket falla mientras el usuario cancela, no convertir esa
+                // cancelación en una pendiente que se enviaría después sin permiso.
+                historial?.MarcarEstado(id, "ERROR");
+                throw new OperationCanceledException(
+                    "El envío se canceló antes de completarse.", error, cancelacion);
+            }
             catch (Exception error) when (EsFalloTransporte(error))
             {
                 try
@@ -207,7 +216,7 @@ namespace Mensajeria.Fachada.Servicios
             CancellationToken cancelacion, string? pie = null)
         {
             int totalPartes = (int)((tamano + ParteArchivoBytes - 1) / ParteArchivoBytes);
-            TimeSpan esperaArchivo = TimeSpan.FromSeconds(45);
+            cancelacion.ThrowIfCancellationRequested();
             var inicio = await conexion.Pedir(new Dictionary<string, object?>
             {
                 { "id", id },
@@ -220,7 +229,7 @@ namespace Mensajeria.Fachada.Servicios
                 { "tamanoArchivo", tamano },
                 { "totalPartes", totalPartes },
                 { "fechaHora", fecha }
-            }, esperaArchivo).ConfigureAwait(false);
+            }, EsperaArchivo).ConfigureAwait(false);
             ExigirAceptado(inicio, "envio rechazado", TipoMensaje.ACK);
 
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -249,11 +258,12 @@ namespace Mensajeria.Fachada.Servicios
                     { "indiceParte", i },
                     { "contenidoImagen", base64 },
                     { "fechaHora", fecha }
-                }, esperaArchivo).ConfigureAwait(false);
+                }, EsperaArchivo).ConfigureAwait(false);
                 ExigirAceptado(parte, "envio rechazado", TipoMensaje.ACK);
                 progreso?.Report((double)(i + 1) / totalPartes);
             }
 
+            cancelacion.ThrowIfCancellationRequested();
             string digest = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
             var fin = await conexion.Pedir(new Dictionary<string, object?>
             {
@@ -263,7 +273,7 @@ namespace Mensajeria.Fachada.Servicios
                 { "archivoId", id },
                 { "hashSha256", digest },
                 { "fechaHora", fecha }
-            }, esperaArchivo).ConfigureAwait(false);
+            }, EsperaArchivo).ConfigureAwait(false);
             ExigirAceptado(fin, "envio rechazado", TipoMensaje.ACK);
         }
 
@@ -273,22 +283,20 @@ namespace Mensajeria.Fachada.Servicios
             CancellationToken cancelacion, string? pie = null)
         {
             int totalPartes = (bytes.Length + ParteArchivoBytes - 1) / ParteArchivoBytes;
-            TimeSpan esperaArchivo = TimeSpan.FromSeconds(45);
+            cancelacion.ThrowIfCancellationRequested();
             var inicio = await conexion.Pedir(new Dictionary<string, object?>
             {
                 { "id", id },
                 { "tipo", TipoMensaje.ARCHIVO_INICIO },
                 { "remitente", remitente },
                 { "destinatario", destinatario },
-                // Pie/caption del archivo: viaja en el `contenido` del INICIO
-                // (los servidores que no lo conocen lo ignoran).
                 { "contenido", pie },
                 { "nombreArchivo", nombre },
                 { "mime", mime },
                 { "tamanoArchivo", (long)bytes.Length },
                 { "totalPartes", totalPartes },
                 { "fechaHora", fecha }
-            }, esperaArchivo).ConfigureAwait(false);
+            }, EsperaArchivo).ConfigureAwait(false);
             ExigirAceptado(inicio, "envio rechazado", TipoMensaje.ACK);
             for (int i = 0; i < totalPartes; i++)
             {
@@ -305,11 +313,12 @@ namespace Mensajeria.Fachada.Servicios
                     { "indiceParte", i },
                     { "contenidoImagen", base64 },
                     { "fechaHora", fecha }
-                }, esperaArchivo).ConfigureAwait(false);
+                }, EsperaArchivo).ConfigureAwait(false);
                 ExigirAceptado(parte, "envio rechazado", TipoMensaje.ACK);
                 progreso?.Report((double)(i + 1) / totalPartes);
             }
 
+            cancelacion.ThrowIfCancellationRequested();
             string hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
             var fin = await conexion.Pedir(new Dictionary<string, object?>
             {
@@ -319,7 +328,7 @@ namespace Mensajeria.Fachada.Servicios
                 { "archivoId", id },
                 { "hashSha256", hash },
                 { "fechaHora", fecha }
-            }, esperaArchivo).ConfigureAwait(false);
+            }, EsperaArchivo).ConfigureAwait(false);
             ExigirAceptado(fin, "envio rechazado", TipoMensaje.ACK);
         }
 

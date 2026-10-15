@@ -1,6 +1,8 @@
 package universidad.mensajeria.cliente.presentacion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
@@ -24,10 +26,12 @@ import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.Scene;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
+import javafx.stage.Stage;
 import universidad.mensajeria.cliente.transversal.records.MensajeLocal;
 import universidad.mensajeria.cliente.transversal.records.RecienteChat;
 import universidad.mensajeria.cliente.transversal.records.UsuarioLocal;
@@ -125,6 +129,74 @@ class RefrescadorContactosTest {
     }
 
     @Test
+    void arranqueNoReabreLaUltimaConversacionGuardada() throws Exception {
+        // T1 (2026-10-14): el refresco dejó de llamar a `restaurarUltimo()`. La
+        // preferencia se escribe en el mismo nodo que leía el código viejo a
+        // propósito: sin la regresión esta prueba seleccionaba B002 sola.
+        Preferences prefs = prefsNuevas();
+        prefs.put("ultimoChat_A001", "B002");
+        todos.addAll(recientes);
+
+        ejecutarEnJavaFx(() -> {
+            refrescador(prefs).configurar();
+            return null;
+        });
+        vaciarColaFx();
+
+        assertEquals("B002", prefs.get("ultimoChat_A001", null),
+                "la preferencia se conserva: es un dato del usuario");
+        assertNull(listaUsuarios.getSelectionModel().getSelectedItem(),
+                "el chat arranca sin selección");
+        assertFalse(hayDestino.get());
+    }
+
+    @Test
+    void deseleccionarSueltaLaConversacionYLaCabecera() throws Exception {
+        todos.addAll(recientes);
+        RefrescadorContactosChat[] activo = new RefrescadorContactosChat[1];
+        ejecutarEnJavaFx(() -> {
+            activo[0] = refrescador();
+            activo[0].configurar();
+            activo[0].aplicarFiltro();
+            listaUsuarios.getSelectionModel().select(0);
+            return null;
+        });
+        vaciarColaFx();
+        assertTrue(hayDestino.get());
+        assertEquals("Ana [A001]", etiquetaChat.getText());
+
+        ejecutarEnJavaFx(() -> {
+            activo[0].deseleccionar();
+            return null;
+        });
+        vaciarColaFx();
+
+        assertNull(listaUsuarios.getSelectionModel().getSelectedItem());
+        assertFalse(hayDestino.get(), "sin destino el compositor no habilita el envío");
+        assertEquals("Selecciona una conversación", etiquetaChat.getText());
+        assertEquals("", etiquetaPresencia.getText());
+    }
+
+    @Test
+    void laVentanaLlevaLamismaIdentidadQueElSidebar() throws Exception {
+        // P4 (2026-10-14): antes el sidebar tenía el nombre y el título `| Chat`.
+        Stage escenario = ejecutarEnJavaFx(() -> {
+            Stage stage = new Stage();
+            stage.setScene(new Scene(etiquetaSesion));
+            return stage;
+        });
+
+        ejecutarEnJavaFx(() -> {
+            refrescador().configurar();
+            return null;
+        });
+        vaciarColaFx();
+
+        assertEquals("Sesión activa · Ana [A001]", etiquetaSesion.getText());
+        assertEquals("Mensajería Académica | Ana [A001]", escenario.getTitle());
+    }
+
+    @Test
     void sinSeleccionMuestraElTextoVacio() throws Exception {
         ejecutarEnJavaFx(() -> {
             RefrescadorContactosChat r = refrescador();
@@ -141,9 +213,16 @@ class RefrescadorContactosTest {
         assertEquals("Selecciona una conversación", etiquetaChat.getText());
     }
 
-    private RefrescadorContactosChat refrescador() {
-        Preferences prefs = Preferences.userRoot().node(
+    private static Preferences prefsNuevas() {
+        return Preferences.userRoot().node(
                 "prueba" + UUID.randomUUID().toString().replace("-", ""));
+    }
+
+    private RefrescadorContactosChat refrescador() {
+        return refrescador(prefsNuevas());
+    }
+
+    private RefrescadorContactosChat refrescador(Preferences prefs) {
         return new RefrescadorContactosChat(etiquetaSesion, etiquetaChat, etiquetaPresencia,
                 comboFiltro, campoBuscar, listaUsuarios, prefs, vista(), fondo,
                 directorio, todos, hayDestino, this::seleccionado,

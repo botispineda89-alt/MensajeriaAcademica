@@ -83,7 +83,9 @@ public final class ClienteApp extends Application implements InterfazNavegacionC
     public void mostrarChat() throws ExcepcionCliente, IOException {
         FXMLLoader cargador = crearCargador("/vistas/chat.fxml");
         Parent raiz = cargador.load();
-        escenario.setTitle(TextosVentana.TITULO_CHAT);
+        // P4: el título lleva la identidad de la cuenta. Aquí solo se conoce el código; en
+        // cuanto el directorio trae el nombre, RefrescadorContactosChat lo completa.
+        escenario.setTitle(TextosVentana.tituloChat(runtime.fachada().codigoActual()));
         Scene escena = new Scene(raiz, 1100, 700);
         aplicarTema(escena, false);
         escenario.setScene(escena);
@@ -139,6 +141,5 @@ public final class ClienteApp extends Application implements InterfazNavegacionC
                 + (config.tlsHabilitado() ? " (TLS :" + config.tlsPuerto() + ")" : ""));
         System.out.println("historial  : " + config.dbUrl() + " ("
                 + runtime.sentenciasInicializacion() + " DDL)");
-        System.out.println("idioma     : " + config.idioma());
     }
 }

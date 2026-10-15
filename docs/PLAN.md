@@ -6,6 +6,10 @@
 > Principios: SOLID, Patrones de Diseño, Clean Code e **Inversión de Dependencias**; el servidor
 > procesa mediante **Pipes & Filters**. El estado de implementación y el backlog están resumidos en
 > `ESTADO_ROADMAP.md`; las pruebas integradas, en `GUIA_ACEPTACION.md`.
+>
+> **Vigencia:** este plan conserva decisiones y fases históricas. Su tabla de fases fue reconciliada
+> el 2026-10-14, pero los pendientes posteriores y los extras aún abiertos deben leerse en
+> `ESTADO_ROADMAP.md`; no se considera un plan de ejecución completamente cerrado.
 
 ---
 
@@ -32,25 +36,29 @@ académica (texto, imágenes o archivos), sobre **TCP-IP**, con capas y componen
 > cliente contra el mismo `PROTOCOLO.md`. **La vista Java es la principal** con el
 > alcance completo; las otras dos son espejos funcionales que prueban el protocolo.
 
-### Trazabilidad `REQUERIMIENTOS.md` → este plan (estado 2026-10-01, verificado en código)
+### Trazabilidad `REQUERIMIENTOS.md` → este plan (línea base verificada al 2026-10-01)
+
+> Esta tabla conserva la trazabilidad de la línea base del plan; **no es el tablero de estado actual**.
+> Los estados posteriores se registran en `ESTADO_ROADMAP.md`. Reconciliación documental:
+> 2026-10-14.
 
 | Requisito | Sección del plan | Estado |
 |---|---|---|
-| Autenticación y usuarios (RF-S01–S04, S27, RF-C01, C06) | §5.1, §6.1, Fase 10.2 | ✅ (RF-S28 hash-en-CSV: Extra ⏳) |
+| Autenticación y usuarios (RF-S01–S04, S27, RF-C01, C06) | §5.1, §6.1, Fase 10.2 | ✅ (RF-S28 hash-en-CSV: excluido 2026-10-15) |
 | Conexiones e inactividad (RF-S05–S06, S29–S32) | §4.3, §5.1, Fase 10.1 | ✅ |
 | + retorno a login tras TIMEOUT (RF-C08) | Fase 12.4 | ✅ Java, Python y C# |
 | Mensajería (RF-S07–S10, RF-C02–C03, C09–C14) | §3.2/§3.3, §7.1, Fases 5–6/10.3 | ✅ |
 | Procesamiento texto/imagen (RF-S11–S17, S33) | §3 | ✅ |
-| Persistencia y logs (RF-S18–S22, RF-C04–C05, C15) | §5 | ✅ (+ RF-C16 flush: Extra ⏳ 11.1) |
+| Persistencia y logs (RF-S18–S22, RF-C04–C05, C15) | §5 | ✅ (+ RF-C16 flush: excluido 2026-10-15) |
 | Informes (RF-S23–S26) | §8, Fase 9 | ✅ |
-| Consola y refresco (RF-S34–S42, RNF-11–12) | §6.12, Fases 10.4 y 12.2 | ✅ |
+| Consola y refresco (RF-S36–S42, RF-S61–S62, RNF-11–12) | §6.12, Fases 10.4 y 12.2 | ✅ |
 | Pool y concurrencia (RF-S43–S49, RNF-09, PD-05) | §9, Fase 12.1 | ✅ Pool real, saturación y estado (P1) |
 | Arquitectura y diseño (RNF-01–02, RNF-10, PD-01–04, PD-06–08) | §2, §11, Fases 12.5–12.7 | ✅ |
 | Comunicación/config/interop (RNF-03–08, RNF-13–15) | §4.0, §5, §7 | ✅ |
 | Rendimiento cliente + cierre X (hallazgo, P0) | Fase 13 | ✅ |
 | Stacks UI: AtlantaFX / PySide6+QFluent / WPF UI (P2) | Fase 14 | ✅ |
-| UX extendida del cliente (RF-C17–C22) | Fases 15–17 | ⚠️ defectos manuales abiertos; reparación y smoke pendientes |
-| Multiinstancia Java y sesiones aisladas | Fases 16–17 | ⏳ H2 por cuenta + migración; pruebas y dos ventanas |
+| UX extendida del cliente (RF-C17–C22) | Fases 15–17 | ✅ Implementación cerrada; smoke manual confirmado por el usuario el 2026-10-14 (ver `ESTADO_ROADMAP.md` §15 y `GUIA_ACEPTACION.md`) |
+| Multiinstancia Java y sesiones aisladas | Fases 16–17 | ✅ H2 por cuenta, migración y smoke manual confirmados (ver `ESTADO_ROADMAP.md` y `GUIA_ACEPTACION.md`) |
 
 ### Pruebas de aceptación recopiladas (fuente: revisión en vivo 2026-10-01)
 
@@ -961,10 +969,11 @@ Ambas consumen el contrato `Fachada` (sin lógica en la UI). Verificación: crit
 Arquitectura cliente servidor/     ← raíz de documentación y guías de despliegue
 ├── README.md                      ← índice y visión general
 ├── DESPLIEGUE.md                  ← topología y asignación a computadores
-├── REQUERIMIENTOS.md              ← contrato funcional vigente
-├── PLAN.md                        ← este documento: arquitectura y decisiones
 ├── ESTADO_ROADMAP.md              ← estado breve y backlog
-├── GUIA_ACEPTACION.md             ← pruebas automatizadas y smoke integrado
+├── docs/
+│   ├── REQUERIMIENTOS.md          ← contrato funcional vigente
+│   ├── PLAN.md                    ← este documento: arquitectura y decisiones
+│   └── GUIA_ACEPTACION.md         ← pruebas automatizadas y smoke integrado
 └── universidad-mensajeria/
 ├── common-protocol/               ← CONTRATO MULTILENGUAJE (§4.0 + §5.2)
 │   ├── PROTOCOLO.md               ← tramas, catálogo de tipos, ejemplos, errores
@@ -1092,22 +1101,25 @@ persistencia    → (nada: hoja)
 | **7** | **Cliente Python espejo** (iniciado con tkinter; UI actual PySide6 + QFluentWidgets tras 14.2; Pillow + sqlite3 y mismas capas §7.2) sobre `PROTOCOLO.md` | Login/chat Java↔Python funcionando | ✅ |
 | **8** | **Cliente C# espejo** (WPF + Microsoft.Data.Sqlite, mismas capas §7.3) | Conversación a 3 bandas Java↔Python↔C# | ✅ |
 | **9** | **Informes administrativos `[RF-S10]`** (§8): 9.1 los 4 informes como DTOs puros en `comp-servicios`/casos de uso (queries `GROUP BY`/`JOIN FETCH` vía `AlmacenarInformacion`); 9.2 comandos CLI `informe usuarios\|conexiones\|mensajes\|auditoria` en `VistaConsola` (tablas ASCII); 9.3 pestaña **Informes** en `VistaEscritorio` (`TableView` + filtro fechas/código + export CSV); 9.4 tests de los 4 informes contra fixture = datos DB | 4 informes en consola + escritorio | ✅ |
-| **10** | **Endurecimiento y cierre** (pruebas P1–P6, P7): 10.1 timeout inactividad **600 s** (P3) + test; 10.2 **registro solo CSV** (P2, eliminado en Fase 18): sin `RegistroCommand`/`RegistrarCaso`/flag; un `REGISTRO` por red responde `ERROR`; sin `RegistroView` en los 3 clientes, `GUIA_ACEPTACION` actualizado; 10.3 **botón único «Enviar»** (P6): fusiona texto/imagen/ambos, `Adjuntar` solo preview, limpia campo+preview; 10.4 **auto-refresco de vistas** (P1): `Timeline` 5 s en `VistaEscritorio` re-ejecuta estado/usuarios/conectados (eventos ya push en ambas vistas); 10.5 protocolos/documentación consolidados + demo multicliente; 10.6 explicitar **Object Pool** (P4) en §9 | Entrega final verificada (§13.17–22) | ⚠️ docs listas; demo manual pendiente |
-| **11** | **Backlog (ex-H2–H5 del ROADMAP, no bloquea la entrega)**, en este orden: **11.4** empaquetado (jpackage/PyInstaller/docker servidor) y proceso de actualización/backup; **11.1** flush de `pendientes_envio` (`[RF-C04]` reintento con worker); **11.2** TLS/SSL + rate-limit + magic-bytes (chunking >16 MiB ya resuelto con `ARCHIVO_INICIO/PARTE/FIN` en Fase 17); **11.3** salas temáticas; **11.5** carga 50–100 clientes + métricas | Evolución post-entrega | ⏳ |
+| **10** | **Endurecimiento y cierre** (pruebas P1–P6, P7): 10.1 timeout inactividad **600 s**; 10.2 registro solo CSV y rechazo de `REGISTRO`; 10.3 botón único «Enviar»; 10.4 refresco automático/eventos; 10.5 protocolos/documentación y demo multicliente; 10.6 **Object Pool** | Entrega final verificada (§13.17–22); aceptación manual confirmada por el usuario el 2026-10-14 | ✅ |
+| **11** | **Backlog post-entrega vigente**: empaquetado/actualización/backup; decisiones y métricas de carga; ejecución multiproceso de tuberías. TLS y validación de formatos no son pendientes: están formalizados en el roadmap y el contrato vigente. El flush de `pendientes_envio` (`RF-C16`) se excluyó del alcance el 2026-10-15. Las salas temáticas se descartaron como decisión de producto. | Evolución post-entrega; consultar `ESTADO_ROADMAP.md` para el estado y el criterio actualizado | ⏳ parcial |
 | **12** | **Brechas Ajuste + patrones (P1)**: 12.1 pool real (`PoolDeTrabajadores` + fábrica + acquire/release + "servidor lleno" + RF-S49 + inyección pool red + E2E saturación, sin romper `DiagramaFidelidadTest`); 12.2 consola (menú numerado, ANSI+fallback, paginación, prompt, `mensajesProcesados`); 12.3 `difundir` admin (ext. RF-S08); 12.4 C08 Java+Python, S03 reconciliación; 12.5 espejos (inyección/`IFachadaCliente`, PRESENCIA, re-login, `TipoMensaje.cs`); 12.6 micro-refactors (`InterfazTuberiaFactory`, registro filtros, Javadoc doble raíz); 12.7 `PersistenciaPort` solo DTOs/primitivas | Nuevo spec al 100 % (Ajuste) | ✅ (2026-10-01) |
 | **13** | **Rescate cliente Java + cierre X (P0, ejecutada 2026-10-01, tres oleadas)**: 13.1 I/O fuera del hilo FX (`Task` en executor `cliente-fondo`); 13.2 push `PRESENCIA` principal, `Timeline` a respaldo 30 s; 13.3 caché `id→Image` LRU + downsampling 200px + precalentado; 13.4 `ULTIMO_PREVIEW` sin blob + pool H2; 13.5 executor único acotado; 13.6 log `[perf]` en INFO + tests; 13.7 X → `logout()` en Java y `OnClosing` en C#; **13.8 `CASE` sin leer CLOB + 13.9 lista sin blob + `blobPorId` + 13.10 `desuscribir` + 13.11 `[perf] h2/red`; 13.12 "↑" trae páginas remotas (upsert) + 13.13 descarga de imágenes con clic; **13.14 local-primero (red fuera del refresco) + 13.15 `CASE` en página (burbujas con texto) + 13.16 dedup/coalescencia/log selectivo + 13.17 banner + `subs=N` + 13.19 anti-loop acuses + 13.20 eco propio** | Chat rápido estilo WhatsApp | ✅ |
 | **14** | **Stacks UI (P2)**: 14.1 Java **AtlantaFX 2.1.0** (tema CSS sobre FXML); 14.2 Python **PySide6 6.11.2 + QFluentWidgets 1.11.3** (reescritura `ui/`, señales Qt); 14.3 C# **WPF UI 4.3.0** (controles y tema Fluent en las vistas WPF existentes). Fachadas, componentes, stores, contrato TCP y llamadas de UI permanecen intactos | UI moderna sin regresión 13.6 | ✅ (2026-10-01) |
-| **15** | **Cliente Java tipo Telegram**: nombres y directorio, acuses por ID estable, imágenes diferidas/deduplicadas y `archivo_id`, respuestas citadas, envíos fuera del hilo FX, envío deshabilitado sin contenido y UI sin registro; sin cambios al protocolo. | Cliente principal listo; smoke JavaFX | ✅ código + 53 tests; ⏳ smoke |
-| **16** | **Multiinstancia y paridad Python/.NET**: `LOGOUT` local a sesión, presencia al cerrar la última, `KICK` para otras sesiones; datos por cuenta y esquemas locales alineados; UIs nativas conservan su toolkit y el JSON TCP. | Pruebas por cliente; smoke cruzado en seis direcciones | ✅ implementación y suites; ⏳ aceptación manual |
-| **17** | **Correcciones por pruebas manuales**: H2/SQLite por cuenta y migración legacy; orientación correcta; informes con nombres y accesos/presencia; imágenes bajo carpeta de propietario; recepción/preview/drag-drop/vistos corregidos en Python/.NET; contrato y documentación de instalación separada. | Java, Python y .NET funcionales; prueba integrada en computadores separados | ✅ código, documentación y suites; ⏳ smoke integrado |
+| **15** | **Cliente Java tipo Telegram**: nombres y directorio, acuses por ID estable, imágenes diferidas/deduplicadas y `archivo_id`, respuestas citadas, envíos fuera del hilo FX, envío deshabilitado sin contenido y UI sin registro; sin cambios al protocolo. | Cliente principal listo; suites y SMOKE-01 a SMOKE-11 | ✅ implementación, pruebas y aceptación manual confirmada 2026-10-14 |
+| **16** | **Multiinstancia y paridad Python/.NET**: `LOGOUT` local a sesión, presencia al cerrar la última, `KICK` para otras sesiones; datos por cuenta y esquemas locales alineados; UIs nativas conservan su toolkit y el JSON TCP. | Pruebas por cliente; smoke cruzado en seis direcciones | ✅ implementación, suites y aceptación manual confirmada 2026-10-14 |
+| **17** | **Correcciones por pruebas manuales**: H2/SQLite por cuenta y migración legacy; orientación correcta; informes con nombres y accesos/presencia; imágenes bajo carpeta de propietario; recepción/preview/drag-drop/vistos corregidos en Python/.NET; contrato y documentación de instalación separada. | Java, Python y .NET funcionales; prueba integrada en computadores separados | ✅ código, documentación, suites y aceptación manual confirmada 2026-10-14 |
 | **18** | **Cierre de brechas**: textos en `uploads/<prop>/textos/<hash>/`, propietario en archivos genéricos, auto-refresh de informes (consola + escritorio), etiquetas `[INFO]/[WARN]/[ERROR]` sin ANSI, auditoría de saturación (`LIMITE_ALCANZADO`), eliminación de `REGISTRO` por red y cero-residuos de tests (`@TempDir` + `logback-test.xml`) | Brechas cerradas con suites | ✅ código + tests |
 | **Extra** | (Opcional) Ejecución multiproceso de tuberías por stdin/stdout (§3.6) | Demo con `FiltroMain` enlazados | ⏳ |
 
 > **Criterios de aceptación de la Fase 10** = pruebas P1–P6 de §1 (§13.17–21).
-> El orden ejecutado fue **12 → 14 → 15 (Java) → 16 (multiinstancia/paridad)**. Las pruebas manuales
-> revelaron defectos que mantienen abierta la aceptación de paridad; la Fase 17 corrigió las
-> implementaciones y consolidó las guías. Pendiente: **smoke integrado en seis direcciones y dos
-> ventanas JavaFX → backlog 11**.
+> El orden ejecutado fue **12 → 14 → 15 (Java) → 16 (multiinstancia/paridad)**. Los smokes
+> manuales fueron confirmados por el usuario el 2026-10-14; los detalles se registran en
+> `GUIA_ACEPTACION.md` y `ESTADO_ROADMAP.md`. La Fase 17 corrigió las
+> implementaciones y consolidó las guías. Confirmado: smoke de seis direcciones
+> (Fase 16, SMOKE-01 aprobado 2026-10-14). Requiere verificación: criterio de dos
+> procesos Java con cuentas distintas (`GUIA_ACEPTACION.md` § Historial, sin
+> aprobación registrada) → backlog 11.
 
 ---
 
@@ -1194,17 +1206,20 @@ persistencia    → (nada: hoja)
 26. **Fase 15, estado y rendimiento**: el ID de la fila local coincide con el envío TCP y su cola offline;
     acuses actualizan la fila correcta, permanecen en cola si hay desconexión y no generan contra-acuses.
     El refresco no lee blobs ni hace red periódica; vacío sin adjunto no habilita «Enviar».
-27. **Fase 15, alcance**: no existe ruta Java a registro; JSON TCP y clientes Python/C# no cambian. Ejecutar
-    `mvn -pl client/client-app -am test` y completar smoke JavaFX con servidor, reingreso, historial largo
-    y varias imágenes antes de cerrar el último criterio manual.
+27. **Fase 15, alcance**: no existe ruta Java a registro; JSON TCP y clientes Python/C# no cambian. La
+    suite JavaFX y el smoke manual con servidor, reingreso, historial largo y varias imágenes constan
+    aprobados al 2026-10-14 (`ESTADO_ROADMAP.md`, `GUIA_ACEPTACION.md`).
 28. **Fase 17, H2 por cuenta**: dos cuentas conservan perspectivas independientes del mismo ID;
     procesos del mismo código comparten su archivo con `AUTO_SERVER=TRUE`; la migración del legado
-    conserva historial/pendientes y es idempotente. Completar comprobación manual JavaFX.
+    conserva historial/pendientes y es idempotente. La comprobación manual JavaFX fue confirmada el
+    2026-10-14 (`GUIA_ACEPTACION.md`).
 29. **Fase 16, sesiones**: con dos sockets del mismo usuario, `LOGOUT` de uno no desconecta el otro;
     presencia queda online mientras quede una sesión, y `KICK` cierra las restantes.
 30. **Fase 16, paridad**: esquemas SQLite migran `estado`/`archivo_id`; identidades, paginación, mensajes
-    texto/imagen, citas y acuses cubiertos por las suites de Python/.NET. Completar prueba manual de las
-    seis direcciones Java↔Python↔.NET, incluyendo reinicio e imágenes.
+    texto/imagen, citas y acuses cubiertos por las suites de Python/.NET. Seis direcciones
+    Java↔Python↔.NET con imágenes: cubierto por SMOKE-01 aprobado 2026-10-14. Reinicio con
+    carga diferida: criterio en `GUIA_ACEPTACION.md` § Historial, sin aprobación registrada
+    (requiere verificación).
 31. **Fase 17, informes e imágenes**: informes 2–4 muestran `Nombre Apellido [CÓDIGO]`; solo LOGIN
      exitoso suma accesos; la presencia cambia al abrir/cerrar la primera/última sesión; cada paquete
      nuevo tiene el original y cinco derivadas en la carpeta del propietario y se descarga sin cambiar
@@ -1212,7 +1227,7 @@ persistencia    → (nada: hoja)
 32. **Cero-residuos de tests (Fase 18)**: los E2E usan `@TempDir` para `uploads/work` y
      `logback-test.xml` solo-consola; tras `mvn -pl server/servidor-app,client/client-app -am test`
      no se recrean `server/servidor-app/{uploads,work,logs}` ni crece `server/logs`.
-33. **Despliegue 4 PCs (Fase 18)**: seguir la sección "Reparto en 4 PCs (LAN)" de `DESPLIEGUE.md` con un PC por proceso;
+33. **Despliegue 4 PCs (Fase 18, opcional y a cargo del usuario — ver `ESTADO_ROADMAP.md` §16)**: seguir la sección "Reparto en 4 PCs (LAN)" de `DESPLIEGUE.md` con un PC por proceso;
      cada cliente apunta por IP LAN al `red.puerto` del servidor; respaldar MySQL + `uploads/` juntos.
 
 ---
@@ -1220,7 +1235,7 @@ persistencia    → (nada: hoja)
 ## 14. Auditoría 2026-10-05 — capas cliente, patrones y política de código muerto
 
 Añadido el **2026-10-05** tras la auditoría descrita en
-[`ANALISIS_TECNICO.md`](ANALISIS_TECNICO.md). Esta sección **no cambia** la arquitectura del
+[`docs/archivo/ANALISIS_TECNICO-historico.md`](archivo/ANALISIS_TECNICO-historico.md). Esta sección **no cambia** la arquitectura del
 servidor (§1–§12): documenta lo que la auditoría encontró en la capa de presentación de los tres
 clientes y fija las reglas para no repetirlo.
 
@@ -1239,7 +1254,7 @@ deuda:
 
 Detalle y evidencia histórica en `docs/archivo/ANALISIS_TECNICO-historico.md` §4. `PAT-01` ya elimina el localizador en
 Java; composición equivalente para Python/.NET y el resto de patrones siguen en el roadmap. El
-plan con fases y criterios medibles está en [`PLAN_PATRONES_UI.md`](PLAN_PATRONES_UI.md).
+plan con fases y criterios medibles está en [`docs/archivo/PLAN_PATRONES_UI-historico.md`](archivo/PLAN_PATRONES_UI-historico.md).
 
 ### 14.2 Patrones que se añaden al cliente
 
@@ -1290,4 +1305,4 @@ Detalle en `docs/archivo/ANALISIS_TECNICO-historico.md` §1 y en [`ESTADO_ROADMA
 Antes de esta ronda el repositorio **no tenía ningún `usecaseDiagram`, ni `stateDiagram`, ni
 árbol de decisión**, y no tenía diagramas de clases de los clientes Python ni .NET. Se añadieron
 16 fuentes `.mmd` y se documentó el plan de consolidación de las carpetas `DIAGRAMAS_ENTREGA` y
-`DIAGRAMAS_FINALES` en [`DIAGRAMAS/README.md`](DIAGRAMAS/README.md). Requisito: `RNF-20`.
+`DIAGRAMAS_FINALES` en [`DIAGRAMAS/README.md`](../DIAGRAMAS/README.md). Requisito: `RNF-20`.

@@ -16,7 +16,7 @@ echo.
 
 rem 1. Servidor
 echo [PASO 1/4] Empaquetando Servidor Central (Spring Boot + MySQL)...
-call dist\distribuir-servidor.cmd
+call server\distribuir-servidor.cmd
 if errorlevel 1 (
     echo [ERROR] Fallo al empaquetar el Servidor.
     exit /b 1

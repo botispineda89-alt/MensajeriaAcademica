@@ -10,8 +10,9 @@ destino) se conserva como está: centralizar no es unificar conductas.
 #: Título de la ventana de login.
 TITULO_LOGIN = "Mensajería Académica | Iniciar sesión"
 
-#: Título de la ventana de chat (por cuenta, a propósito: se conserva).
-TITULO_CHAT = "Mensajería Académica | {codigo}"
+#: Título de la ventana de chat: `{identidad}` = `Nombre Apellido [CÓDIGO]` de la
+#: cuenta abierta (P4, 2026-10-14). Antes era el código a secas.
+TITULO_CHAT = "Mensajería Académica | {identidad}"
 
 #: Título del visor de imagen.
 TITULO_VISOR = "Imagen"
@@ -42,6 +43,10 @@ CITA_NO_DISPONIBLE = "El mensaje citado no está disponible en este historial."
 
 #: Cabecera sin conversación.
 SELECCIONA_CONVERSACION = "Selecciona una conversación"
+
+#: Botón de responder de la burbuja (§5: el botón se conserva en los 3; Java lo
+#: dibuja como `↩` con su texto accesible). Python solo tenía el doble clic.
+BOTON_RESPONDER = "Responder"
 
 #: Aviso al adjuntar sin destino.
 SELECCIONA_CONVERSACION_PRIMERO = "Selecciona una conversación primero."

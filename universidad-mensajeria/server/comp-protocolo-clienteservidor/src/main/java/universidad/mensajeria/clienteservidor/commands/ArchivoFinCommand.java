@@ -22,11 +22,18 @@ public final class ArchivoFinCommand implements CommandHandler {
         if (!Comandos.exigirAutenticacion(mensaje, sesion, respuestas)) {
             return;
         }
-        if (!Comandos.exigir(mensaje, sesion, respuestas, mensaje.archivoId(), "archivoId")
-                || !Comandos.exigir(mensaje, sesion, respuestas, mensaje.hashSha256(), "hashSha256")) {
+        if (!Comandos.exigir(mensaje, sesion, respuestas, mensaje.archivoId(), "archivoId")) {
             return;
         }
-        salida.finalizarArchivo(sesion, mensaje.archivoId(), mensaje.hashSha256(),
+        // ARCHIVO_FIN con exito=false es una cancelación: comparte el tipo ya
+        // existente y permite borrar inmediatamente el temporal del servidor.
+        if (!Boolean.FALSE.equals(mensaje.exito())
+                && !Comandos.exigir(mensaje, sesion, respuestas,
+                mensaje.hashSha256(), "hashSha256")) {
+            return;
+        }
+        String hash = Boolean.FALSE.equals(mensaje.exito()) ? null : mensaje.hashSha256();
+        salida.finalizarArchivo(sesion, mensaje.archivoId(), hash,
                 mensaje.id(), sesion.direccionIp());
     }
 

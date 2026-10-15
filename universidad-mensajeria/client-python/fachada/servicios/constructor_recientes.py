@@ -9,8 +9,9 @@ class ConstructorRecientes:
     def armar(base: list[RecienteChat], directorio: list[UsuarioLocal],
               yo: str) -> list[RecienteChat]:
         conectados = {usuario.codigo for usuario in directorio if usuario.conectado}
-        salida = [
-            RecienteChat(
+        salida = []
+        for reciente in base:
+            r = RecienteChat(
                 reciente.otro,
                 reciente.ultimo_contenido,
                 reciente.ultimo_tipo,
@@ -18,8 +19,9 @@ class ConstructorRecientes:
                 reciente.no_leidos,
                 reciente.otro in conectados,
             )
-            for reciente in base
-        ]
+            if hasattr(reciente, "ultimo_propio"):
+                object.__setattr__(r, "ultimo_propio", reciente.ultimo_propio)
+            salida.append(r)
         # Orden tipo WhatsApp (paridad con .NET): fecha del último mensaje DESC
         # manda; la presencia solo desempata a fecha igual. Así entrar/salir de
         # línea no mueve una conversación con mensajes bajo el dedo del usuario.

@@ -51,6 +51,7 @@ final class AvisosInlineChat {
                 return;
             }
             estado.mostrar(mensaje, tipo, System.currentTimeMillis());
+            pintarSeveridad(tipo);
             String encabezado = tituloDe(tipo);
             titulo.setText(encabezado);
             texto.setText(estado.mensaje());
@@ -123,6 +124,31 @@ final class AvisosInlineChat {
             case ADVERTENCIA -> "Atención";
             case EXITO -> "Listo";
             case INFORMACION -> "Aviso";
+        };
+    }
+
+    /**
+     * T2: el color del aviso depende de su severidad, no del tipo de aviso anterior.
+     * <p>
+     * Antes el contenedor reutilizaba siempre {@code offline-banner} (ámbar), de modo que un
+     * error se pintaba igual que una advertencia. Las cuatro clases salen de las plantillas
+     * del contrato ({@code contrato/plantillas/chat.css.in}), así que los 3 clientes pintan
+     * la misma severidad del mismo color.
+     * </p>
+     */
+    private void pintarSeveridad(TipoAviso tipo) {
+        if (contenedor != null) {
+            contenedor.getStyleClass().setAll("aviso-inline", claseDe(tipo));
+        }
+    }
+
+    /** Clase CSS de la severidad; la usa también su test. */
+    static String claseDe(TipoAviso tipo) {
+        return switch (tipo) {
+            case ERROR -> "aviso-inline-error";
+            case ADVERTENCIA -> "aviso-inline-atencion";
+            case EXITO -> "aviso-inline-listo";
+            case INFORMACION -> "aviso-inline-aviso";
         };
     }
 }

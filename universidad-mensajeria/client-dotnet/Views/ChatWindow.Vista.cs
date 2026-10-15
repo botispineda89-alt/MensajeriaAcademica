@@ -35,8 +35,9 @@ namespace Mensajeria.Views
             Temas.Tema.Guardar(modo);
             Temas.Tema.Aplicar(modo);
             AplicarFondoChat(modo);
-            // Las burbujas guardan su pincel: se reconstruyen con el modo nuevo.
-            if (UsuarioDestino != null) CargarHistorial(UsuarioDestino);
+            // UIX-27: no se recarga el historial (conserva items, scroll y selección);
+            // cada burbuja relee sus pinceles del tema nuevo.
+            foreach (MensajeVM mensaje in _mensajes) mensaje.RefrescarTema();
         }
 
         private void AplicarFondoChat(string modo)
